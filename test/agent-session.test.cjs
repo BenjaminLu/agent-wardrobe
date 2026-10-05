@@ -12,7 +12,7 @@ test('official tasks stay interactive, keep auto permissions, and preserve liter
   for(const text of ['', 'x\x1by', 'x'.repeat(2001)])assert.throws(()=>argumentsFor({mode:'computer',text,id:'s',persona:''}));
   assert.throws(()=>argumentsFor({mode:'fake',text:'hello'}));
 });
-test('emergency stop kills a stubborn owned CLI without stopping unrelated processes',{timeout:8000},async()=>{
+test('emergency stop kills a stubborn owned CLI without stopping unrelated processes',{timeout:8000,skip:process.platform==='win32'&&'agent-pty.py needs a POSIX pty (Claude terminal tasks are not offered on Windows)'},async()=>{
   const python=binary('python3');
   const unrelated=spawn(python,['-c','import time; time.sleep(30)']);
   const code="import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN); print('STUBBORN_READY',flush=True); time.sleep(30)";
@@ -24,7 +24,7 @@ test('emergency stop kills a stubborn owned CLI without stopping unrelated proce
     assert.doesNotThrow(()=>process.kill(unrelated.pid,0),'unrelated CLI remains alive');
   }finally{child.stdin.destroy();child.kill();unrelated.kill();}
 });
-test('PTY provides real TTY input, UTF-8 output, resize and owned shutdown', {timeout:8000},async()=>{
+test('PTY provides real TTY input, UTF-8 output, resize and owned shutdown', {timeout:8000,skip:process.platform==='win32'&&'agent-pty.py needs a POSIX pty (Claude terminal tasks are not offered on Windows)'},async()=>{
   const python=binary('python3');assert.ok(python);
   const code="import sys,os,time; print('TTY:'+str(sys.stdin.isatty()),flush=True); text=input(); print('ECHO:'+text,flush=True); time.sleep(30)";
   const child=spawn(python,[path.join(__dirname,'../agent-pty.py'),python,'-u','-c',code],{stdio:['pipe','pipe','pipe']});

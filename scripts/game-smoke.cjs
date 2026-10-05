@@ -11,12 +11,12 @@ async function run({gameService,runtime,win:companion}){
       res.setHeader('Content-Type','application/json');res.end(JSON.stringify({model:'jev-1.13.0',answers:answer(data.state),usage:{input_tokens:40,output_tokens:0}}));});
     await new Promise(r=>server.listen(0,'127.0.0.1',r));process.env.AGENT_WARDROBE_JEV_BASE=`http://127.0.0.1:${server.address().port}/v1`;
   }else if(!process.env.GAME_SMOKE_REAL){
-    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-smoke-')),fake=path.join(dir,'fake-laya.cjs'),python=path.join(dir,'python');
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-smoke-')),fake=path.join(dir,'fake-laya.cjs');
     fs.writeFileSync(fake,`const rl=require('readline').createInterface({input:process.stdin});console.log('@laya '+JSON.stringify({ready:true,device:'stand-in'}));
 rl.on('line',line=>{const r=JSON.parse(line),lanes=['left','middle','right'],empty=lanes.map(l=>r.state.includes('The '+l+' lane is empty'));
 const p=Object.fromEntries(lanes.map((l,i)=>[l,empty[i]?0.9/empty.filter(Boolean).length:0.05]));const choice=lanes[empty.indexOf(true)];
 console.log('@laya '+JSON.stringify({id:r.id,answers:{lane:{type:'choice',choice,probabilities:p}},ms:1}));});`);
-    fs.writeFileSync(python,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}"\n`,{mode:0o755});process.env.LAYA_PYTHON=python;
+    process.env.LAYA_PYTHON=require('./fake-bin.cjs').fakeBin(dir,'python',fake);
   }
   const wait=async(fn,timeout=60000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Game smoke timed out');await new Promise(r=>setTimeout(r,200));}};
   let win;

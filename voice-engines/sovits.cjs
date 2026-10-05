@@ -8,7 +8,7 @@
 // degrades quality). Profile files: gpt.ckpt, sovits.pth, reference.wav, reference.txt.
 // Params: {version, refText, refLang, textLang, speed, topK, temperature, source: 'trained'|'pack'}
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const {createPythonEnv,fetchToFile,run}=require('./python-env.cjs');const {createSidecar,PREFIX}=require('./sidecar.cjs');
+const {createPythonEnv,fetchToFile,run,torchIndex,detectGpu}=require('./python-env.cjs');const {venvSitePackages,tarCommand}=require('../platform.cjs');const {createSidecar,PREFIX}=require('./sidecar.cjs');
 const {scanCheckpoint}=require('./pickle-scan.cjs');const audio=require('../voice-audio.cjs');
 
 const SOURCE={commit:'48b1a0169a28582a8984402f82cf438d3bfa6aca',url:'https://codeload.github.com/RVC-Boss/GPT-SoVITS/tar.gz/48b1a0169a28582a8984402f82cf438d3bfa6aca'};
@@ -24,7 +24,7 @@ const PRETRAINED={name:'pretrained',repo:'lj1995/GPT-SoVITS',revision:'1cdb10a4f
 // Chinese G2P model, NLTK data (English) and the OpenJTalk dictionary (Japanese), as upstream's install.sh fetches them.
 const EXTRAS_REPO='https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/0c47645e02a7bc3688d7b263b0042c81e3cd82cd';
 const EXTRAS=[{file:'G2PWModel.zip',into:'src/GPT_SoVITS/text',check:'src/GPT_SoVITS/text/G2PWModel'},{file:'nltk_data.zip',into:'venv',check:'venv/nltk_data'},
-  {file:'open_jtalk_dic_utf_8-1.11.tar.gz',into:'venv/lib/python3.10/site-packages/pyopenjtalk',check:'venv/lib/python3.10/site-packages/pyopenjtalk/open_jtalk_dic_utf_8-1.11'}];
+  {file:'open_jtalk_dic_utf_8-1.11.tar.gz',into:path.join(venvSitePackages('venv','3.10'),'pyopenjtalk'),check:path.join(venvSitePackages('venv','3.10'),'pyopenjtalk','open_jtalk_dic_utf_8-1.11')}];  // venv/Lib/site-packages on Windows
 const LICENSE='GPT-SoVITS（RVC-Boss，MIT）';
 const PACK_NOTE='社群聲音模型多半用原作配音訓練，僅供自己使用';
 const LANGS=['zh','ja','en','ko','yue'];
@@ -73,8 +73,9 @@ async function importPack({files,dest,name,refText,refLang,convert=audio.convert
 }
 const guessLang=text=>/[぀-ヿ]/.test(text)?'ja':/[가-힯]/.test(text)?'ko':/[㐀-鿿]/.test(text)?'zh':'en';
 
-function create({dir,fetchImpl=fetch,sidecar=null,trainer=null,transcribe=null,idleMs=10*60*1000,device='cpu'}={}){
-  const env=createPythonEnv({dir,python:'3.10',packages:PACKAGES,source:SOURCE,models:[PRETRAINED],fetchImpl});
+// device: 'cpu' on macOS; 'cuda' on Windows / Linux when nvidia-smi finds a GPU (torch then comes from the CUDA index)
+function create({dir,fetchImpl=fetch,sidecar=null,trainer=null,transcribe=null,idleMs=10*60*1000,device=detectGpu()?'cuda':'cpu'}={}){
+  const env=createPythonEnv({dir,python:'3.10',packages:PACKAGES,source:SOURCE,models:[PRETRAINED],fetchImpl,torchFrom:torchIndex({cuda:'cu124'})});
   const extrasDone=()=>EXTRAS.every(e=>fs.existsSync(path.join(dir,e.check)));
   let side=null,installing=null;
   const sidecarProc=()=>side||=createSidecar({...(sidecar||{command:env.python,args:[path.join(__dirname,'sovits_sidecar.py'),'--src',env.srcDir,'--device',device],cwd:env.srcDir}),name:'GPT-SoVITS',idleMs});
@@ -82,13 +83,15 @@ function create({dir,fetchImpl=fetch,sidecar=null,trainer=null,transcribe=null,i
     if(sidecar)return {ok:true};
     await env.install({signal,onProgress:p=>onProgress({...p,progress:p.progress*.85})});
     // pretrained weights are where upstream's scripts look for them
-    const link=path.join(env.srcDir,'GPT_SoVITS','pretrained_models');if(!fs.existsSync(path.join(link,'s1v3.ckpt'))){fs.rmSync(link,{recursive:true,force:true});fs.symlinkSync(path.join(env.modelsDir,'pretrained'),link);}
+    // a junction on Windows: a folder link that needs no administrator rights
+    const link=path.join(env.srcDir,'GPT_SoVITS','pretrained_models');if(!fs.existsSync(path.join(link,'s1v3.ckpt'))){fs.rmSync(link,{recursive:true,force:true});fs.symlinkSync(path.join(env.modelsDir,'pretrained'),link,process.platform==='win32'?'junction':undefined);}
     for(const [i,extra] of EXTRAS.entries()){
       if(fs.existsSync(path.join(dir,extra.check)))continue;
       onProgress({stage:'extras',progress:.85+.15*i/EXTRAS.length,detail:`下載 ${extra.file}`});
       const file=path.join(dir,'downloads',extra.file);await fetchToFile(`${EXTRAS_REPO}/${extra.file}`,file,{fetchImpl,signal});
       const into=path.join(dir,extra.into);fs.mkdirSync(into,{recursive:true});
-      await run('/usr/bin/tar',['-xf',file,'-C',into,'--no-same-owner'],{signal});fs.rmSync(file,{force:true});
+      // zips with the app's own reader (GNU tar on Linux cannot read them), the dictionary tarball with the system tar
+      if(file.endsWith('.zip'))await require('../archive.cjs').unzipLarge(file,into);else await run(tarCommand(),['-xf',file,'-C',into,'--no-same-owner'],{signal});fs.rmSync(file,{force:true});
     }
     onProgress({stage:'done',progress:1,detail:'安裝完成'});return {ok:true};
   }
@@ -141,7 +144,7 @@ function create({dir,fetchImpl=fetch,sidecar=null,trainer=null,transcribe=null,i
     maxFileBytes:1e9,  // trained / community weights are 80–200 MB each
     async available(){
       if(sidecar)return {ok:true};
-      if(process.platform!=='darwin')return {ok:false,reason:'目前只支援 macOS。'};
+      if(process.platform==='win32'&&process.arch!=='x64')return {ok:false,reason:'Windows on ARM 還不能跑 GPT-SoVITS（PyTorch 沒有對應版本）。'};
       if(installing)return {ok:false,reason:'GPT-SoVITS 正在安裝…',installing:true};
       return env.installed()&&extrasDone()?{ok:true}:{ok:false,reason:'還沒安裝 GPT-SoVITS（第一次約下載 4.5 GB）。',install:true};
     },

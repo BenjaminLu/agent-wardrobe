@@ -1,4 +1,3 @@
-const {spawn}=require('node:child_process');
 const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
@@ -6,7 +5,7 @@ const {EventEmitter}=require('node:events');
 const {binary}=require('./cli.cjs');
 const {parseReply}=require('./ai.cjs');
 class CodexServer extends EventEmitter {
-  constructor({launch=spawn,findBinary=binary,experimental=false}={}){super();this.launch=launch;this.findBinary=findBinary;this.experimental=experimental;this.toolHandler=null;this.pending=new Map();this.nextId=0;this.child=null;this.initializing=null;this.buffer='';this.stderr='';}
+  constructor({launch=(cmd,args,opts)=>require('./platform.cjs').launch(cmd,args,opts),findBinary=binary,experimental=false}={}){super();this.launch=launch;this.findBinary=findBinary;this.experimental=experimental;this.toolHandler=null;this.pending=new Map();this.nextId=0;this.child=null;this.initializing=null;this.buffer='';this.stderr='';}
   async start(){
     if(this.initializing)return this.initializing;
     this.initializing=this.connect().catch(error=>{this.stop();throw error;});return this.initializing;
@@ -16,7 +15,7 @@ class CodexServer extends EventEmitter {
     this.cwd=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-codex-'));
     const env={...process.env};delete env.OPENAI_API_KEY;delete env.CODEX_API_KEY;
     const args=['app-server','--stdio','-c','features.shell_tool=false','-c','features.unified_exec=false','-c','features.js_repl=false','-c','features.multi_agent=false','-c','features.hooks=false','-c','features.apps=false','-c','web_search="disabled"','-c','mcp_servers={}'];
-    const child=this.launch(executable,args,{cwd:this.cwd,env,shell:false,stdio:['pipe','pipe','pipe']});this.child=child;
+    const child=this.launch(executable,args,{cwd:this.cwd,env,shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});this.child=child;
     child.stdout.on('data',chunk=>{
       this.buffer+=chunk;if(this.buffer.length>2000000){this.fail(new Error('App Server output exceeded limit.'));this.stop();return;}
       let end;while((end=this.buffer.indexOf('\n'))!==-1){const line=this.buffer.slice(0,end);this.buffer=this.buffer.slice(end+1);try{this.receive(JSON.parse(line));}catch(error){this.fail(error);this.stop();return;}}

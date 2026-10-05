@@ -87,7 +87,9 @@ async function run({win,runtime,voiceService,startRemote}){
     const n3=calls.length,p3=await p(`window.played.length`);
     await p(`document.querySelector('#voice').click();say('嗨。今天想做什麼呢？');true`);
     await wait(()=>p(`window.played.filter(u=>u.startsWith('blob:')).length>=${p3+2}`),15000,'phone reads in own voice');
-    assert.deepEqual(calls.slice(n3).map(c=>c.text),['好，我會念出來。','嗨。','今天想做什麼呢？'],'the 🔊 confirmation and then the reply, sentence by sentence, through the bound voice');
+    // the confirmation and the first sentence are asked for at about the same time, so they can arrive in either order (Windows runners)
+    const said=calls.slice(n3).map(c=>c.text);assert.deepEqual([...said].sort(),['今天想做什麼呢？','好，我會念出來。','嗨。'].sort(),'the 🔊 confirmation and the reply, sentence by sentence, through the bound voice');
+    assert.ok(said.indexOf('嗨。')<said.indexOf('今天想做什麼呢？'),'the reply is read in order');
   }finally{phone.destroy();}
   console.log('VOICES_SMOKE',JSON.stringify({presets:5,preview:true,boundTo:'annie',replySentences:2,fallback:'system',packRoundTrip:true,clonedExportRefused:true,phone:true}));
   await js(`window.bula.saveSettings({provider:'codex',base:'http://127.0.0.1:1234/v1',model:'',voiceProvider:'system'})`).catch(()=>{});

@@ -80,7 +80,7 @@ test('a phone recording with consent becomes a personal CosyVoice profile; raw a
   engines.cosyvoice.stop({now:true});
 });
 test('the studio temp folder is private (700) and is swept',()=>{
-  const base=tmp('voice-sweep-'),t=lab.tempFolder(base);assert.equal(fs.statSync(t.dir).mode&0o777,0o700);
+  const base=tmp('voice-sweep-'),t=lab.tempFolder(base);if(process.platform!=='win32')assert.equal(fs.statSync(t.dir).mode&0o777,0o700);
   fs.writeFileSync(t.file('take.wav'),'x');
   // a crashed run's folder (its pid is gone) and an old unnamed one are swept; another running copy's folder and our own stay
   const dead=path.join(base,'agent-wardrobe-voicelab-999999-abc'),old=path.join(base,'agent-wardrobe-voicelab-xyz'),other=path.join(base,`agent-wardrobe-voicelab-${process.ppid}-def`);

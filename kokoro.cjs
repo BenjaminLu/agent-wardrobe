@@ -1,4 +1,5 @@
 // Local AI voice: Kokoro v1.0 (Apache-2.0) through sherpa-onnx. Runs offline on this Mac.
+const {renameRetry}=require('./platform.cjs');
 // The ~400 MB model is downloaded once from a pinned Hugging Face revision and its large files are hash-checked.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 
@@ -45,7 +46,7 @@ async function install(dir,{onProgress=()=>{},signal,fetchImpl=fetch,hashes=HASH
   await Promise.all(Array.from({length:6},worker));
   for(const [name,hash] of Object.entries(hashes))if(await sha256(path.join(temp,name))!==hash){fs.rmSync(temp,{recursive:true,force:true});throw new Error(`${name} failed its integrity check; download again.`);}
   fs.writeFileSync(path.join(temp,'.complete'),REVISION);
-  fs.rmSync(dir,{recursive:true,force:true});fs.renameSync(temp,dir);
+  fs.rmSync(dir,{recursive:true,force:true});renameRetry(temp,dir);
 }
 
 class Kokoro{

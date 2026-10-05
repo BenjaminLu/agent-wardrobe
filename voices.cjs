@@ -4,6 +4,7 @@
 //
 // Engine: {id, label, available(): Promise<{ok, reason?, install?: true}>, install?(onProgress), speak({text, profile, dir, signal}) => {audio, mime},
 //          validate?(params) (throws on bad params), profile?(params) => Promise<{license?, files?: {name: Buffer}}> (optional: fills licence/extra files on save)}
+const {HERE_ON}=require('./platform.cjs');
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const zlib=require('node:zlib');
 
 const ID=/^v-[a-z0-9]+(?:-[a-z0-9]+)*$/;const ENGINE_ID=/^[a-z0-9][a-z0-9-]{0,31}$/;const MOD_ID=/^[a-z0-9][a-z0-9_-]{0,63}$/i;
@@ -110,9 +111,9 @@ function createVoices({root,secrets=null,engines=[]}){
   async function speak(profileId,input,options){const profile=get(profileId);if(!profile)fail('找不到這個聲音，可能已被刪除。');return speakProfile(profile,input,options);}
   function exportPack(id){
     const profile=get(id);if(!profile)fail('找不到這個聲音。');
-    if(profile.consent)fail(`「${profile.name}」是用 ${profile.consent.person} 本人的聲音複製的。本人只同意在這台 Mac 上使用，為了尊重這份同意，這種聲音不能匯出或分享。`);
+    if(profile.consent)fail(`「${profile.name}」是用 ${profile.consent.person} 本人的聲音複製的。本人只同意在${HERE_ON}使用，為了尊重這份同意，這種聲音不能匯出或分享。`);
     // 'personal' voices (e.g. a community GPT-SoVITS model trained on dubbed voices) are for this Mac only
-    if(profile.license.tier==='personal')fail(`「${profile.name}」只限自己在這台 Mac 上使用（${profile.license.label}），不能匯出或分享。`);
+    if(profile.license.tier==='personal')fail(`「${profile.name}」只限自己在${HERE_ON}使用（${profile.license.label}），不能匯出或分享。`);
     const dir=dirOf(id),{params}=stripSecrets(profile);
     const entries=[{name:'voice.json',data:Buffer.from(JSON.stringify({...profile,params,modId:null},null,1))},...profile.files.map(name=>({name,data:fs.readFileSync(path.join(dir,name))}))];
     if(entries.reduce((n,e)=>n+e.data.length,0)>LIMITS.pack)fail('聲音包太大。');

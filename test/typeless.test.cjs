@@ -11,7 +11,8 @@ test('a pause after speech ends the question; silence alone gives up',()=>{
 test('Typeless is used only when installed with its Fn shortcut',()=>{
   const home=fs.mkdtempSync(path.join(os.tmpdir(),'typeless-')),dir=path.join(home,'Library','Application Support','Typeless');fs.mkdirSync(dir,{recursive:true});
   const app=fs.mkdtempSync(path.join(os.tmpdir(),'Typeless.app-'));const write=binding=>fs.writeFileSync(path.join(dir,'app-settings.json'),JSON.stringify({featureShortcutBindings:{dictationMode:[binding]}}));
-  write('Fn');assert.deepEqual(typelessStatus({home,app}),{installed:true,shortcut:'Fn',supported:true});
-  write('Ctrl+Alt');assert.equal(typelessStatus({home,app}).supported,false);
-  assert.equal(typelessStatus({home,app:path.join(app,'missing')}).supported,false);
+  write('Fn');assert.deepEqual(typelessStatus({home,app,platform:'darwin'}),{installed:true,shortcut:'Fn',supported:true});
+  write('Ctrl+Alt');assert.equal(typelessStatus({home,app,platform:'darwin'}).supported,false);
+  assert.equal(typelessStatus({home,app:path.join(app,'missing'),platform:'darwin'}).supported,false);
+  for(const platform of ['win32','linux'])assert.deepEqual(typelessStatus({home,app,platform}),{installed:false,shortcut:null,supported:false},`no Typeless on ${platform}`);
 });

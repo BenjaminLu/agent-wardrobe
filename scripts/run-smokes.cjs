@@ -1,5 +1,5 @@
 // Runs the Electron smoke tests one by one, each with a fresh .smoke-userdata, and prints a summary.
-// Usage: npm run smoke            (offline set, as in CI)
+// Usage: npm run smoke            (offline set, as in CI on macOS, Windows and Linux; Linux needs a display: xvfb-run -a npm run smoke)
 //        npm run smoke -- --all   (adds network and local-model checks when their inputs exist)
 //        LLM_MODEL_SRC: a folder with llama-<tag>/ and qwen3.5-2b/{model,mmproj}.gguf
 const { spawnSync } = require('node:child_process');
@@ -33,9 +33,9 @@ const suites = [
   { name: 'Kokoro and Edge voices', args: ['--kokoro-smoke'], marker: 'KOKORO_SMOKE', needs: ['KOKORO_MODEL_SRC'], online: true },
   { name: 'game (stand-in decisions)', args: ['--game-smoke'], marker: 'GAME_SMOKE' },
   { name: 'game with Jev (stand-in API, encrypted key)', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_ENGINE: 'jev' } },
-  { name: 'game with Laya', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_REAL: '1' }, file: path.join(root, '.laya', 'venv', 'bin', 'python'), online: true },
+  { name: 'game with Laya', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_REAL: '1' }, file: require('../platform.cjs').venvPython(path.join(root, '.laya', 'venv')), online: true },
   { name: 'built-in local model', args: ['--builtin-smoke'], marker: 'BUILTIN_SMOKE', needs: ['LLM_MODEL_SRC'] },
-  { name: 'wake word handing off to Typeless (real app, fake mic)', args: ['--typeless-smoke'], marker: 'TYPELESS_SMOKE', env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: '/Applications/Typeless.app', online: true },
+  { name: 'wake word handing off to Typeless (real app, fake mic)', args: ['--typeless-smoke'], marker: 'TYPELESS_SMOKE', env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: '/Applications/Typeless.app', online: true, only: 'darwin', reason: 'Typeless is a Mac app driven by its Fn shortcut' },
   { name: 'wake word and dictation', args: ['--wake-smoke'], marker: 'WAKE_SMOKE', needs: ['ASR_MODEL_SRC'], env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: fakeMic },
   // computer-use input: macOS checks the helper answers; Windows and X11 really move, click, type (CJK), drag and scroll in a test window
   { name: 'computer-use input backend', args: ['--native-input-smoke'], marker: 'NATIVE_INPUT_SMOKE', file: { darwin: path.join(root, 'bin', 'native-input'), win32: path.join(root, 'bin', 'native-input.exe') }[process.platform] || '/usr/bin/xdotool' }
@@ -43,6 +43,8 @@ const suites = [
 const userData = path.join(root, '.smoke-userdata');
 let failed = 0;
 for (const suite of suites) {
+  // suites that test something only one platform has are skipped elsewhere, with the reason
+  if (suite.only && suite.only !== process.platform) { console.log(`skip  ${suite.name} (${suite.only} only: ${suite.reason})`); continue; }
   const missing = (suite.needs || []).filter(name => !process.env[name]).concat(suite.file && !fs.existsSync(suite.file) ? [path.relative(root, suite.file)] : []);
   if ((suite.online || suite.needs) && !all) { console.log(`skip  ${suite.name} (run with --all)`); continue; }
   if (missing.length) { console.log(`skip  ${suite.name} (needs ${missing.join(', ')})`); continue; }

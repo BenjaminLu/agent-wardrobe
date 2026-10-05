@@ -1,10 +1,34 @@
 // Built-in local brain: llama.cpp's llama-server plus a Qwen model the user picks and downloads once.
-// Everything runs on this Mac; the server listens on 127.0.0.1 with a per-launch key.
+const {renameRetry}=require('./platform.cjs');
+// Everything runs on this computer; the server listens on 127.0.0.1 with a per-launch key.
 const fs=require('node:fs');const path=require('node:path');const os=require('node:os');const net=require('node:net');const crypto=require('node:crypto');
 const {spawn,execFile}=require('node:child_process');
-const {installAsr:installFiles}=require('./voice-input.cjs');
+const {installAsr:installFiles}=require('./voice-input.cjs');const {tarCommand}=require('./platform.cjs');
 
-const RUNTIME={tag:'b11378',name:'llama.tgz',url:'https://github.com/ggml-org/llama.cpp/releases/download/b11378/llama-b11378-bin-macos-arm64.tar.gz',size:11917702,sha256:'d17911a00ba2023fab962167f4f49db5de9177ccae87dcdd99a018eddd184077'};
+// llama.cpp b11378 builds per platform (GitHub release assets, sizes and SHA-256 from the release). macOS: Metal.
+// Windows x64 and Linux x64 use the Vulkan build when the system has a Vulkan loader (any recent NVIDIA / AMD / Intel
+// driver installs one), so the model runs on the GPU; otherwise the CPU build. CUDA builds are not used: they are
+// 0.4–0.8 GB more (cudart) for a modest gain over Vulkan on NVIDIA cards.
+const TAG='b11378',asset=(file,size,sha256,format=file.endsWith('.zip')?'zip':'tgz')=>({tag:TAG,file,name:format==='zip'?'llama.zip':'llama.tgz',format,size,sha256,url:`https://github.com/ggml-org/llama.cpp/releases/download/${TAG}/${file}`});
+const RUNTIMES={
+  'darwin-arm64':{cpu:asset('llama-b11378-bin-macos-arm64.tar.gz',11917702,'d17911a00ba2023fab962167f4f49db5de9177ccae87dcdd99a018eddd184077')},
+  'darwin-x64':{cpu:asset('llama-b11378-bin-macos-x64.tar.gz',11472235,'1040550248b6c081cfcb9ad07e4a32893f0e4352a158d54de98063b0b660f125')},
+  'win32-x64':{cpu:asset('llama-b11378-bin-win-cpu-x64.zip',19351877,'11bcb3aea659bce73f62305e3812764f935d90f44de1e70cd2b68aa3c9f41b8d'),
+    vulkan:asset('llama-b11378-bin-win-vulkan-x64.zip',33272526,'8a856ec574da8b0f69c61e1dd2f9ff894b751ffaac9e442aac4711e72c9fb8eb')},
+  'win32-arm64':{cpu:asset('llama-b11378-bin-win-cpu-arm64.zip',12206730,'701e0b42286ad59430c6404447f044110effcbc43d1374376d4e508cf0a98015')},
+  'linux-x64':{cpu:asset('llama-b11378-bin-ubuntu-x64.tar.gz',17658800,'0241f12a0fe64bb26683158d32ca0a8a61a3d1fcfd856b22d6d62b93bacbdaef'),
+    vulkan:asset('llama-b11378-bin-ubuntu-vulkan-x64.tar.gz',31601913,'199e1810b044cb8c298a0b11d28899600822362ce290d2bcb3bd95be6672e766')},
+  'linux-arm64':{cpu:asset('llama-b11378-bin-ubuntu-arm64.tar.gz',13686225,'4d9c1187ae7bd3acb2555815424adbc6238aed6e666f6ae12c9c3c6dac297dbb')}
+};
+// Is a Vulkan loader installed? (vulkan-1.dll on Windows, libvulkan.so.1 on Linux)
+function hasVulkan(platform=process.platform,exists=fs.existsSync){
+  if(platform==='win32')return exists(path.join(process.env.SystemRoot||'C:\\Windows','System32','vulkan-1.dll'));
+  if(platform==='linux')return ['/usr/lib/x86_64-linux-gnu','/usr/lib64','/usr/lib','/lib/x86_64-linux-gnu'].some(dir=>exists(path.join(dir,'libvulkan.so.1')));
+  return false;
+}
+function runtimeFor({platform=process.platform,arch=process.arch,vulkan=hasVulkan(platform)}={}){const builds=RUNTIMES[`${platform}-${arch}`];if(!builds)return null;return vulkan&&builds.vulkan?builds.vulkan:builds.cpu;}
+const RUNTIME=runtimeFor()||RUNTIMES['darwin-arm64'].cpu;
+const SERVER=process.platform==='win32'?'llama-server.exe':'llama-server';
 const hf=(repo,rev,file)=>`https://huggingface.co/${repo}/resolve/${rev}/${file}`;
 const qwen=(id,name,repo,rev,model,mmproj,minRam,hint,hintEn)=>({id,name,hint,hintEn,minRam,files:[
   {name:'model.gguf',url:hf(repo,rev,model[0]),size:model[1],sha256:model[2]},
@@ -24,7 +48,7 @@ class LocalLlm{
   constructor(root,{idleMs=15*60*1000,ramBytes=os.totalmem(),fetchImpl=fetch}={}){this.root=root;this.idleMs=idleMs;this.ramBytes=ramBytes;this.fetchImpl=fetchImpl;this.child=null;this.download=null;}
   runtimeDir(){return path.join(this.root,`llama-${RUNTIME.tag}`);}
   modelDir(id){return path.join(this.root,id);}
-  runtimeInstalled(){return fs.existsSync(path.join(this.runtimeDir(),'llama-server'));}
+  runtimeInstalled(){return fs.existsSync(path.join(this.runtimeDir(),SERVER));}
   installed(id){const dir=this.modelDir(id);return fs.existsSync(path.join(dir,'.complete'))&&fs.existsSync(path.join(dir,'model.gguf'));}
   status(){
     const gb=this.ramBytes/2**30;
@@ -42,9 +66,11 @@ class LocalLlm{
       if(!this.runtimeInstalled()){
         const dl=`${this.runtimeDir()}-download`;await installFiles(dl,{files:[RUNTIME],fetchImpl:this.fetchImpl,onProgress:p=>report(p*RUNTIME.size/total)});
         const out=`${this.runtimeDir()}.partial`;fs.rmSync(out,{recursive:true,force:true});fs.mkdirSync(out);
-        await new Promise((resolve,reject)=>execFile('/usr/bin/tar',['-xzf',path.join(dl,RUNTIME.name),'-C',out,'--strip-components','1'],error=>error?reject(error):resolve()));
-        if(!fs.existsSync(path.join(out,'llama-server')))throw new Error('llama.cpp 套件內容不完整。');
-        fs.rmSync(this.runtimeDir(),{recursive:true,force:true});fs.renameSync(out,this.runtimeDir());fs.rmSync(dl,{recursive:true,force:true});base=RUNTIME.size;
+        // Windows: a flat zip (llama-server.exe beside its DLLs); macOS / Linux: a tarball with one top folder and library symlinks
+        if(RUNTIME.format==='zip')await require('./archive.cjs').unzipLarge(path.join(dl,RUNTIME.name),out);
+        else await new Promise((resolve,reject)=>execFile(tarCommand(),['-xzf',path.join(dl,RUNTIME.name),'-C',out,'--strip-components','1'],error=>error?reject(error):resolve()));
+        if(!fs.existsSync(path.join(out,SERVER)))throw new Error('llama.cpp 套件內容不完整。');
+        fs.rmSync(this.runtimeDir(),{recursive:true,force:true});renameRetry(out,this.runtimeDir());fs.rmSync(dl,{recursive:true,force:true});base=RUNTIME.size;
       }
       if(!this.installed(id))await installFiles(this.modelDir(id),{files:model.files,fetchImpl:this.fetchImpl,onProgress:p=>report((base+p*sizeOf(model))/total)});
       report(1);
@@ -61,7 +87,7 @@ class LocalLlm{
     const port=await freePort(),key=crypto.randomBytes(24).toString('hex'),dir=this.modelDir(id);
     const args=['-m',path.join(dir,'model.gguf'),'--mmproj',path.join(dir,'mmproj.gguf'),'--host','127.0.0.1','--port',String(port),'--api-key',key,'--alias',id,
       '-c','16384','-np','1','--jinja','--reasoning-budget','0','--no-webui','--offline'];
-    const child=spawn(path.join(this.runtimeDir(),'llama-server'),args,{cwd:this.runtimeDir(),stdio:['ignore','ignore','pipe']});
+    const child=spawn(path.join(this.runtimeDir(),SERVER),args,{cwd:this.runtimeDir(),stdio:['ignore','ignore','pipe'],windowsHide:true});
     this.child=child;this.modelId=id;let log='';child.stderr.on('data',d=>{log=(log+d).slice(-4000);});
     const exited=new Promise(resolve=>child.once('exit',code=>{if(this.child===child){this.child=null;this.modelId=null;}resolve(code);}));
     const info={base:`http://127.0.0.1:${port}/v1`,model:id,key};
@@ -80,4 +106,4 @@ class LocalLlm{
   touch(){clearTimeout(this.idle);this.idle=setTimeout(()=>this.stop(),this.idleMs);this.idle.unref?.();}
   stop(){clearTimeout(this.idle);const child=this.child;this.child=null;this.modelId=null;if(child&&child.exitCode===null)child.kill();}
 }
-module.exports={LocalLlm,MODELS,RUNTIME,recommended,sizeOf};
+module.exports={LocalLlm,MODELS,RUNTIME,RUNTIMES,runtimeFor,hasVulkan,SERVER,recommended,sizeOf};

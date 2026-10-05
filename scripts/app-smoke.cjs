@@ -62,8 +62,9 @@ async function smokeTest(ctx) {
     target.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});
   };
   for(const [query,expected] of [['miDniGHT','miso'],['安妮','annie'],['機器人','byte'],['lACE','annie'],['Pixel','pixel-byte'],['VRM','vrm-sample'],['blocky','vrm-sample'],['美少女戰士',null],['ice queen',null],['not-a-real-mod',null]]){
-    await nativeClick('#clear');
-    await wait(()=>ctx.marketWindow.webContents.executeJavaScript('document.activeElement.id==="search" && document.querySelector("#search").value===""'));
+    // a click can land while the page is still laying out (slow virtual displays): click again if it didn't take
+    const cleared=()=>ctx.marketWindow.webContents.executeJavaScript('document.activeElement.id==="search" && document.querySelector("#search").value===""');
+    for(let attempt=1;;attempt++){await nativeClick('#clear');try{await wait(cleared);break;}catch(error){if(attempt>=3)throw error;}}
     await ctx.marketWindow.webContents.insertText(query);
     await wait(()=>ctx.marketWindow.webContents.executeJavaScript(`document.querySelector('#search').value===${JSON.stringify(query)}`));
     const visible=await ctx.marketWindow.webContents.executeJavaScript('[...document.querySelectorAll(".mod-card:not([hidden])")].map(card=>card.dataset.modId)');

@@ -6,6 +6,7 @@
 //  - raw recordings live in one private temp folder (mode 700) that is deleted when the voice is saved or the window
 //    closes; only the reference clip the engine needs is kept with the profile
 //  - the microphone only runs while the user holds a recording going, and only in this window (its own session)
+const {HERE_ON,ON_HERE,MACHINE}=require('./platform.cjs');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
 const audio=require('./voice-audio.cjs');const {createJobs}=require('./voice-engines/jobs.cjs');
 
@@ -37,11 +38,11 @@ function requireConsent(consent,now=()=>new Date()){
   const person=String(consent?.person||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,60);
   if(!person)throw Object.assign(new Error('請先填寫這是誰的聲音。'),{code:'CONSENT_REQUIRED'});
   if(consent?.agreed!==true)throw Object.assign(new Error('沒有勾選「對方同意」，不能複製這個聲音。'),{code:'CONSENT_REQUIRED'});
-  return {person,at:now().toISOString(),note:String(consent.note||'錄音前確認本人同意；僅在這台 Mac 上自己使用。').slice(0,200)};
+  return {person,at:now().toISOString(),note:String(consent.note||`錄音前確認本人同意；僅在${HERE_ON}自己使用。`).slice(0,200)};
 }
 const slug=name=>String(name).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,20)||'voice';
 const profileId=name=>`v-${slug(name)}-${crypto.randomBytes(3).toString('hex')}`;
-function personalLicense(engineLabel,consent){return {label:`私人複製聲音（${engineLabel}；只在這台 Mac 上使用，不能匯出）`,commercial:false,credit:consent?`${consent.person} 的聲音（已取得同意）`:'',tier:'personal'};}
+function personalLicense(engineLabel,consent){return {label:`私人複製聲音（${engineLabel}；只在${HERE_ON}使用，不能匯出）`,commercial:false,credit:consent?`${consent.person} 的聲音（已取得同意）`:'',tier:'personal'};}
 function buildProfile({id,name,engine,params,files,license,consent=null}){
   return {id,name:String(name).replace(/[\x00-\x1f]/g,' ').trim().slice(0,40)||'我的聲音',engine,params,files,license,consent,modId:null,createdAt:new Date().toISOString()};
 }
@@ -83,7 +84,7 @@ function createStudio({getVoices,voicesRoot,engines,getElevenKey,setElevenKey,bi
     if(!quality.ok)return {ok:false,quality};
     const id=profileId(name);
     if(engine==='cosyvoice'){
-      const status=await engines.cosyvoice.available();if(!status.ok)throw new Error(`${status.reason} 請在 Mac 的「聲音工作室」安裝。`);
+      const status=await engines.cosyvoice.available();if(!status.ok)throw new Error(`${status.reason} 請在${MACHINE}的「聲音工作室」安裝。`);
       const draft=tempFolder(tempBase);
       try{
         const prepared=engines.cosyvoice.prepare({wav:referenceClip(parsed.samples,parsed.sampleRate),refText:transcript,lang,dir:draft.file('profile')});
@@ -91,7 +92,7 @@ function createStudio({getVoices,voicesRoot,engines,getElevenKey,setElevenKey,bi
         return {ok:true,quality,...await save({draftDir:draft.file('profile'),profile,bind})};
       }finally{draft.remove();}
     }
-    if(!getElevenKey())throw new Error('Mac 上還沒設定 ElevenLabs API key。');
+    if(!getElevenKey())throw new Error(`${ON_HERE.trim()}還沒設定 ElevenLabs API key。`);
     const wavData=audio.encodeWav(audio.trimSilence(parsed.samples,parsed.sampleRate),parsed.sampleRate);
     const {voiceId}=await engines.elevenlabs.clone({name:String(name).slice(0,60),files:[{name:'sample.wav',data:wavData}],description:`Cloned with consent of ${agreed.person}`});
     const profile=buildProfile({id,name,engine:'elevenlabs',params:engines.elevenlabs.validate({voiceId,source:'clone'}),files:[],license:{...personalLicense('ElevenLabs',agreed),label:'私人複製聲音（存在你的 ElevenLabs 帳號；不能匯出）'},consent:agreed});
@@ -102,7 +103,17 @@ function createStudio({getVoices,voicesRoot,engines,getElevenKey,setElevenKey,bi
 
 // The studio window. main.cjs passes Electron pieces and the shared studio.
 function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,studio,engines,getVoices,getElevenKey,setElevenKey,clearElevenKey,currentMod,language=()=>'zh-TW',root=__dirname,tempBase=os.tmpdir(),fakeMic=false}){
-  let win=null,draft=null;
+  let win=null,draft=null,decodeId=0;const decoding=new Map();
+  // Imported audio → 16-bit mono WAV at `rate`: afconvert on macOS; on Windows and Linux the studio page decodes it with WebAudio.
+  function convert(input,output,{rate=SAMPLE_RATE}={}){
+    if(process.platform==='darwin')return audio.convertToWav(input,output,{rate});
+    if(!win||win.isDestroyed())return Promise.reject(new Error('請重新開啟聲音工作室。'));
+    const id=++decodeId,data=fs.readFileSync(input);
+    return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{decoding.delete(id);reject(new Error('音檔解碼逾時。'));},120000);
+      decoding.set(id,result=>{clearTimeout(timer);if(result?.error||!(result?.samples instanceof Float32Array))return reject(new Error(`這個音檔轉不了（${String(result?.error||'無法解碼').slice(0,120)}）。請用 wav、mp3 或 m4a。`));
+        fs.writeFileSync(output,audio.encodeWav(result.samples,rate),{mode:0o600});resolve(output);});
+      win.webContents.send('voicelab:decode',{id,rate,data:new Uint8Array(data.buffer,data.byteOffset,data.byteLength)});});
+  }
   const send=(channel,value)=>{if(win&&!win.isDestroyed())win.webContents.send(channel,value);};
   const newDraft=()=>{draft?.temp.remove();draft={temp:tempFolder(tempBase),method:null,consent:null,takes:new Map(),ready:null,designs:null};return draft;};
   const requireDraft=()=>{if(!draft)throw new Error('請重新開啟聲音工作室。');return draft;};
@@ -121,7 +132,7 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
     const id=crypto.randomBytes(6).toString('hex'),wavFile=d.temp.file(`take-${id}.wav`);
     if(kind==='file'){const ext=(path.extname(String(name)).toLowerCase().match(/^\.(wav|mp3|m4a|aac|aiff?|caf|flac)$/)||[])[0];if(!ext)throw new Error('只能匯入 wav、mp3、m4a 等音檔。');
       const raw=d.temp.file(`import-${id}${ext}`);fs.writeFileSync(raw,data,{mode:0o600});
-      try{await audio.convertToWav(raw,wavFile,{rate:SAMPLE_RATE});}finally{fs.rmSync(raw,{force:true});}}
+      try{await convert(raw,wavFile,{rate:SAMPLE_RATE});}finally{fs.rmSync(raw,{force:true});}}
     else fs.writeFileSync(wavFile,data,{mode:0o600});
     const {samples,sampleRate}=audio.parseWav(fs.readFileSync(wavFile));const analysis=audio.analyze(samples,sampleRate);
     const t={id,name:String(name).slice(0,80),text:String(text).slice(0,500),file:wavFile,analysis,quality:audio.qualityCheck(analysis,m.engine)};d.takes.set(id,t);
@@ -150,7 +161,7 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
       const {voiceId,requiresVerification}=await engines.elevenlabs.clone({name:String(options.name||d.consent.person).slice(0,60),files,description:`Cloned with consent of ${d.consent.person}`,removeNoise:options.removeNoise===true});
       fs.mkdirSync(profileDir,{recursive:true});
       d.ready={engine:'elevenlabs',params:engines.elevenlabs.validate({voiceId,source:'clone',model:options.model}),files:[],license:{...personalLicense('ElevenLabs',d.consent),label:'私人複製聲音（存在你的 ElevenLabs 帳號；不能匯出）'},consent:d.consent,dir:profileDir,cloudVoiceId:voiceId};
-      return {ready:true,keeps:'沒有：錄音已上傳到你的 ElevenLabs 帳號，這台 Mac 上不留',requiresVerification};
+      return {ready:true,keeps:`沒有：錄音已上傳到你的 ElevenLabs 帳號，${HERE_ON}不留`,requiresVerification};
     }
     if(d.method==='train'){
       const status=await engines.sovits.available();if(!status.ok)throw new Error(status.reason);
@@ -183,7 +194,7 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
     if(!list){const picked=await dialog.showOpenDialog(win,{title:'選擇 GPT-SoVITS 聲音模型（.ckpt、.pth 和參考音檔）',properties:['openFile','multiSelections'],filters:[{name:'GPT-SoVITS',extensions:['ckpt','pth','wav','mp3','m4a','flac','ogg','txt','lab','list']}]});
       if(picked.canceled)return {canceled:true};list=picked.filePaths.map(p=>({path:p,name:path.basename(p)}));}
     const profileDir=d.temp.file('profile');fs.rmSync(profileDir,{recursive:true,force:true});
-    const result=await engines.sovits.importPack({files:list,dest:profileDir,name,refText,refLang});
+    const result=await engines.sovits.importPack({files:list,dest:profileDir,name,refText,refLang,convert});
     d.ready={engine:'sovits',params:result.params,files:result.files,license:result.license,consent:null,dir:profileDir};
     return {ready:true,note:result.note,refText:result.params.refText,version:result.params.version};
   }
@@ -222,6 +233,7 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
     'voicelab:eleven-key':async key=>{key=String(key||'').replace(/\s+/g,'');if(!require('./voice-engines/elevenlabs.cjs').looksLikeKey(key))throw new Error('這看起來不是 ElevenLabs API key（通常以 sk_ 開頭）。');
       await engines.elevenlabs.verifyKey(key);setElevenKey(key);return {hasKey:true};},
     'voicelab:eleven-key-clear':()=>{clearElevenKey();return {hasKey:false};},
+    'voicelab:decoded':(id,result)=>{const done=decoding.get(Number(id));if(done){decoding.delete(Number(id));done(result);}return true;},
     'voicelab:close':()=>{win?.close();return true;}
   };
   for(const [name,fn] of Object.entries(handlers))ipcMain.handle(name,async(event,...args)=>{if(!win||event.sender!==win.webContents)throw new Error('Unknown window');return fn(...args);});

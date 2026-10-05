@@ -1,6 +1,6 @@
 # Agent Wardrobe
 
-A desktop AI companion for macOS. A small character lives in the corner of your screen: it chats, speaks with a voice of its own, wakes when you call its name, and can carry out tasks in a browser or on the desktop. You can also control it from your phone.
+A desktop AI companion for macOS, Windows and Linux. A small character lives in the corner of your screen: it chats, speaks with a voice of its own, wakes when you call its name, and can carry out tasks in a browser or on the desktop. You can also control it from your phone.
 
 Characters are **Mods**. A Mod is drawn in SVG or layered PNG, or is a VRM, glTF, Live2D or MMD model. You can draw a new character from a photo with AI, find one in the avatar store, or make your own and contribute it.
 
@@ -8,8 +8,34 @@ Characters are **Mods**. A Mod is drawn in SVG or layered PNG, or is a VRM, glTF
 
 ## Requirements
 
-- macOS on Apple Silicon
-- Node.js 20 (for development)
+- **macOS** 13+ on Apple Silicon (the main platform; Intel Macs mostly work).
+- **Windows** 10 / 11, x64.
+- **Linux** x64 (arm64 where noted) with glibc 2.32+ (Ubuntu 22.04+, Debian 12+). The local speech engine (sherpa-onnx) needs it.
+  - The transparent companion needs a compositing desktop (GNOME, KDE, Wayland…). Without one, the companion is an opaque panel.
+  - Optional packages: `espeak-ng` for the system voice, `libarchive-tools` (bsdtar) to open .7z / .rar downloads.
+- Node.js 20 (for development).
+
+### What works where
+
+| Feature | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| Companion window, chat, characters, Mod marketplace, avatar store | ✓ | ✓ | ✓ (opaque panel without a compositor) |
+| Built-in local model (llama.cpp) | ✓ Metal | ✓ Vulkan when a GPU driver provides it, else CPU | ✓ x64: Vulkan when `libvulkan.so.1` exists, else CPU; arm64: CPU |
+| Codex / Claude / LM Studio brains | ✓ | ✓ | ✓ |
+| Claude computer / browser tasks (Claude Code in a terminal) | ✓ | — (needs a pty) | ✓ |
+| Codex / local-model tasks | ✓ | ✓ | ✓ |
+| Native computer-use input (mouse and keyboard) | ✓ | see the computer-use notes | see the computer-use notes |
+| System voice | `say` | Windows SAPI voices (zh-TW / ja / en when installed) | `espeak-ng` (or `spd-say`) |
+| Edge, OpenAI, ElevenLabs, Kokoro voices | ✓ | ✓ | ✓ |
+| VOICEVOX | ✓ | ✓ CPU, NVIDIA build with an NVIDIA GPU | ✓ CPU (x64 / arm64), NVIDIA build with an NVIDIA GPU |
+| CosyVoice, GPT-SoVITS | ✓ CPU | ✓ x64: CUDA with an NVIDIA GPU, else CPU | ✓ CUDA with an NVIDIA GPU, else CPU |
+| Wake word and SenseVoice dictation | ✓ | ✓ | ✓ |
+| Typeless dictation | ✓ | — (Mac app) | — (Mac app) |
+| Phone remote (Tailscale) | ✓ | ✓ | ✓ (`sudo tailscale set --operator=$USER` once) |
+| Reading PDF terms in downloads | ✓ (Spotlight) | listed as 「沒讀到（請自己看）」 | listed as 「沒讀到（請自己看）」 |
+| .7z / .rar downloads | ✓ | ✓ (Windows' bsdtar) | with `libarchive-tools` |
+
+Spoken audio plays inside the app on every platform. Shortcuts shown as ⌘⇧S on a Mac are Ctrl+Shift+S on Windows and Linux.
 
 ## Run it
 
@@ -87,7 +113,7 @@ Every build ships the wake-word model, the bundled Mods and the vendored rendere
 | Claude | Your Claude plan | Claude Code, signed in |
 | LM Studio | Free | LM Studio with a model loaded and its server running |
 
-Codex and Claude use your existing subscription through their official CLIs. If a CLI is missing, **Install and sign in** opens Terminal with the official installer.
+Codex and Claude use your existing subscription through their official CLIs. If a CLI is missing, **Install and sign in** opens a terminal with the official installer: Terminal on macOS, Windows Terminal or PowerShell on Windows (`irm https://claude.ai/install.ps1 | iex`, `irm https://chatgpt.com/codex/install.ps1 | iex`), the first terminal emulator found on Linux. With no terminal, the app copies the command for you to paste.
 
 ### Chat and tasks
 
@@ -137,7 +163,7 @@ You search the store from the app. Every result shows its licence, the store nev
 
 | Engine | Where it runs | Notes |
 | --- | --- | --- |
-| macOS voices | On the Mac | |
+| System voice | On the computer | macOS `say`, Windows SAPI, Linux `espeak-ng` |
 | Edge online voices | Microsoft | Free, includes Taiwanese Mandarin |
 | OpenAI TTS | OpenAI | Your API key, stored encrypted |
 | Kokoro | On the Mac | Mix voices into new ones (pitch, blend, speed) |
@@ -197,7 +223,7 @@ Third-party code and the models downloaded at runtime (Live2D Cubism Core, Kokor
 
 ```sh
 npm test                 # unit tests
-npm run smoke            # Electron smoke suites, offline set (CI runs this on macOS)
+npm run smoke            # Electron smoke suites, offline set (CI runs this on macOS, Windows and Linux; Linux: xvfb-run -a npm run smoke)
 npm run smoke -- --all   # adds suites that need real models or apps
 node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting the app
 ```
@@ -205,6 +231,7 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
 | File | Role |
 | --- | --- |
 | `main.cjs` | Windows, settings and IPC |
+| `platform.cjs`, `platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
 | `renderer.js` | Companion UI |
 | `avatars.js` | Character rendering: SVG / PNG / VRM / glTF / Live2D / MMD |
 | `mods.cjs`, `mod-assets.cjs` | Mod validation |
@@ -223,7 +250,7 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
   - photos and recordings used to draw characters or clone voices. They are deleted afterwards, except the short reference clip a cloned voice needs.
 - **Codex / Claude:** your messages and the photos you choose to draw go to OpenAI or Anthropic through their official CLIs.
 - **Edge / OpenAI / ElevenLabs voices:** the reply text goes to Microsoft, OpenAI or ElevenLabs.
-- **API keys and tokens** are stored encrypted in the macOS Keychain and are only sent to their own service.
+- **API keys and tokens** are stored encrypted (macOS Keychain, Windows DPAPI, the Linux Secret Service keyring) and are only sent to their own service.
 
 Settings, conversation history, your characters, voices and downloaded models live in the app's userData folder.
 

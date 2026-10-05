@@ -1,4 +1,5 @@
 const { Notification, app, BrowserWindow, WebContentsView, session, ipcMain, Menu, Tray, nativeImage, screen, globalShortcut, dialog, systemPreferences, shell, desktopCapturer, clipboard, safeStorage } = require('electron');
+const platform=require('./platform.cjs');const {HERE,ON_HERE,MACHINE}=platform;
 const tts = require('./tts.cjs');
 const { createSpeech } = require('./speech.cjs');
 const kokoro = require('./kokoro.cjs');
@@ -97,6 +98,17 @@ for(const [name,action] of [['input',text=>agentSession.input(text)],['resize',(
 }
 
 app.setName('Agent Wardrobe');
+// Linux without a compositor cannot draw a transparent window: the companion becomes an opaque rounded panel instead.
+const transparentWindow = platform.transparencySupported();
+if (process.platform === 'linux' && transparentWindow) app.commandLine.appendSwitch('enable-transparent-visuals');
+if (process.platform === 'win32') app.setAppUserModelId('Agent Wardrobe');
+// Linux without a usable GPU (a CI runner's virtual display, some VMs): 3D characters render with Chromium's software WebGL.
+if (process.platform === 'linux' && (process.env.AGENT_WARDROBE_SOFTWARE_GL === '1' || (process.argv.includes('--smoke-test') && process.env.CI))) { app.commandLine.appendSwitch('use-angle', 'swiftshader'); app.commandLine.appendSwitch('enable-unsafe-swiftshader'); }
+// CI runners' virtual GPUs crash under the smokes' many WebGL views (macOS: "GPU process exited unexpectedly"; Windows: scripts
+// dying mid-run). There, every platform draws in software instead, as Linux already does.
+else if (process.argv.includes('--smoke-test') && process.env.CI) { app.disableHardwareAcceleration(); app.commandLine.appendSwitch('enable-unsafe-swiftshader'); }
+// Linux CI: keys go to the gnome-keyring the workflow starts (Electron would otherwise pick no secret store on a bare session)
+if (process.platform === 'linux' && process.argv.includes('--smoke-test') && process.env.CI) app.commandLine.appendSwitch('password-store', 'gnome-libsecret');  // notifications and the taskbar group under the app's own name
 // A packaged smoke must not write inside the signed bundle; that breaks its seal and the privacy grants tied to it.
 // app.isPackaged is false here because the bundle keeps Electron's executable name; Windows and Linux builds (renamed, an AppImage is read-only) report it.
 // Wake smoke: Chromium plays a WAV file as the microphone, so no real mic or permission prompt is involved.
@@ -277,7 +289,8 @@ app.whenReady().then(async () => {
     const directory=path.join(app.getPath('home'),'.claude','projects',cwd.replace(/[^a-zA-Z0-9]/g,'-'));
     conversations.importLegacy(directory,cwd);
   }
-  settings.language = app.getPreferredSystemLanguages()[0] || app.getLocale() || 'en';
+  // a POSIX locale such as LANG=C (common on Linux servers and CI) is not a language tag; pages would throw on it
+  settings.language = [...app.getPreferredSystemLanguages(), app.getLocale()].find(tag => { try { return /^[a-z]{2,3}(-|$)/i.test(tag) && Boolean(new Intl.Locale(tag)); } catch { return false; } }) || 'en';
   settings.voice = settings.language.startsWith('zh') ? (/Hans|CN|SG/i.test(settings.language) ? 'Tingting' : 'Eddy (Chinese (Taiwan))') : settings.language.startsWith('ja') ? 'Kyoko' : 'Samantha';
   try { require('./voice-lab.cjs').sweepTemp(app.getPath('temp')); } catch {}  // raw recordings left by a crash
   personService.loadSaved((id, error) => { modErrors.push({ id, message: error.message }); console.error(`Mod ${id} skipped: ${error.message}`); });
@@ -302,13 +315,13 @@ app.whenReady().then(async () => {
   const area = screen.getPrimaryDisplay().workArea;
   win = new BrowserWindow({
     ...companionSize(false), x: area.x + area.width - companionSize(false).width - 20, y: area.y + area.height - companionSize(false).height - 20,
-    frame: false, transparent: true, backgroundColor: '#00000000', alwaysOnTop: true,
+    frame: false, transparent: transparentWindow, backgroundColor: transparentWindow ? '#00000000' : '#eef7fd', alwaysOnTop: true,
     resizable: false, hasShadow: false, show: false, title: 'Agent Wardrobe',
     // keeps listening for the wake word and running reminders while hidden in the background
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
   });
   win.setAlwaysOnTop(true, 'floating');
-  // Closing the companion sends it to the background; only Quit (menu bar, ⌘Q) ends the app.
+  // Closing the companion sends it to the background; only Quit (menu bar / tray, ⌘Q) ends the app.
   win.on('close', event => { if (!quitting) { event.preventDefault(); hideToBackground(); } });
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -326,7 +339,8 @@ app.whenReady().then(async () => {
   win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => permission === 'media' && micAllowed(contents, permission, details));
   const zh=settings.language.startsWith('zh');
   const labels={game:zh?'讓角色玩遊戲（實驗）':'Let the character play (experimental)',show:zh?'顯示／恢復人物':'Show / restore companion',files:zh?'角色文件（搜尋與開啟）':'Character files (search & open)',wardrobe:zh?'Mod 市集（搜尋角色與 Skin）':'Mod Marketplace (search characters & skins)',connect:zh?'連接 Claude 專案 hooks…':'Connect Claude project hooks…',remove:zh?'移除 Claude 觀察 hooks':'Remove Claude observation hooks',stop:zh?'停止說話':'Stop speaking',stream:zh?'直播模式（滑鼠穿透）':'Stream mode (click-through)',quit:zh?'結束 Agent Wardrobe':'Quit Agent Wardrobe'};
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
+  // macOS has an app menu (with Edit for ⌘C / ⌘V); on Windows and Linux it would put a menu bar on every window, so the tray menu is the menu there.
+  if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
     { label: labels.show, click: restore },
     { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
     { label: labels.files, accelerator:'CommandOrControl+Shift+O',click:openFiles },
@@ -334,8 +348,8 @@ app.whenReady().then(async () => {
     { label: labels.connect, click: () => connectClaude().catch(error=>dialog.showErrorBox('Claude hooks',error.message)) },
     { label: labels.remove, click: () => {try{if(settings.claudeProject){hooks.configure({project:settings.claudeProject,remove:true});delete settings.claudeProject;persist();}}catch(error){dialog.showErrorBox('Claude hooks',error.message);}} },
     { label: labels.stop, click: stopSpeech }, { type: 'separator' }, { role: 'quit', label: labels.quit }
-  ] },{role:'editMenu'}]));
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon-256.png')).resize({ width: 20, height: 20, quality: 'best' });
+  ] },{role:'editMenu'}])); else Menu.setApplicationMenu(null);
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon-256.png')).resize(process.platform === 'darwin' ? { width: 20, height: 20, quality: 'best' } : { width: 32, height: 32, quality: 'best' });
   tray = new Tray(icon);
   tray.setToolTip('Agent Wardrobe');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -354,7 +368,7 @@ app.whenReady().then(async () => {
   if(!globalShortcut.register('CommandOrControl+Shift+X',emergencyStop))console.warn('Emergency shortcut unavailable; use the red emergency-stop buttons.');
   if (!globalShortcut.register('CommandOrControl+Shift+S', openWardrobe)) console.warn('Skin shortcut unavailable; use the application menu.');
   win.once('ready-to-show', () => win.show());
-  await win.loadFile('index.html');
+  await win.loadFile('index.html', transparentWindow ? {} : { query: { opaque: '1' } });
   warmLocal();
   // learn this Mac's tailnet name first, or phones would be refused as an unknown host after a restart
   if (settings.remoteEnabled && !process.argv.includes('--smoke-test')) remoteStatus().then(startRemote).then(port => tailscale.serve(port)).catch(error => console.error(`Phone remote: ${error.message}`));
@@ -418,7 +432,7 @@ handle('bula:providers', () => cli.available());
 handle('bula:open-game', (engine, game) => { let changed = false; if (['laya','jev'].includes(engine) && settings.gameEngine !== engine) { settings.gameEngine = engine; changed = true; } if (['lane','pikachu'].includes(game) && settings.game !== game) { settings.game = game; changed = true; gameService.close(); } if (changed) persist(); gameService.open(); return true; });
 // Subscription brains: the official installer and sign-in open in Terminal; the app polls the result.
 handle('bula:cli-status', () => cliSetup.status());
-handle('bula:cli-setup', async name => { if (!cliSetup.TOOLS[name]) throw new Error('Unknown tool'); const error = await shell.openPath(cliSetup.writeScript(name, app.getPath('temp'))); if (error) throw new Error(error); return true; });
+handle('bula:cli-setup', async name => { if (!cliSetup.TOOLS[name]) throw new Error('Unknown tool'); const result = await cliSetup.open(name, { dir: app.getPath('temp'), openPath: target => shell.openPath(target) }); return result.command ? { command: result.command } : true; });
 let compacted=false;
 // Resize around the bottom-right corner so the character stays where the user put it.
 function resizeCompanion(){const bounds=win.getBounds(),size=companionSize(compacted);if(bounds.width!==size.width||bounds.height!==size.height)win.setBounds({x:bounds.x+bounds.width-size.width,y:bounds.y+bounds.height-size.height,...size});}
@@ -669,7 +683,7 @@ function remoteSettings() {
     selection: { modId: mod.id, skinId: skin.id, personaId: persona.id },
     characters: catalog.map(m => ({ id: m.id, name: m.name, skins: m.skins.map(s => ({ id: s.id, name: s.name })), personas: m.personas.map(p => ({ id: p.id, name: p.name })) })) };
 }
-function requireRemoteTasks() { if (!settings.remoteTasks) throw Object.assign(new Error('要從手機叫電腦做事，請先在 Mac 的「設定 → 手機遙控」打開「允許手機下達電腦任務」。'), { status: 403 }); }
+function requireRemoteTasks() { if (!settings.remoteTasks) throw Object.assign(new Error(`要從手機叫電腦做事，請先在${MACHINE}的「設定 → 手機遙控」打開「允許手機下達電腦任務」。`), { status: 403 }); }
 const OUTPUT_TEXT = /\.(md|markdown|csv|txt|json)$/i;
 // The phone's own character editor; Codex jobs run in the background and report through phone events.
 let phoneEditorInstance = null;
@@ -712,7 +726,7 @@ function remoteRoutes() {
     'GET /api/output-file': ({ query }) => {
       const id = query.get('id'), name = query.get('name'); const file = outputs.file(id, name);
       if (!OUTPUT_TEXT.test(name)) throw new Error('只能在手機上讀文字檔（.md、.csv、.txt、.json）。');
-      const size = fs.statSync(file).size; if (size > 512 * 1024) throw new Error('檔案太大，請在 Mac 上開啟。');
+      const size = fs.statSync(file).size; if (size > 512 * 1024) throw new Error(`檔案太大，請在${ON_HERE}開啟。`);
       return { id, name, content: fs.readFileSync(file, 'utf8') };
     }
   };
@@ -724,7 +738,7 @@ async function remoteStatus() {
 handle('bula:remote-status', remoteStatus);
 handle('bula:remote-enable', async () => {
   const ts = await tailscale.status();
-  if (!ts.installed) throw new Error('這台 Mac 還沒安裝 Tailscale：從 App Store 或 tailscale.com 安裝並登入，手機也登入同一個帳號。');
+  if (!ts.installed) throw new Error(`${HERE} 還沒安裝 Tailscale：從 App Store 或 tailscale.com 安裝並登入，手機也登入同一個帳號。`);
   if (!ts.running) throw new Error('Tailscale 還沒登入或沒有連線：打開 Tailscale 並登入後再試。');
   const port = await startRemote(); await tailscale.serve(port);
   settings.remoteEnabled = true; persist(); return remoteStatus();
@@ -747,7 +761,9 @@ function hideToBackground() {
   if (!settings.hiddenTipShown && !process.argv.includes('--smoke-test')) {
     settings.hiddenTipShown = true; persist();
     const zh = settings.language.startsWith('zh');
-    if (Notification.isSupported()) new Notification({ title: zh ? `${runtime.snapshot().mod.name} 在背景待命` : `${runtime.snapshot().mod.name} is in the background`, body: zh ? '點選單列圖示、按 ⌘⇧B 或說喚醒詞叫我回來；要結束請從選單列選「結束」。' : 'Click the menu bar icon, press ⌘⇧B or say the wake word to bring me back. Quit from the menu bar.' }).show();
+    const where = { darwin: zh ? ['點選單列圖示', '選單列'] : ['Click the menu bar icon', 'the menu bar'], win32: zh ? ['點工作列右下角的圖示', '那個圖示的選單'] : ['Click the icon in the taskbar corner', 'its menu'] }[process.platform] || (zh ? ['點系統匣圖示、再開一次 App', '系統匣圖示的選單'] : ['Click the tray icon or open the app again', 'the tray menu']);
+    const keys = process.platform === 'darwin' ? '⌘⇧B' : 'Ctrl+Shift+B';
+    if (Notification.isSupported()) new Notification({ title: zh ? `${runtime.snapshot().mod.name} 在背景待命` : `${runtime.snapshot().mod.name} is in the background`, body: zh ? `${where[0]}、按 ${keys} 或說喚醒詞叫我回來；要結束請從${where[1]}選「結束」。` : `${where[0]}, press ${keys} or say the wake word to bring me back. Quit from ${where[1]}.` }).show();
   }
 }
 app.on('second-instance', restore);
@@ -794,6 +810,6 @@ const smokeContext = {
   get control() { return control; }, set control(value) { control = value; },
   catalog, codex, agentSession, openAgentConsole, setStreaming, restore, openWardrobe, selectMod
 };
-app.on('before-quit', () => { clearTimeout(setupTimer);clearTimeout(finishTimer);if(taskFeedback.id)outputs?.close(taskFeedback.id);taskFeedback.cancel();if(toolTask){toolTask.controller.abort();toolTask.tools.stop();toolTask.server?.stop();}agentSession.stop();stopSpeech(); cli.stop(); codex.stop(); llm?.stop(); gameService.stop(); watchService.stop(); voiceService?.stop(); remote?.close(); if(control)control.close(); globalShortcut.unregisterAll(); voiceLab?.cleanup(); for (const engine of Object.values(voiceEnginesInstance || {})) engine.stop?.({ now: true }); });
+app.on('before-quit', () => { clearTimeout(setupTimer);clearTimeout(finishTimer);if(taskFeedback.id)outputs?.close(taskFeedback.id);taskFeedback.cancel();if(toolTask){toolTask.controller.abort();toolTask.tools.stop();toolTask.server?.stop();}agentSession.stop();stopSpeech(); cli.stop(); codex.stop(); llm?.stop(); gameService.stop(); watchService.stop(); voiceService?.stop(); remote?.close(); if(control)control.close(); globalShortcut.unregisterAll(); voiceLab?.cleanup(); voice.quit?.(); for (const engine of Object.values(voiceEnginesInstance || {})) engine.stop?.({ now: true }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (win && !win.isDestroyed()) restore(); });

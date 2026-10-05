@@ -13,6 +13,8 @@ class AgentSession extends EventEmitter {
   constructor(){super();this.child=null;this.buffer='';this.output='';this.id=null;}
   start(options){
     if(this.child)throw new Error('操作工作階段仍開啟，請先在操作視窗停止，或直接在該視窗繼續對話。');
+    // agent-pty.py gives Claude Code a real terminal through Python's pty module, which Windows does not have
+    if(process.platform==='win32')throw new Error('Windows 版還不能用 Claude 執行電腦／瀏覽器任務（需要終端機 pty）。請改用 Codex 或本機模型，或只用 Claude 聊天。');
     const args=argumentsFor(options);const claude=binary('claude'),python=binary('python3');
     if(!claude||!python)throw new Error('需要 Claude CLI 與 Python 3。');
     const env={...process.env,PATH:`${path.dirname(claude)}:${process.env.PATH||''}`};

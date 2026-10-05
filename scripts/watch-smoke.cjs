@@ -6,12 +6,12 @@ async function run({win}){
   const src=process.env.LLM_MODEL_SRC,root=path.join(app.getPath('userData'),'models','llm');fs.mkdirSync(path.join(root,'qwen3.5-2b'),{recursive:true});
   fs.symlinkSync(path.join(src,`llama-${RUNTIME.tag}`),path.join(root,`llama-${RUNTIME.tag}`));
   for(const name of ['model.gguf','mmproj.gguf'])fs.symlinkSync(path.join(src,'qwen3.5-2b',name),path.join(root,'qwen3.5-2b',name));fs.writeFileSync(path.join(root,'qwen3.5-2b','.complete'),'ok');
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'watch-smoke-')),fake=path.join(dir,'fake-laya.cjs'),python=path.join(dir,'python');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'watch-smoke-')),fake=path.join(dir,'fake-laya.cjs');
   fs.writeFileSync(fake,`const rl=require('readline').createInterface({input:process.stdin});console.log('@laya '+JSON.stringify({ready:true,device:'stand-in'}));
 rl.on('line',line=>{const r=JSON.parse(line),a={};for(const [id,q] of Object.entries(r.questions)){const keys=Array.isArray(q.criteria)?q.criteria:Object.keys(q.criteria);
 const pick=id==='go'?(r.state.includes('to the left')?'left':r.state.includes('to the right')||r.state.includes('go back to the right')?'right':'here'):id==='jump'?(r.state.includes('time to jump')?'jump':'wait'):keys[0];
 a[id]={type:'choice',choice:pick,probabilities:Object.fromEntries(keys.map(k=>[k,k===pick?.8:.1]))};}console.log('@laya '+JSON.stringify({id:r.id,answers:a,ms:1}));});`);
-  fs.writeFileSync(python,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}"\n`,{mode:0o755});process.env.LAYA_PYTHON=python;
+  process.env.LAYA_PYTHON=require('./fake-bin.cjs').fakeBin(dir,'python',fake);
   const js=code=>win.webContents.executeJavaScript(code);
   const wait=async(fn,timeout=120000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Watch smoke timed out');await new Promise(r=>setTimeout(r,500));}};
   win.show();await js(`window.bula.saveSettings({provider:'local',localEngine:'builtin',builtinModel:'qwen3.5-2b',volume:false,replyLanguage:'zh-Hant'})`);

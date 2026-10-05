@@ -1,6 +1,6 @@
 // Experimental: the character plays a game. Laya (an open, non-generative decision model) picks each move
 // in ~20 ms from a short text description the game writes; the character reacts and comments as it plays.
-const fs=require('node:fs');const path=require('node:path');const {spawn}=require('node:child_process');
+const fs=require('node:fs');const path=require('node:path');const {launch,venvPython}=require('./platform.cjs');
 const {BrowserWindow,shell}=require('electron');
 
 const LINES={
@@ -21,7 +21,7 @@ class LayaSidecar{
   constructor(python,script){this.python=python;this.script=script;this.child=null;this.pending=new Map();this.next=1;}
   start(onStatus){
     if(this.ready)return this.ready;
-    const child=spawn(this.python,[this.script],{stdio:['pipe','pipe','pipe']});this.child=child;let buffer='',log='';
+    const child=launch(this.python,[this.script],{stdio:['pipe','pipe','pipe'],windowsHide:true});this.child=child;let buffer='',log='';
     this.ready=new Promise((resolve,reject)=>{
       child.stderr.on('data',data=>{log=(log+data).slice(-3000);});
       child.stdout.on('data',data=>{
@@ -58,7 +58,7 @@ async function jevDecide(key,state,questions,{fetchImpl=fetch}={}){
 
 function createGame({ipcMain,handle,getRuntime,getSettings,getSecrets,persist,speak,root=__dirname}){
   let window=null,sidecar=null,lastLine=0,engine='laya',jevKey=null;
-  const python=()=>[process.env.LAYA_PYTHON,path.join(root,'.laya','venv','bin','python')].find(p=>p&&fs.existsSync(p));
+  const python=()=>[process.env.LAYA_PYTHON,venvPython(path.join(root,'.laya','venv'))].find(p=>p&&fs.existsSync(p));
   const send=(channel,value)=>{if(window&&!window.isDestroyed())window.webContents.send(channel,value);};
   const from=handler=>(event,...args)=>{if(!window||event.sender!==window.webContents)throw new Error('Unknown game window');return handler(...args);};
   const engines=()=>({selected:getSettings().gameEngine||'laya',laya:{installed:Boolean(python())},jev:{hasKey:getSecrets().has('typesafe')}});

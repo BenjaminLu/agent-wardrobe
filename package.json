@@ -8,7 +8,7 @@
   "scripts": {
     "build:native": "node scripts/build-native.cjs",
     "start": "electron .",
-    "test": "node --test test/*.test.cjs",
+    "test": "node scripts/run-tests.cjs",
     "package:mac": "node scripts/package-mac.cjs",
     "package:win": "node scripts/package-win.cjs",
     "package:linux": "node scripts/package-linux.cjs",

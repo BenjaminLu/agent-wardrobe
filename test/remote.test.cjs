@@ -38,9 +38,11 @@ test('Tailscale status and serve errors are read from the CLI',async()=>{
   const exists=p=>p.includes('/Applications/Tailscale.app');
   const runner=(json,fail)=>(_bin,args,_o,cb)=>fail&&args[0]==='serve'?cb(Object.assign(new Error('x'),{}),'',fail):cb(null,JSON.stringify(json),'');
   assert.deepEqual(await tailscale.status({exists:()=>false}),{installed:false,running:false});
-  assert.deepEqual(await tailscale.status({exists,runner:runner({BackendState:'Running',Self:{DNSName:'mac.tail1234.ts.net.'}})}),{installed:true,running:true,dnsName:'mac.tail1234.ts.net',url:'https://mac.tail1234.ts.net:8443/remote/'});
-  assert.equal((await tailscale.status({exists,runner:runner({BackendState:'NeedsLogin',Self:{}})})).running,false);
-  await assert.rejects(tailscale.serve(1234,{exists,runner:runner({},'serve: HTTPS is not enabled for this tailnet')}),/HTTPS Certificates/);
+  assert.equal(tailscale.binary(p=>p.endsWith('Tailscale\\tailscale.exe'),'win32'),tailscale.CANDIDATES.win32[0],'Windows: Program Files');
+  assert.equal(tailscale.binary(p=>p==='/usr/bin/tailscale','linux'),'/usr/bin/tailscale','Linux: the package');
+  assert.deepEqual(await tailscale.status({exists,platform:'darwin',runner:runner({BackendState:'Running',Self:{DNSName:'mac.tail1234.ts.net.'}})}),{installed:true,running:true,dnsName:'mac.tail1234.ts.net',url:'https://mac.tail1234.ts.net:8443/remote/'});
+  assert.equal((await tailscale.status({exists,platform:'darwin',runner:runner({BackendState:'NeedsLogin',Self:{}})})).running,false);
+  await assert.rejects(tailscale.serve(1234,{exists,platform:'darwin',runner:runner({},'serve: HTTPS is not enabled for this tailnet')}),/HTTPS Certificates/);
 });
 test('a tailnet name learned after start is accepted, other hosts are not',async()=>{
   const store=new DeviceStore(tmp());let hosts=[];

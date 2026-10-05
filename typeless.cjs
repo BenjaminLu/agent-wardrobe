@@ -3,7 +3,9 @@
 // and Typeless pastes the text into the focused chat box. Only the shortcut setting is read from Typeless.
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 
-function typelessStatus({home=os.homedir(),app='/Applications/Typeless.app'}={}){
+// Typeless is a Mac app driven by its Fn shortcut; elsewhere the local recogniser (SenseVoice) is always used.
+function typelessStatus({home=os.homedir(),app='/Applications/Typeless.app',platform=process.platform}={}){
+  if(platform!=='darwin')return {installed:false,shortcut:null,supported:false};
   const installed=fs.existsSync(app);let shortcut=null;
   try{shortcut=JSON.parse(fs.readFileSync(path.join(home,'Library','Application Support','Typeless','app-settings.json'),'utf8')).featureShortcutBindings?.dictationMode?.[0]||null;}catch{}
   // Only a lone Fn tap can be sent reliably; other shortcuts would need their own key mapping.

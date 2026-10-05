@@ -48,6 +48,8 @@ function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTime
   async function request(op,data={},{signal,onProgress}={}){
     if(signal?.aborted)throw Object.assign(new Error('已取消。'),{name:'AbortError'});
     await start();clearTimeout(idleTimer);
+    // cancelled while the process was still starting (a slow start, e.g. on Windows): never sent
+    if(signal?.aborted){armIdle();throw Object.assign(new Error('已取消。'),{name:'AbortError'});}
     const id=nextId++;
     return new Promise((resolve,reject)=>{
       const onAbort=()=>{if(!pending.has(id))return;pending.delete(id);send({op:'cancel',id});armIdle();reject(Object.assign(new Error('已取消。'),{name:'AbortError'}));};

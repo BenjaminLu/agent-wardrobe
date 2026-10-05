@@ -1,17 +1,30 @@
 // VOICEVOX characters (Japanese only) through a local VOICEVOX ENGINE: /audio_query + /synthesis, /speakers, /speaker_info.
+const {renameRetry}=require('../platform.cjs');
 // Uses an engine that is already running (the VOICEVOX app starts one on 50021), the engine inside VOICEVOX.app, or the official
 // VOICEVOX ENGINE build downloaded once into userData (pinned version, size and SHA-256 checked) and run as a child process.
 // Every character has its own terms; the credit ("VOICEVOX:ずんだもん") and the policy text are kept with the profile.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const {spawn,spawnSync}=require('node:child_process');
+const {HERE}=require('../platform.cjs');const {detectGpu}=require('./python-env.cjs');
 
 const VERSION='0.25.2';
-// Official release assets: .vvpp is a zip of the engine; sizes and digests from the GitHub release.
+// Official release assets: .vvpp is a zip of the engine; sizes and digests from the GitHub release. The NVIDIA builds are one
+// zip split in two (.001.vvppp + .002.vvppp, byte-concatenated) and run with --use_gpu. Keys: macOS by arch (as before),
+// others '<platform>-<arch>' plus '-nvidia' when nvidia-smi finds a GPU.
+const vv=(name,size,sha256)=>({file:`voicevox_engine-${name}-${VERSION}.vvpp`,size,sha256});
+const split=(name,a,b)=>({file:`voicevox_engine-${name}-${VERSION}.vvpp`,parts:[{file:`voicevox_engine-${name}-${VERSION}.001.vvppp`,size:a[0],sha256:a[1]},{file:`voicevox_engine-${name}-${VERSION}.002.vvppp`,size:b[0],sha256:b[1]}],size:a[0]+b[0],args:['--use_gpu']});
 const RELEASES={
-  arm64:{file:`voicevox_engine-macos-arm64-${VERSION}.vvpp`,size:1887128088,sha256:'1ba776700d2afa81382573de52961ebaa33ee26c2aedc8d3ed78782a4e1538fb'},
-  x64:{file:`voicevox_engine-macos-x64-${VERSION}.vvpp`,size:1890344527,sha256:'88cabb15d183bf163df37507e70e88acb897de6f5ad0e14ea6cc5f0ce7b3096b'}
+  arm64:vv('macos-arm64',1887128088,'1ba776700d2afa81382573de52961ebaa33ee26c2aedc8d3ed78782a4e1538fb'),
+  x64:vv('macos-x64',1890344527,'88cabb15d183bf163df37507e70e88acb897de6f5ad0e14ea6cc5f0ce7b3096b'),
+  'win32-x64':vv('windows-cpu',1894411533,'cae07cb718866708d8c6148988769966168a2282610f53f002b19778ebea38e9'),
+  'win32-x64-nvidia':split('windows-nvidia',[1992294400,'b2da8200aa325af1b809471586a9967de51941eb01d18d591bb5f6b041c9ccdb'],[1069812097,'b016d55560ba1bef9192f7e16f40177b3d67173614fa80b651d42bd5c9534eb1']),
+  'linux-x64':vv('linux-cpu-x64',1911613161,'024ce70140d2028638a00014c037b97b82f83f4efd8442cc421bd555e2f122e6'),
+  'linux-arm64':vv('linux-cpu-arm64',1907271021,'d22f92195baa802d457ecc50287371e87cb590ab90a99fbfeb97f4d0eb968519'),
+  'linux-x64-nvidia':split('linux-nvidia',[1992294400,'8fb22a6e49f990daed4f0c894761145e55d8a4ee1a127228db20aa77b8186f74'],[1071615559,'5cc012c78317d495bb56d9152bacd418cb66b0fa8e658922e150935053194b9c'])
 };
+function releaseKey({platform=process.platform,arch=process.arch,gpu=detectGpu({platform})}={}){if(platform==='darwin')return arch;const key=`${platform}-${arch}`;return gpu&&RELEASES[`${key}-nvidia`]?`${key}-nvidia`:key;}
 const releaseUrl=file=>`https://github.com/VOICEVOX/voicevox_engine/releases/download/${VERSION}/${file}`;
-const APP_ENGINE='/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run';
+// the engine inside an installed VOICEVOX app
+const APP_ENGINE=process.platform==='win32'?path.join(process.env.LOCALAPPDATA||'','Programs','VOICEVOX','vv-engine','run.exe'):'/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run';
 const OWN_PORT=50121;
 const UUID=/^[0-9a-f-]{8,64}$/i;
 
@@ -45,8 +58,9 @@ function client(base,{fetchImpl=fetch}={}){
   };
 }
 
-function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGINE,external='http://127.0.0.1:50021',ownPort=OWN_PORT,arch=process.arch,releases=RELEASES,urlFor=releaseUrl,onWarn=()=>{}}={}){
+function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGINE,external='http://127.0.0.1:50021',ownPort=OWN_PORT,arch=process.arch,key=null,releases=RELEASES,urlFor=releaseUrl,onWarn=()=>{}}={}){
   let child=null,base=external,starting=null,installing=null;
+  const pick=()=>releases[key||releaseKey({arch})]||releases[arch]||null;
   const api=client(()=>base,{fetchImpl});
   const installed=()=>{try{return fs.readFileSync(path.join(dir,'.complete'),'utf8').trim()===VERSION&&fs.existsSync(runFile());}catch{return false;}};
   function runFile(){try{const manifest=JSON.parse(fs.readFileSync(path.join(dir,'engine','engine_manifest.json'),'utf8'));const rel=String(manifest.command||'run');if(/^[A-Za-z0-9._-]+$/.test(rel))return path.join(dir,'engine',rel);}catch{}return path.join(dir,'engine','run');}
@@ -64,7 +78,8 @@ function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGIN
       if(await find())return base;
       const run=executable();if(!run)throw new Error('還沒有 VOICEVOX ENGINE。到 AI 設定 → 聲音 → 新增聲音 → VOICEVOX 角色 下載。');
       base=`http://127.0.0.1:${ownPort}`;
-      child=spawnImpl(run,['--host','127.0.0.1','--port',String(ownPort)],{cwd:path.dirname(run),stdio:'ignore',detached:false});
+      const gpu=installed()&&run===runFile()&&fs.existsSync(path.join(dir,'.gpu'));
+      child=spawnImpl(run,['--host','127.0.0.1','--port',String(ownPort),...(gpu?['--use_gpu']:[])],{cwd:path.dirname(run),stdio:'ignore',detached:false,windowsHide:true});
       let exited=false;child.on('exit',()=>{exited=true;child=null;});child.on('error',()=>{exited=true;child=null;});
       const until=Date.now()+90000;while(!await alive(base)){if(exited)throw new Error('VOICEVOX ENGINE 沒有啟動成功。');if(Date.now()>until){stop();throw new Error('VOICEVOX ENGINE 啟動逾時。');}await new Promise(r=>setTimeout(r,300));}
       return base;
@@ -73,35 +88,50 @@ function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGIN
   function stop(){if(child){try{child.kill();}catch{}child=null;}}
   async function status(){
     const running=await find();
-    return {running:Boolean(running),own:Boolean(child),installed:installed(),app:fs.existsSync(appEngine),version:VERSION,download:releases[arch]?{size:releases[arch].size,file:releases[arch].file}:null,downloading:Boolean(installing)};
+    return {running:Boolean(running),own:Boolean(child),installed:installed(),app:fs.existsSync(appEngine),version:VERSION,download:pick()?{size:pick().size,file:pick().file}:null,downloading:Boolean(installing)};
   }
-  // Downloads the pinned engine build, checks its size and SHA-256 while streaming, unpacks it with ditto, and swaps it in.
+  // Downloads the pinned engine build (each part checked for size and SHA-256 while streaming), unpacks it (ditto on macOS,
+  // the app's own ZIP64-capable reader elsewhere), and swaps it in.
   function install(onProgress=()=>{},{signal}={}){
     return installing||=(async()=>{
-      const release=releases[arch];if(!release)throw new Error('這台 Mac 的處理器沒有對應的 VOICEVOX ENGINE。');
+      const release=pick();if(!release)throw new Error(`${HERE} 的處理器沒有對應的 VOICEVOX ENGINE。`);
+      const parts=release.parts||[release];
       // an interrupted download is kept and resumed with a Range request (the hash is rebuilt from the part already on disk)
-      const temp=`${dir}.partial`,archive=path.join(temp,release.file);fs.mkdirSync(temp,{recursive:true});fs.rmSync(path.join(temp,'engine'),{recursive:true,force:true});
-      for(const name of fs.readdirSync(temp))if(name!==release.file)fs.rmSync(path.join(temp,name),{recursive:true,force:true});
+      const temp=`${dir}.partial`;fs.mkdirSync(temp,{recursive:true});fs.rmSync(path.join(temp,'engine'),{recursive:true,force:true});
+      for(const name of fs.readdirSync(temp))if(!parts.some(p=>p.file===name))fs.rmSync(path.join(temp,name),{recursive:true,force:true});
       try{
-        const hash=crypto.createHash('sha256');let have=fs.existsSync(archive)?fs.statSync(archive).size:0;if(have>release.size){fs.rmSync(archive);have=0;}
-        if(have)for await(const chunk of fs.createReadStream(archive))hash.update(chunk);
-        let done=have;const report=()=>onProgress(Math.min(.99,done/release.size),{done,total:release.size});report();
-        if(have<release.size){
-          const res=await fetchImpl(urlFor(release.file),{signal,redirect:'follow',headers:have?{Range:`bytes=${have}-`}:{}});
-          if(!res.ok)throw new Error(`VOICEVOX ENGINE 下載失敗（${res.status}）。`);
-          if(have&&res.status!==206){hash.destroy?.();throw new Error('伺服器不支援續傳，請重新下載。');}
-          const out=fs.createWriteStream(archive,{flags:have?'a':'w'});
-          // the file is closed (and what arrived is on disk) even when the connection drops
-          try{for await(const chunk of res.body){hash.update(chunk);done+=chunk.length;if(done>release.size)throw new Error('VOICEVOX ENGINE 下載的檔案大小不對。');if(!out.write(chunk))await new Promise(r=>out.once('drain',r));report();}}
-          finally{await new Promise((resolve,reject)=>out.end(error=>error?reject(error):resolve()));}
+        let before=0;
+        for(const part of parts){
+          const file=path.join(temp,part.file);
+          const hash=crypto.createHash('sha256');let have=fs.existsSync(file)?fs.statSync(file).size:0;if(have>part.size){fs.rmSync(file);have=0;}
+          if(have)for await(const chunk of fs.createReadStream(file))hash.update(chunk);
+          let done=have;const report=()=>onProgress(Math.min(.99,(before+done)/release.size),{done:before+done,total:release.size});report();
+          if(have<part.size){
+            const res=await fetchImpl(urlFor(part.file),{signal,redirect:'follow',headers:have?{Range:`bytes=${have}-`}:{}});
+            if(!res.ok)throw new Error(`VOICEVOX ENGINE 下載失敗（${res.status}）。`);
+            if(have&&res.status!==206){hash.destroy?.();throw new Error('伺服器不支援續傳，請重新下載。');}
+            const out=fs.createWriteStream(file,{flags:have?'a':'w'});
+            // the file is closed (and what arrived is on disk) even when the connection drops
+            try{for await(const chunk of res.body){hash.update(chunk);done+=chunk.length;if(done>part.size)throw new Error('VOICEVOX ENGINE 下載的檔案大小不對。');if(!out.write(chunk))await new Promise(r=>out.once('drain',r));report();}}
+            finally{await new Promise((resolve,reject)=>out.end(error=>error?reject(error):resolve()));}
+          }
+          if(done!==part.size||hash.digest('hex')!==part.sha256){fs.rmSync(file,{force:true});throw new Error('VOICEVOX ENGINE 沒有通過完整性檢查，請重新下載。');}
+          before+=part.size;
         }
-        if(done!==release.size||hash.digest('hex')!==release.sha256){fs.rmSync(archive,{force:true});throw new Error('VOICEVOX ENGINE 沒有通過完整性檢查，請重新下載。');}
-        const unpack=spawnSync('/usr/bin/ditto',['-x','-k',archive,path.join(temp,'engine')],{encoding:'utf8',timeout:20*60000});
-        if(unpack.status!==0)throw new Error(`VOICEVOX ENGINE 解不開：${String(unpack.stderr).trim().slice(0,120)}`);
-        fs.rmSync(archive,{force:true});
+        // split builds: the parts are one zip, joined byte for byte
+        const archive=path.join(temp,parts.length>1?release.file:parts[0].file);
+        if(parts.length>1){fs.rmSync(archive,{force:true});for(const part of parts){await require('node:stream/promises').pipeline(fs.createReadStream(path.join(temp,part.file)),fs.createWriteStream(archive,{flags:'a'}));fs.rmSync(path.join(temp,part.file));}}
+        if(process.platform==='darwin'){
+          const unpack=spawnSync('/usr/bin/ditto',['-x','-k',archive,path.join(temp,'engine')],{encoding:'utf8',timeout:20*60000});
+          if(unpack.status!==0)throw new Error(`VOICEVOX ENGINE 解不開：${String(unpack.stderr).trim().slice(0,120)}`);
+        }else{
+          try{await require('../archive.cjs').unzipLarge(archive,path.join(temp,'engine'),{links:true});}
+          catch(error){throw new Error(`VOICEVOX ENGINE 解不開：${error.message.slice(0,120)}`);}
+        }
+        fs.rmSync(archive,{force:true});if(release.args?.includes('--use_gpu'))fs.writeFileSync(path.join(temp,'.gpu'),'nvidia');
         // no links pointing outside the engine folder
         const root=path.join(temp,'engine');for(const entry of fs.readdirSync(root,{recursive:true})){const full=path.join(root,entry);const st=fs.lstatSync(full);if(st.isSymbolicLink()){const target=path.resolve(path.dirname(full),fs.readlinkSync(full));if(!target.startsWith(root+path.sep))fs.rmSync(full);}}
-        fs.writeFileSync(path.join(temp,'.complete'),VERSION);stop();fs.rmSync(dir,{recursive:true,force:true});fs.renameSync(temp,dir);
+        fs.writeFileSync(path.join(temp,'.complete'),VERSION);stop();fs.rmSync(dir,{recursive:true,force:true});renameRetry(temp,dir);
         const run=runFile();if(!fs.existsSync(run))throw new Error('VOICEVOX ENGINE 的內容不完整。');fs.chmodSync(run,0o755);
         onProgress(1,{done:release.size,total:release.size});return status();
       }catch(error){fs.rmSync(path.join(temp,'engine'),{recursive:true,force:true});throw error;}  // the downloaded part stays for a resume
@@ -109,7 +139,7 @@ function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGIN
   }
   return {
     id:'voicevox',label:'VOICEVOX 角色（日文）',
-    async available(){if(await find()||executable())return {ok:true};return {ok:false,reason:`需要 VOICEVOX ENGINE ${VERSION}（約 ${Math.round((releases[arch]?.size||0)/1e8)/10} GB）。`,install:true};},
+    async available(){if(await find()||executable())return {ok:true};return {ok:false,reason:`需要 VOICEVOX ENGINE ${VERSION}（約 ${Math.round((pick()?.size||0)/1e8)/10} GB）。`,install:true};},
     install,start,stop,status,validate,
     speakers:async()=>{await start();return api.speakers();},
     async profile(params){
@@ -123,4 +153,4 @@ function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGIN
     get base(){return base;},get child(){return child;}
   };
 }
-module.exports={createVoicevox,client,validate,credit,isJapanese,VERSION,RELEASES,releaseUrl,OWN_PORT};
+module.exports={releaseKey,createVoicevox,client,validate,credit,isJapanese,VERSION,RELEASES,releaseUrl,OWN_PORT};

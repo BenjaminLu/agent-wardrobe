@@ -7,7 +7,8 @@ async function run({win}){
   try{
     win.show();win.focus();win.webContents.focus();
     const selected=await win.webContents.executeJavaScript(`(()=>{document.activeElement.blur();const area=document.querySelector('#conversation');area.tabIndex=-1;area.focus();const text=document.querySelector('#conversation .message.assistant').firstChild;const range=document.createRange();range.setStart(text,0);range.setEnd(text,Math.min(8,text.length));window.getSelection().removeAllRanges();window.getSelection().addRange(range);return window.getSelection().toString();})()`);assert.ok(selected);win.webContents.copy();await wait(()=>clipboard.readText()===selected);
-    assert.ok(Menu.getApplicationMenu().items.some(item=>item.submenu?.items.some(sub=>sub.role==='paste')),'native Edit menu supplies copy/paste shortcuts');
+    // macOS needs the Edit menu for ⌘C / ⌘V; Windows and Linux have no app menu (Chromium handles Ctrl+C / Ctrl+V itself)
+    if(process.platform==='darwin')assert.ok(Menu.getApplicationMenu().items.some(item=>item.submenu?.items.some(sub=>sub.role==='paste')),'native Edit menu supplies copy/paste shortcuts');
     await win.webContents.executeJavaScript(`window.getSelection().removeAllRanges();window.bula.saveSettings({provider:'local',base:'http://127.0.0.1:${server.address().port}/v1',model:'voice-fixture',volume:false})`);
     await win.webContents.executeJavaScript(`document.querySelector('#voice-input').click();document.querySelector('#task-mode').value='chat';document.querySelector('#prompt').value='';document.querySelector('#prompt').dispatchEvent(new CompositionEvent('compositionstart'));document.querySelector('#prompt').value='尚未完成的注音';document.querySelector('#chat-form').requestSubmit();`);
     await new Promise(resolve=>setTimeout(resolve,100));assert.equal(requests.length,0,'composition must not submit partial speech/IME text');

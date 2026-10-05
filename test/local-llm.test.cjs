@@ -6,7 +6,7 @@ test('model choice follows the Mac memory and every download is pinned',()=>{
   const llm=new LocalLlm(fs.mkdtempSync(path.join(os.tmpdir(),'llm-')),{ramBytes:16*2**30});
   const s=llm.status();assert.deepEqual(s.models.map(m=>m.fits),[true,true,true,false]);assert.ok(s.models.every(m=>!m.installed));
 });
-test('the server starts only for a downloaded model, on loopback, with a key',async()=>{
+test('the server starts only for a downloaded model, on loopback, with a key',{skip:process.platform==='win32'&&'the stand-in llama-server is a script'},async()=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'llm-'));const llm=new LocalLlm(root,{idleMs:60000});
   await assert.rejects(llm.ensure('qwen3.5-2b'),/還沒下載/);
   const runtime=path.join(root,`llama-${RUNTIME.tag}`);fs.mkdirSync(runtime);
@@ -20,4 +20,12 @@ test('the server starts only for a downloaded model, on loopback, with a key',as
     assert.equal(await llm.ensure('qwen3.5-2b'),info,'reuses the running server');assert.equal(llm.status().running,'qwen3.5-2b');
     assert.throws(()=>llm.remove('../x'));llm.remove('qwen3.5-2b');assert.equal(llm.status().running,null,'removing the model stops its server');assert.equal(fs.existsSync(model),false);
   }finally{llm.stop();}
+});
+test('each platform gets a pinned llama.cpp build: Vulkan where a loader exists, CPU otherwise',()=>{
+  const {RUNTIMES,runtimeFor}=require('../local-llm.cjs');
+  for(const builds of Object.values(RUNTIMES))for(const b of Object.values(builds)){assert.match(b.sha256,/^[0-9a-f]{64}$/);assert.match(b.url,/\/download\/b11378\/llama-b11378-bin-/);assert.equal(b.format,b.file.endsWith('.zip')?'zip':'tgz');}
+  assert.match(runtimeFor({platform:'darwin',arch:'arm64'}).file,/macos-arm64\.tar\.gz$/);
+  assert.match(runtimeFor({platform:'win32',arch:'x64',vulkan:true}).file,/win-vulkan-x64\.zip$/);assert.match(runtimeFor({platform:'win32',arch:'x64',vulkan:false}).file,/win-cpu-x64\.zip$/);
+  assert.match(runtimeFor({platform:'linux',arch:'x64',vulkan:false}).file,/ubuntu-x64\.tar\.gz$/);assert.match(runtimeFor({platform:'linux',arch:'arm64',vulkan:true}).file,/ubuntu-arm64/);
+  assert.equal(runtimeFor({platform:'freebsd',arch:'x64'}),null);
 });

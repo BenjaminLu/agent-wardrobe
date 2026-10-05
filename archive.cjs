@@ -4,6 +4,7 @@
 //  discover — usable characters: .vrm / .glb, Live2D and MMD (through model-formats.cjs when it is there), .psd, .png / .jpg, and motions
 //  terms    — readme / 利用規約 / license text files (Shift-JIS or UTF-8), and the VRM's own licence metadata
 //  psd      — flattened to PNG: Photoshop's saved composite, or the visible layers when the file has none
+const {ON_HERE,MACHINE,tarCommand,bsdtar}=require('./platform.cjs');
 const fs=require('node:fs');const path=require('node:path');const zlib=require('node:zlib');const {spawnSync}=require('node:child_process');
 const LIMIT=500*1024*1024,MAX_ENTRIES=20000;
 const fail=(message,code)=>Object.assign(new Error(message),{code});
@@ -64,13 +65,13 @@ function unzip(file,dest,{limit=LIMIT}={}){
     const rel=safeRelative(e.name);if(!rel||junk(rel))continue;
     if(e.symlink){skipped.push(rel);continue;}
     if(e.dir){fs.mkdirSync(inside(dest,rel),{recursive:true});continue;}
-    if(e.flags&1)throw fail('這個壓縮檔有密碼，請先在 Mac 上解開。','ZIP_PASSWORD');
+    if(e.flags&1)throw fail(`這個壓縮檔有密碼，請先在${ON_HERE}解開。`,'ZIP_PASSWORD');
     if(buf.readUInt32LE(e.local)!==0x04034b50)throw fail('ZIP 檔損壞，請重新下載。','ZIP_BROKEN');
     const start=e.local+30+buf.readUInt16LE(e.local+26)+buf.readUInt16LE(e.local+28),raw=buf.subarray(start,start+e.csize);
     let data;
     if(e.method===0)data=raw;
     else if(e.method===8){try{data=zlib.inflateRawSync(raw,{maxOutputLength:Math.max(1,e.size)});}catch{throw fail(`ZIP 裡的「${rel}」解不開（可能損壞或大小不符）。`,'ZIP_BROKEN');}}
-    else throw fail(`ZIP 用了不支援的壓縮方式（${e.method}），請先在 Mac 上解開。`,'ZIP_METHOD');
+    else throw fail(`ZIP 用了不支援的壓縮方式（${e.method}），請先在${ON_HERE}解開。`,'ZIP_METHOD');
     if(data.length!==e.size)throw fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN');
     if((total+=data.length)>limit)throw fail('解開後太大了。','TOO_BIG');
     const target=inside(dest,rel);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,data,{mode:0o600});
@@ -78,15 +79,77 @@ function unzip(file,dest,{limit=LIMIT}={}){
   return {skipped};
 }
 
-// --- 7z / rar: macOS's bsdtar (libarchive) lists first, refuses unsafe paths, then extracts; links are removed afterwards
-function untar(file,dest,{limit=LIMIT,tar='/usr/bin/tar'}={}){
-  const list=spawnSync(tar,['-tvf',file],{encoding:'utf8',maxBuffer:64e6,timeout:60000});
-  if(list.status!==0)throw fail(`這個壓縮檔解不開（${String(list.stderr).trim().split('\n')[0]||'格式不支援'}）。請改下載 .zip 版本，或先用 Mac 的「封存工具程式」或 The Unarchiver 解開。`,'ARCHIVE_UNSUPPORTED');
+// --- large zips (an engine download of a few GB, ZIP64 included): read through a file handle and inflated as a stream,
+// never held in memory. Same path checks as unzip(); symlinks are skipped; unix permission bits are kept (executables).
+function readAt(fd,length,position){const b=Buffer.alloc(length);const n=fs.readSync(fd,b,0,length,position);return b.subarray(0,n);}
+function zip64Entries(fd,size){
+  const tail=readAt(fd,Math.min(size,65557+20+56),Math.max(0,size-(65557+20+56)));const base=Math.max(0,size-tail.length);
+  let end=-1;for(let i=tail.length-22;i>=0;i--)if(tail.readUInt32LE(i)===0x06054b50){end=i;break;}
+  if(end<0)throw fail('ZIP 檔不完整，請重新下載。','ZIP_BROKEN');
+  let count=tail.readUInt16LE(end+10),dirSize=tail.readUInt32LE(end+12),offset=tail.readUInt32LE(end+16);
+  if(count===0xffff||offset===0xffffffff||dirSize===0xffffffff){
+    const loc=end-20;if(loc<0||tail.readUInt32LE(loc)!==0x07064b50)throw fail('ZIP64 目錄找不到。','ZIP_BROKEN');
+    const rec=readAt(fd,56,Number(tail.readBigUInt64LE(loc+8)));if(rec.readUInt32LE(0)!==0x06064b50)throw fail('ZIP64 目錄損壞。','ZIP_BROKEN');
+    count=Number(rec.readBigUInt64LE(32));dirSize=Number(rec.readBigUInt64LE(40));offset=Number(rec.readBigUInt64LE(48));
+  }
+  if(count>MAX_ENTRIES*10||offset+dirSize>base+end)throw fail('ZIP 目錄損壞，請重新下載。','ZIP_BROKEN');
+  const dir=readAt(fd,dirSize,offset),entries=[];let p=0;
+  for(let n=0;n<count;n++){
+    if(p+46>dir.length||dir.readUInt32LE(p)!==0x02014b50)throw fail('ZIP 目錄損壞，請重新下載。','ZIP_BROKEN');
+    const flags=dir.readUInt16LE(p+8),method=dir.readUInt16LE(p+10),nl=dir.readUInt16LE(p+28),el=dir.readUInt16LE(p+30),cl=dir.readUInt16LE(p+32);
+    let csize=dir.readUInt32LE(p+20),usize=dir.readUInt32LE(p+24),local=dir.readUInt32LE(p+42);const host=dir.readUInt16LE(p+4)>>8,mode=dir.readUInt32LE(p+38)>>>16;
+    const extra=dir.subarray(p+46+nl,p+46+nl+el);
+    // ZIP64 extended information: the 0xffffffff fields, in order
+    for(let i=0;i+4<=extra.length;){const id=extra.readUInt16LE(i),len=extra.readUInt16LE(i+2);if(id===1){let q=i+4;
+      if(usize===0xffffffff){usize=Number(extra.readBigUInt64LE(q));q+=8;}if(csize===0xffffffff){csize=Number(extra.readBigUInt64LE(q));q+=8;}if(local===0xffffffff){local=Number(extra.readBigUInt64LE(q));}}i+=4+len;}
+    const name=decodeName(dir.subarray(p+46,p+46+nl),Boolean(flags&0x800),extra);
+    entries.push({name,flags,method,csize,size:usize,local,mode:host===3?mode&0o777:0,symlink:host===3&&(mode&0o170000)===0o120000,dir:name.endsWith('/')||name.endsWith('\\')});p+=46+nl+el+cl;
+  }
+  return entries;
+}
+// links: true recreates symlinks that stay inside dest (an engine's library chains, macOS / Linux only); others are skipped
+async function unzipLarge(file,dest,{limit=Infinity,onProgress=()=>{},links=false}={}){
+  const fd=fs.openSync(file,'r');const skipped=[];
+  try{
+    const entries=zip64Entries(fd,fs.fstatSync(fd).size),total=entries.reduce((n,e)=>n+e.size,0);
+    if(total>limit)throw fail(`解開後超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
+    let done=0;
+    for(const e of entries){
+      const rel=safeRelative(e.name);if(!rel||junk(rel))continue;
+      const target=inside(dest,rel);
+      if(e.symlink){
+        const head=readAt(fd,30,e.local),start=e.local+30+head.readUInt16LE(26)+head.readUInt16LE(28),raw=readAt(fd,e.csize,start);
+        let to=null;try{to=(e.method===8?zlib.inflateRawSync(raw):raw).toString('utf8');}catch{}
+        const resolved=to&&path.resolve(path.dirname(target),to);
+        if(!links||process.platform==='win32'||!to||path.isAbsolute(to)||!(resolved===path.resolve(dest)||resolved.startsWith(path.resolve(dest)+path.sep))){skipped.push(rel);continue;}
+        fs.mkdirSync(path.dirname(target),{recursive:true});fs.rmSync(target,{force:true});fs.symlinkSync(to,target);continue;
+      }
+      if(e.dir){fs.mkdirSync(target,{recursive:true});continue;}
+      if(e.flags&1)throw fail('這個壓縮檔有密碼。','ZIP_PASSWORD');if(![0,8].includes(e.method))throw fail(`ZIP 用了不支援的壓縮方式（${e.method}）。`,'ZIP_METHOD');
+      const head=readAt(fd,30,e.local);if(head.readUInt32LE(0)!==0x04034b50)throw fail('ZIP 檔損壞，請重新下載。','ZIP_BROKEN');
+      const start=e.local+30+head.readUInt16LE(26)+head.readUInt16LE(28);fs.mkdirSync(path.dirname(target),{recursive:true});
+      const out=fs.createWriteStream(target,{mode:e.mode&0o111?0o755:0o644});let written=0;
+      const source=e.csize?fs.createReadStream(null,{fd,start,end:start+e.csize-1,autoClose:false}):require('node:stream').Readable.from([]);
+      const counter=new (require('node:stream').Transform)({transform(chunk,_enc,cb){written+=chunk.length;done+=chunk.length;if(written>e.size)return cb(fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN'));onProgress(total?done/total:1);cb(null,chunk);}});
+      try{await require('node:stream/promises').pipeline(...[source,...(e.method===8?[zlib.createInflateRaw()]:[]),counter,out]);}
+      catch(error){throw error.code==='ZIP_BROKEN'?error:fail(`ZIP 裡的「${rel}」解不開（可能損壞）。`,'ZIP_BROKEN');}
+      if(written!==e.size)throw fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN');
+    }
+    return {skipped,entries:entries.length};
+  }finally{fs.closeSync(fd);}
+}
+
+// --- 7z / rar: bsdtar (libarchive: /usr/bin/tar on macOS, tar.exe on Windows 10+, bsdtar from libarchive-tools on Linux)
+// lists first, refuses unsafe paths, then extracts; links are removed afterwards
+function untar(file,dest,{limit=LIMIT,tar=tarCommand(),canRead=bsdtar()}={}){
+  if(!canRead)throw fail('這台電腦解不開 7z / rar：請安裝 libarchive-tools（提供 bsdtar，例如 sudo apt install libarchive-tools），或改下載 .zip 版本。','ARCHIVE_UNSUPPORTED');
+  const list=spawnSync(tar,['-tvf',file],{encoding:'utf8',maxBuffer:64e6,timeout:60000,windowsHide:true});
+  if(list.status!==0)throw fail(`這個壓縮檔解不開（${String(list.stderr).trim().split('\n')[0]||'格式不支援'}）。請改下載 .zip 版本，或先用${process.platform==='darwin'?`${MACHINE}的「封存工具程式」或 The Unarchiver `:' 7-Zip 之類的工具'}解開。`,'ARCHIVE_UNSUPPORTED');
   const lines=list.stdout.split('\n').filter(Boolean);if(lines.length>MAX_ENTRIES)throw fail('壓縮檔裡的檔案太多。','TOO_MANY');
   let declared=0;for(const line of lines){const m=line.match(/^\S+\s+\d+\s+\S+\s+\S+\s+(\d+)\s+\S+\s+\d+\s+[\d:]+\s+(.*)$/);if(!m)continue;declared+=Number(m[1]);safeRelative(m[2].replace(/ -> .*$/,''));}
   if(declared>limit)throw fail(`解開後超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
-  const run=spawnSync(tar,['-xf',file,'-C',dest,'--no-same-owner'],{encoding:'utf8',timeout:10*60000});
-  if(run.status!==0)throw fail(`這個壓縮檔解不開（${String(run.stderr).trim().split('\n')[0]}）。請改下載 .zip 版本，或先在 Mac 上解開。`,'ARCHIVE_UNSUPPORTED');
+  const run=spawnSync(tar,['-xf',file,'-C',dest,'--no-same-owner'],{encoding:'utf8',timeout:10*60000,windowsHide:true});
+  if(run.status!==0)throw fail(`這個壓縮檔解不開（${String(run.stderr).trim().split('\n')[0]}）。請改下載 .zip 版本，或先在${ON_HERE}解開。`,'ARCHIVE_UNSUPPORTED');
   const skipped=[];let total=0;
   for(const {file:f,rel,stat} of walk(dest,{links:true})){if(stat.isSymbolicLink()||!stat.isFile()){skipped.push(rel);fs.rmSync(f,{force:true});continue;}if((total+=stat.size)>limit)throw fail('解開後太大了。','TOO_BIG');}
   return {skipped};
@@ -156,15 +219,47 @@ function collectTerms(dir,{maxChars=30000,pdfText=defaultPdfText}={}){
   for(const f of found.slice(0,12)){
     if(text.length>=maxChars)break;let body=null;
     if(/\.pdf$/i.test(f.rel))body=pdfText(f.file);
-    else if(/\.rtf$/i.test(f.rel)){const r=spawnSync('/usr/bin/textutil',['-convert','txt','-stdout',f.file],{encoding:'utf8',timeout:10000});body=r.status===0?r.stdout:null;}
+    else if(/\.rtf$/i.test(f.rel))body=rtfText(f.file);
     else{body=decodeText(fs.readFileSync(f.file));if(/\.html?$/i.test(f.rel))body=htmlText(body);}
     if(!body||!body.trim()){unread.push(f.rel);continue;}
     files.push(f.rel);text+=`\n--- ${f.rel} ---\n${body.trim().slice(0,12000)}\n`;
   }
   return {text:text.slice(0,maxChars),files,unread};
 }
-// PDFs: Spotlight's extracted text when macOS has it; otherwise the file is listed as unread
-function defaultPdfText(file){const r=spawnSync('/usr/bin/mdls',['-raw','-name','kMDItemTextContent',file],{encoding:'utf8',timeout:5000});const t=r.status===0?r.stdout.trim():'';return t&&t!=='(null)'?t:null;}
+// RTF: macOS's textutil; elsewhere the text runs are read directly (\\'hh bytes in the document's code page, \\uN characters)
+function rtfText(file,{platform=process.platform}={}){
+  if(platform==='darwin'){const r=spawnSync('/usr/bin/textutil',['-convert','txt','-stdout',file],{encoding:'utf8',timeout:10000});return r.status===0?r.stdout:null;}
+  try{return rtfPlain(fs.readFileSync(file,'latin1'));}catch{return null;}
+}
+const CONTROL=/\\(?:'([0-9a-fA-F]{2})|([a-zA-Z]+)(-?\d+)? ?|([^a-zA-Z]))/y;
+const CODEPAGES={932:'shift_jis',936:'gbk',949:'euc-kr',950:'big5',1250:'windows-1250',1251:'windows-1251',1252:'windows-1252',65001:'utf-8'};
+function rtfPlain(rtf){
+  const cp=CODEPAGES[(rtf.match(/\\ansicpg(\d+)/)||[])[1]]||'windows-1252';const decoder=new TextDecoder(cp);
+  let out='',bytes=[],depth=0,skipDepth=0,uc=1,skipChars=0;const flush=()=>{if(bytes.length){out+=decoder.decode(Uint8Array.from(bytes));bytes=[];}};
+  const SKIP=/^(fonttbl|colortbl|stylesheet|info|pict|object|header|footer|themedata|colorschememapping|latentstyles|datastore|xmlnstbl|listtable|listoverridetable|rsidtbl|generator)$/;
+  for(let i=0;i<rtf.length;){
+    const c=rtf[i];
+    if(c==='{'){depth++;i++;continue;}
+    if(c==='}'){if(skipDepth&&depth===skipDepth)skipDepth=0;depth--;i++;continue;}
+    if(c==='\\'){
+      CONTROL.lastIndex=i;const m=CONTROL.exec(rtf);if(!m){i++;continue;}i+=m[0].length;
+      if(skipDepth)continue;
+      if(m[1]!==undefined){if(skipChars>0){skipChars--;continue;}bytes.push(parseInt(m[1],16));continue;}
+      flush();
+      if(m[4]!==undefined){if(m[4]==='*')skipDepth=depth;else if(m[4]==='~')out+=' ';else if('\\{}'.includes(m[4]))out+=m[4];continue;}
+      const word=m[2],arg=m[3]===undefined?null:Number(m[3]);
+      if(SKIP.test(word)){skipDepth=depth;continue;}
+      if(word==='uc')uc=arg??1;else if(word==='u'){out+=String.fromCharCode(arg<0?arg+65536:arg);skipChars=uc;}
+      else if(word==='par'||word==='line'||word==='row')out+='\n';else if(word==='tab'||word==='cell')out+='\t';
+      continue;
+    }
+    if(c==='\r'||c==='\n'){i++;continue;}
+    if(!skipDepth){if(skipChars>0)skipChars--;else{flush();out+=c;}}i++;
+  }
+  flush();return out.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+// PDFs: Spotlight's extracted text when macOS has it; otherwise (and on Windows / Linux) the file is listed as unread
+function defaultPdfText(file){if(process.platform!=='darwin')return null;const r=spawnSync('/usr/bin/mdls',['-raw','-name','kMDItemTextContent',file],{encoding:'utf8',timeout:5000});const t=r.status===0?r.stdout.trim():'';return t&&t!=='(null)'?t:null;}
 // The licence a VRM carries in its own metadata (VRM 1.0 VRMC_vrm.meta or VRM 0.x VRM.meta)
 function vrmMeta(file){
   const fd=fs.openSync(file,'r');try{const head=Buffer.alloc(20);fs.readSync(fd,head,0,20,0);if(head.subarray(0,4).toString('latin1')!=='glTF'||head.subarray(16,20).toString('latin1')!=='JSON')return null;
@@ -216,4 +311,4 @@ function flattenPsd(buffer){
   }
   return {png:encodePng(W,H,rgba),width:W,height:H};
 }
-module.exports={LIMIT,decodeText,htmlText,safeRelative,unzip,untar,unpack,walk,findModels,findMotions,motionUse,collectTerms,vrmMeta,encodePng,flattenPsd,crc32};
+module.exports={LIMIT,unzipLarge,zip64Entries,rtfPlain,rtfText,decodeText,htmlText,safeRelative,unzip,untar,unpack,walk,findModels,findMotions,motionUse,collectTerms,vrmMeta,encodePng,flattenPsd,crc32};

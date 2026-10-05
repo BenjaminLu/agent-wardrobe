@@ -5,7 +5,7 @@
 // Profile files: reference.wav (the reference clip, 24 kHz mono) and reference.txt (what is said in it).
 // Params: {model, refText, lang: 'zh'|'en'|'ja'|'ko', speed: 0.7–1.4}
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const {createPythonEnv}=require('./python-env.cjs');const {createSidecar}=require('./sidecar.cjs');
+const {createPythonEnv,torchIndex,detectGpu}=require('./python-env.cjs');const {createSidecar}=require('./sidecar.cjs');
 
 const SOURCE={commit:'074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',url:'https://codeload.github.com/FunAudioLLM/CosyVoice/tar.gz/074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',
   submodules:[{path:'third_party/Matcha-TTS',url:'https://codeload.github.com/shivammehta25/Matcha-TTS/tar.gz/dd9105b34bf2be2230f4aa1e4769fb586a3c824e'}]};
@@ -49,8 +49,12 @@ let simplify=null;
 const forModel=text=>detectLang(text)==='zh'?(simplify||=require('opencc-js').Converter({from:'t',to:'cn'}))(text):text;
 // 8 threads measured fastest on an M3 Max (RTF ~2 against ~3–4 with PyTorch's default); MPS produced garbage, so CPU it is.
 const THREADS=Math.min(8,Math.max(2,Math.floor(os.cpus().length/2)));
+// Where the Python engines can run: macOS (CPU), Windows x64 and Linux x64 / arm64 (CUDA with an NVIDIA GPU, otherwise CPU).
+const engineHost=()=>process.platform==='win32'&&process.arch!=='x64'?'Windows on ARM 還不能跑這個聲音引擎（PyTorch 沒有對應版本）。':null;
+
 function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THREADS}={}){
-  const envFor=model=>createPythonEnv({dir,python:'3.10',packages:PACKAGES,buildConstraints:['setuptools<81'],source:SOURCE,files:WETEXT,fetchImpl,
+  // Windows / Linux: torch from the CUDA index when nvidia-smi finds a GPU (CosyVoice then runs on it), the CPU index otherwise
+  const envFor=model=>createPythonEnv({dir,python:'3.10',packages:PACKAGES,buildConstraints:['setuptools<81'],source:SOURCE,files:WETEXT,fetchImpl,torchFrom:torchIndex({cuda:'cu121'}),
     models:[{name:model,repo:MODELS[model].repo,revision:MODELS[model].revision,include:name=>!SKIP.test(name),
       mirrors:[name=>`https://modelscope.cn/models/${MODELS[model].modelscope}/resolve/master/${name}`]}]});
   const sidecars=new Map();let installing=null;
@@ -68,7 +72,7 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
     id:'cosyvoice',label:'CosyVoice（本機快速複製）',license:LICENSE,models:MODELS,
     async available(model='CosyVoice2-0.5B'){
       if(sidecar)return {ok:true};
-      if(process.platform!=='darwin')return {ok:false,reason:'目前只支援 macOS。'};
+      if(engineHost())return {ok:false,reason:engineHost()};
       if(installing)return {ok:false,reason:'CosyVoice 正在安裝…',installing:true};
       return envFor(model).installed()?{ok:true}:{ok:false,reason:`還沒安裝 CosyVoice（第一次約下載 ${(MODELS[model].size/1e9+1.5).toFixed(1)} GB）。`,install:true};
     },
@@ -107,4 +111,4 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
   };
   return engine;
 }
-module.exports={create,validate,detectLang,modeFor,MODELS,PACKAGES,SOURCE,LICENSE};
+module.exports={gpu:()=>detectGpu(),create,validate,detectLang,modeFor,MODELS,PACKAGES,SOURCE,LICENSE};

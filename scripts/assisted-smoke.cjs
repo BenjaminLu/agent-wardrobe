@@ -4,12 +4,12 @@ const {makeZip,sjis}=require('../test/fixtures/zip.cjs');
 // a Shift-JIS 利用規約.txt and an idle motion) is caught and unpacked, a stand-in Codex reads the terms, the summary is shown
 // before anything is added, and the VRM is worn with the terms and the motion in its mod.json.
 async function run({runtime,assisted,extraSites}){
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assisted-smoke-')),fake=path.join(dir,'fake-codex.cjs'),bin=path.join(dir,'codex');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assisted-smoke-')),fake=path.join(dir,'fake-codex.cjs');
   // the stand-in AI only gives its summary when both the page text and the archive's terms reached it, with the terms schema
   fs.writeFileSync(fake,`const fs=require('fs');const args=process.argv.slice(2);const schema=JSON.parse(fs.readFileSync(args[args.indexOf('--output-schema')+1],'utf8'));let p='';
 process.stdin.on('data',d=>p+=d).on('end',()=>{const ok=p.includes('FIXTURE PAGE TERMS')&&p.includes('利用規約テスト：商用利用OK')&&Boolean(schema.properties.summary_zh);
 console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify({summary_zh:ok?'SMOKE 摘要：可以商用，可以直播，不必標註。':'MISSING TEXT',commercial:'yes',modification:'yes',redistribution:'no',credit_required:false,credit_text:'',streaming_ok:'yes',notes:''})}}));});`);
-  fs.writeFileSync(bin,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}" "$@"\n`,{mode:0o755});process.env.CODEX_BIN=bin;
+  process.env.CODEX_BIN=require('./fake-bin.cjs').fakeBin(dir,'codex',fake);
   const zip=makeZip([{name:sjis('テストちゃん/テストちゃん.vrm'),data:fs.readFileSync(path.join(__dirname,'..','mods','vrm-sample','sample.vrm')),deflate:true},
     {name:sjis('テストちゃん/利用規約.txt'),data:sjis('利用規約テスト：商用利用OK。クレジット不要。'),deflate:true},{name:'テストちゃん/motions/idle_loop.vrma',utf8:true,data:require('../test/fixtures/models/make.cjs').vrma()}]);
   const server=http.createServer((req,res)=>{

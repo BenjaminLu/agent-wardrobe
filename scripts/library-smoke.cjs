@@ -3,13 +3,15 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const os=
 // send an anime picture to Codex (stand-in binary) to redraw as an editable character; the credit line is kept with the character.
 async function run({runtime,openWardrobe,getMarket,personService}){
   process.env.LIBRARY_FIXTURE='1';
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'library-smoke-')),fake=path.join(dir,'fake-codex.cjs'),bin=path.join(dir,'codex');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'library-smoke-')),fake=path.join(dir,'fake-codex.cjs');
   const annie=JSON.parse(fs.readFileSync(path.join(__dirname,'..','mods','annie','parts.json'),'utf8'));
   const drawing={gender:'neutral',summary:'戴頭盔的小騎士',palette:{body:'#8a96a8',bodyLight:'#c9d2de',belly:'#ffffff',accent:'#4a5568',ink:'#2a2a33',cheek:'#f4a9a3'},rig:annie.rig,face:annie.face,outfit:{svg:annie.accessories['lace-collar'].svg,hide:[]},mouth:annie.mouth};
   fs.writeFileSync(fake,`let p='';process.stdin.on('data',d=>p+=d).on('end',()=>console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify(${JSON.stringify(drawing)})}})));`);
-  fs.writeFileSync(bin,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}" "$@"\n`,{mode:0o755});process.env.CODEX_BIN=bin;
+  process.env.CODEX_BIN=require('./fake-bin.cjs').fakeBin(dir,'codex',fake);
   const wait=async(fn,timeout=30000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until){const st=await getMarket()?.webContents.executeJavaScript(`JSON.stringify({status:document.querySelector('#library-status')?.textContent,cards:document.querySelectorAll('.lib-card').length,bg:document.querySelector('.lib-card .thumb')?.style.backgroundImage?.slice(0,40),btn:document.querySelector('.lib-card button')?.textContent})`).catch(e=>e.message);throw new Error('Library smoke timed out '+st+' mod='+runtime.state.modId);}await new Promise(r=>setTimeout(r,150));}};
-  await openWardrobe();await wait(()=>getMarket()&&!getMarket().isDestroyed());const mk=code=>getMarket().webContents.executeJavaScript(code);
+  await openWardrobe();await wait(()=>getMarket()&&!getMarket().isDestroyed());const pageErrors=[];getMarket().webContents.on('console-message',e=>{if(e.level==='error'||/error/i.test(e.message))pageErrors.push(e.message.slice(0,200));});
+  // a script that throws says which one, and what the page logged
+  const mk=code=>getMarket().webContents.executeJavaScript(code).catch(error=>{throw new Error(`${error.message} in: ${code.slice(0,200)} | page: ${pageErrors.slice(-3).join(' / ')}`);});
   await wait(()=>mk(`Boolean(document.querySelector('#library-form'))`).catch(()=>false));
   // the store is its own page next to the installed characters, loaded when first opened
   assert.equal(await mk(`document.querySelector('#library').hidden&&!document.querySelector('#page-installed').hidden`),true);
@@ -18,8 +20,9 @@ async function run({runtime,openWardrobe,getMarket,personService}){
   const card=title=>`[...document.querySelectorAll('.lib-card')].find(c=>c.querySelector('h4').textContent.includes(${JSON.stringify(title)}))`;
   // the store opens on featured characters (VRoid's own samples, official characters) and VRoid Hub staff picks
   await wait(()=>mk(`Boolean(${card('Shino')})&&Boolean(${card('Staff Pick Girl')})&&Boolean(${card('Unity-chan')})`));
-  assert.equal(await mk(`${card('Shino')}.querySelector('.lic').textContent`),'CC0');
-  assert.match(await mk(`${card('Unity-chan')}.querySelector('button').textContent`),/AI 輔助下載|Assisted download/i);
+  // the cards can be replaced while a search is still settling, so each check waits for a stable card instead of reading once
+  await wait(()=>mk(`${card('Shino')}?.querySelector('.lic')?.textContent==='CC0'`));
+  await wait(()=>mk(`/AI 輔助下載|Assisted download/i.test(${card('Unity-chan')}?.querySelector('button')?.textContent||'')`));
   // VRoid Hub: only the model other apps may use; its author's conditions are shown and kept with the character
   await only(['vroid'],'miko');await wait(()=>mk(`document.querySelectorAll('.lib-card').length===1&&document.querySelector('.lib-card .thumb').style.backgroundImage.includes('data:image/png')`));
   assert.equal(await mk(`document.querySelector('.lib-card .lic').textContent`),'VRoid 條件：個人營利可・可改造・需標註');
@@ -33,7 +36,9 @@ async function run({runtime,openWardrobe,getMarket,personService}){
   const glbDir=path.join(app.getPath('userData'),'my-mods',runtime.state.modId);assert.equal(JSON.parse(fs.readFileSync(path.join(glbDir,'mod.json'),'utf8')).renderer,'gltf');
   // 3D previews draw only while their card is on screen: none while the store page is shown, the new one once its card is in view
   assert.equal(await mk(`document.querySelectorAll('#page-installed .avatar-3d canvas').length`),0,'3D previews are released on the store page');
-  await mk(`document.querySelector('[data-page=installed]').click();[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3').textContent.includes('Anime Knight')).scrollIntoView();true`);
+  await mk(`document.querySelector('[data-page=installed]').click();true`);
+  // the cards are rebuilt after an import, so wait for the new one before scrolling to it
+  await wait(()=>mk(`(()=>{const c=[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3')?.textContent.includes('Anime Knight'));c?.scrollIntoView();return Boolean(c);})()`));
   await wait(()=>mk(`(()=>{const c=[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3').textContent.includes('Anime Knight'));return Boolean(c?.querySelector('.avatar-3d canvas'))&&!c.querySelector('.avatar-3d').dataset.error;})()`),15000);
   await mk(`document.querySelector('[data-page=store]').click();true`);
   fs.mkdirSync(path.join(__dirname,'..','evidence'),{recursive:true});fs.writeFileSync(path.join(__dirname,'..','evidence','library.png'),(await getMarket().webContents.capturePage()).toPNG());

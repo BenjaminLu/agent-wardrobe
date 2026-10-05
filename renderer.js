@@ -1,4 +1,5 @@
 const $ = id => document.getElementById(id);
+if(new URLSearchParams(location.search).has('opaque'))document.body.classList.add('opaque');  // Linux without a compositor (main.cjs)
 const bridge=window.bula;Avatars.setAssetLoader(async url=>{const [,modId,file]=url.match(/^mods\/([^/]+)\/([^/]+)$/);const data=await bridge.modAsset(decodeURIComponent(modId),decodeURIComponent(file));return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);});
 // Live2D characters need Live2D's own Cubism Core: the copy in userData, or a download once the user agrees.
 Avatars.setLive2dCore({url:()=>bridge.live2dCore(),install:()=>bridge.installLive2dCore()});
@@ -95,7 +96,10 @@ const cliText=(name,state,zh=settings.language.startsWith('zh'))=>state.loggedIn
 const cliAction=(state,zh=settings.language.startsWith('zh'))=>state.installed?(zh?'登入':'Sign in'):(zh?'安裝並登入':'Install and sign in');
 function setupCli(name,onState){
   const zh=settings.language.startsWith('zh');clearInterval(cliPoll);
-  return window.bula.setupCli(name).then(()=>{onState({waiting:true});const until=Date.now()+10*60*1000;
+  return window.bula.setupCli(name).then(result=>{
+    // no terminal found (some Linux desktops): the official command is shown and copied instead
+    if(result?.command){navigator.clipboard?.writeText(result.command).catch(()=>{});message(zh?`找不到終端機。請自己開一個終端機貼上這行（已複製）：\n${result.command}`:`No terminal found. Open one and paste this (copied):\n${result.command}`,'error');}
+    onState({waiting:true});const until=Date.now()+10*60*1000;
     cliPoll=setInterval(async()=>{const state=(await window.bula.cliStatus())[name];if(state.loggedIn||Date.now()>until){clearInterval(cliPoll);onState(state);if(state.loggedIn)status(zh?`${CLI_NAMES[name]} 已登入，可以用了`:`${CLI_NAMES[name]} is ready`);}},3000);
   },error=>message(cleanError(error),'error'));
 }
@@ -193,6 +197,23 @@ $('prompt').addEventListener('paste',event=>{if(autoSend()&&event.isTrusted)armS
 $('prompt').addEventListener('input',event=>{if(Date.now()<typelessArmed&&event.isTrusted&&/^insert(FromPaste|Text|ReplacementText)$/.test(event.inputType||''))armSend();});
 $('close').onclick = () => window.bula.hide();
 window.bula.onSpeaking(on => {$('bula').classList.toggle('talking',on);armIdle();});
+// Spoken replies play here with WebAudio on every platform; each clip reports back when it ends, fails or is stopped.
+const speaker={context:null,current:null,generation:0};
+window.bula.onAudioPlay(async({id,data,mime})=>{
+  stopClip();const generation=++speaker.generation;
+  try{
+    // with no working output device (a headless machine, a device that vanished) the context never runs: don't wait on it forever
+    speaker.context||=new AudioContext({latencyHint:'interactive'});if(speaker.context.state==='suspended')await Promise.race([speaker.context.resume(),new Promise(r=>setTimeout(r,1000))]);
+    const buffer=await speaker.context.decodeAudioData(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));
+    if(generation!==speaker.generation){window.bula.audioDone(id,'stopped');return;}
+    const source=speaker.context.createBufferSource();source.buffer=buffer;source.connect(speaker.context.destination);
+    let finished=false;const end=()=>{if(finished)return;finished=true;clearTimeout(guard);if(speaker.current?.source===source)speaker.current=null;window.bula.audioDone(id,null);};
+    const guard=setTimeout(end,buffer.duration*1000+1500);  // the clip's own length, if 'ended' never comes
+    speaker.current={id,source,guard};source.onended=end;source.start();
+  }catch(error){window.bula.audioDone(id,`${mime}: ${error?.message||error}`);}
+});
+function stopClip(){const clip=speaker.current;speaker.current=null;if(!clip)return;clip.source.onended=null;clearTimeout(clip.guard);try{clip.source.stop();}catch{}window.bula.audioDone(clip.id,'stopped');}
+window.bula.onAudioStop(id=>{if(id==null||speaker.current?.id===id){speaker.generation++;stopClip();}});
 window.bula.onStreaming(on => { document.body.classList.toggle('streaming',on); if(!on)showChat(false); $('subtitle').hidden = !on || !$('subtitle').textContent; });
 window.bula.onNotice(text => { if(previewing){endPreview(text);return;} message(text,'error'); status(t.speechFailed); });
 window.bula.onTask(event=>{

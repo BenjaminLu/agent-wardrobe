@@ -177,6 +177,13 @@ test('VOICEVOX: no engine offers the pinned download; the download is size- and 
   const engine=voicevox.createVoicevox({dir,external:'http://127.0.0.1:1',ownPort:port,appEngine:'/nonexistent',arch:'arm64',releases:{arm64:release},fetchImpl:fetchFrom(vvpp)});
   const progress=[];const after=await engine.install(p=>progress.push(p));
   assert.equal(after.installed,true);assert.equal(progress.at(-1),1);assert.ok(!fs.existsSync(path.join(dir,release.file)),'the archive is removed after unpacking');
+  // NVIDIA builds come in two parts that join into one zip; each part is checked on its own
+  fs.rmSync(dir,{recursive:true,force:true});const cut=Math.floor(vvpp.length/3),sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+  const parts={file:'engine.vvpp',size:vvpp.length,args:['--use_gpu'],parts:[{file:'e.001.vvppp',size:cut,sha256:sha(vvpp.subarray(0,cut))},{file:'e.002.vvppp',size:vvpp.length-cut,sha256:sha(vvpp.subarray(cut))}]};
+  const asked=[];const joined=voicevox.createVoicevox({dir,external:'http://127.0.0.1:1',ownPort:1,appEngine:'/nonexistent',arch:'arm64',releases:{arm64:parts},fetchImpl:async url=>{if(!url.endsWith('vvppp'))throw new Error('offline');asked.push(path.basename(url));return new Response(url.endsWith('001.vvppp')?vvpp.subarray(0,cut):vvpp.subarray(cut));}});
+  assert.equal((await joined.install()).installed,true);assert.deepEqual(asked,['e.001.vvppp','e.002.vvppp']);assert.ok(fs.existsSync(path.join(dir,'.gpu')),'the GPU build starts with --use_gpu');
+  fs.rmSync(dir,{recursive:true,force:true});await engine.install();
+  if(process.platform==='win32')return;  // the stand-in engine is a script with a shebang
   t.after(()=>engine.stop());
   await engine.start();assert.ok(engine.child,'started as our child');assert.equal(engine.base,`http://127.0.0.1:${port}`);
   const child=engine.child;engine.stop();await new Promise(r=>child.exitCode!==null||child.signalCode?r():child.once('exit',r));assert.equal(engine.child,null);

@@ -1,4 +1,5 @@
 // Hands-free input: a local wake word ("嘿安妮" / "Hey Annie"), then local speech recognition of what follows.
+const {renameRetry}=require('./platform.cjs');
 // Audio is processed in memory on this Mac and never stored or sent anywhere.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 const {pinyin}=require('pinyin-pro');
@@ -95,6 +96,6 @@ async function installAsr(dir,{onProgress=()=>{},files=ASR_FILES,fetchImpl=fetch
     }else{done+=file.size;onProgress(done/total);}
     if(file.sha256){const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(target))hash.update(chunk);if(hash.digest('hex')!==file.sha256){fs.rmSync(temp,{recursive:true,force:true});throw new Error(`${file.name} 檔案驗證失敗，請重新下載。`);}}
   }
-  fs.writeFileSync(path.join(temp,'.complete'),'ok');fs.rmSync(dir,{recursive:true,force:true});fs.renameSync(temp,dir);
+  fs.writeFileSync(path.join(temp,'.complete'),'ok');fs.rmSync(dir,{recursive:true,force:true});renameRetry(temp,dir);
 }
 module.exports={keywordLines,toneForms,installAsr,asrInstalled,ASR_FILES,WakeWord,Dictation,keywordLine,syllableTokens,loadTokens,loadEnglish};

@@ -1,15 +1,11 @@
-const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { SYSTEM, parseReply } = require('./ai.cjs');
+const platform = require('./platform.cjs');
 const active = new Set();
-function binary(name) {
-  const dirs = [...(process.env.PATH || '').split(path.delimiter), '/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.local/bin')];
-  const nvm = path.join(os.homedir(), '.nvm/versions/node');
-  try { dirs.push(...fs.readdirSync(nvm).reverse().map(v => path.join(nvm, v, 'bin'))); } catch {}
-  return dirs.map(d => path.join(d, name)).find(p => { try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } });
-}
+// PATH and the usual install folders per platform (platform.cjs).
+function binary(name) { return platform.which(name) || undefined; }
 function available() { return { codex: Boolean(binary('codex')), claude: Boolean(binary('claude')) }; }
 function argsFor(provider) {
   if (provider === 'codex') return ['exec', '--ephemeral', '--sandbox', 'read-only', '--skip-git-repo-check', '--ignore-user-config', '-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false', '-c', 'web_search="disabled"', '--json', '--color', 'never', '-'];
@@ -37,7 +33,7 @@ async function chat(provider, history, language = 'en', systemPrompt = SYSTEM) {
   delete env.OPENAI_API_KEY; delete env.CODEX_API_KEY; delete env.ANTHROPIC_API_KEY; delete env.CLAUDECODE; for(const key of Object.keys(env))if(key.startsWith('CLAUDE_CODE_'))delete env[key];
   try {
     const output = await new Promise((resolve, reject) => {
-      const child = spawn(executable, argsFor(provider), { cwd, env, shell: false, stdio: ['pipe','pipe','pipe'] });
+      const child = platform.launch(executable, argsFor(provider), { cwd, env, shell: false, stdio: ['pipe','pipe','pipe'], windowsHide: true });
       active.add(child);
       let stdout = '', stderr = '', settled = false;
       const timer = setTimeout(() => { child.kill(); finish(new Error('AI 回覆逾時，請稍後重試。')); }, 120000);

@@ -15,7 +15,7 @@ class Secrets{
   has(name){return Boolean(this.read()[name]);}
   get(name){const value=this.read()[name];return value?this.safe.decryptString(Buffer.from(value,'base64')):null;}
   set(name,value){
-    if(!this.safe.isEncryptionAvailable())throw new Error('This Mac cannot encrypt the key right now; it was not saved.');
+    if(!this.safe.isEncryptionAvailable())throw new Error(process.platform==='linux'?'No system keyring (Secret Service, e.g. GNOME Keyring or KWallet) is available to encrypt the key; it was not saved.':process.platform==='darwin'?'This Mac cannot encrypt the key right now; it was not saved.':'This computer cannot encrypt the key right now; it was not saved.');
     const data=this.read();data[name]=this.safe.encryptString(value).toString('base64');this.write(data);
   }
   clear(name){const data=this.read();delete data[name];this.write(data);}

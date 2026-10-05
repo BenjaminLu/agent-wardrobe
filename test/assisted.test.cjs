@@ -47,11 +47,11 @@ test('zip: size limits, including a deflate stream bigger than it claims',t=>{
   assert.throws(()=>archive.unpack(zip,path.join(dir,'o4')),e=>e.code==='ZIP_PASSWORD');
 });
 
-test('single files are used as they are; 7z / rar go through bsdtar, which drops links',{skip:!fs.existsSync('/usr/bin/tar')},t=>{
+test('single files are used as they are; 7z / rar go through bsdtar, which drops links',{skip:process.platform==='win32'||!require('../platform.cjs').bsdtar()},t=>{
   const dir=temp(t),vrm=path.join(dir,'download.vrm');fs.copyFileSync(SAMPLE_VRM,vrm);
   assert.equal(archive.unpack(vrm,path.join(dir,'single'),{name:'ずんだもん.vrm'}).kind,'file');assert.ok(fs.existsSync(path.join(dir,'single','ずんだもん.vrm')));
   const src=path.join(dir,'src');write(path.join(src,'readme.txt'),'hello');fs.symlinkSync('/etc/passwd',path.join(src,'link'));
-  const tarFile=path.join(dir,'a.tar');assert.equal(spawnSync('/usr/bin/tar',['-cf',tarFile,'-C',src,'.']).status,0);
+  const tarFile=path.join(dir,'a.tar');assert.equal(spawnSync(require('../platform.cjs').tarCommand(),['-cf',tarFile,'-C',src,'.']).status,0);
   const out=path.join(dir,'untar');fs.mkdirSync(out);const result=archive.untar(tarFile,out);
   assert.ok(fs.existsSync(path.join(out,'readme.txt')));assert.ok(!fs.existsSync(path.join(out,'link')));assert.ok(result.skipped.some(s=>s.endsWith('link')));
   assert.throws(()=>archive.untar(tarFile,path.join(dir,'small'),{limit:2}),e=>e.code==='TOO_BIG');

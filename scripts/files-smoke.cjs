@@ -7,7 +7,13 @@ async function run({win,outputs,openFiles,getFilesWindow}){
   const where=()=>win.webContents.executeJavaScript(`JSON.stringify(document.querySelector('#files').getBoundingClientRect())`);let last='';await wait(async()=>{await new Promise(r=>setTimeout(r,250));const now=await where();const same=now===last;last=now;return same;});
   const point=await win.webContents.executeJavaScript(`(()=>{const r=document.querySelector('#files').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),right:r.right,width:innerWidth};})()`);assert.ok(point.right<=point.width,'folder button fits avatar window');
   win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,x:point.x,y:point.y});win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,x:point.x,y:point.y});
-  await wait(()=>getFilesWindow()?.isVisible());const files=getFilesWindow();await wait(()=>files.webContents.executeJavaScript('document.querySelectorAll(".task").length>0'));
+  try{await wait(()=>getFilesWindow()?.isVisible());}
+  catch(error){const at=await win.webContents.executeJavaScript(`(()=>{const e=document.elementFromPoint(${point.x},${point.y});return e?(e.id||e.className||e.tagName):'nothing';})()`).catch(()=>'?');
+    throw new Error(`${error.message}: click at ${point.x},${point.y} hit ${at}; files window ${getFilesWindow()?(getFilesWindow().isVisible()?'visible':'hidden'):'not created'}`);}
+  const files=getFilesWindow();
+  try{await wait(()=>files.webContents.executeJavaScript('document.querySelectorAll(".task").length>0'));}
+  catch(error){const seen=await files.webContents.executeJavaScript(`JSON.stringify({notice:document.querySelector('#notice')?.textContent,results:document.querySelector('#results')?.textContent?.slice(0,200),url:location.href})`).catch(e=>e.message);
+    throw new Error(`${error.message}: files window shows ${seen}; store root ${outputs.root}, items ${JSON.stringify(outputs.list('').map(t=>t.title))}`);}
   assert.ok(files.webContents.getURL().startsWith('file:'));assert.equal(files.webContents.getLastWebPreferences().nodeIntegration,false);assert.equal(files.webContents.getLastWebPreferences().sandbox,true);
   await files.webContents.executeJavaScript(`document.querySelector('#search').value='入口測試.txt';document.querySelector('#search').dispatchEvent(new Event('input'));`);await wait(()=>files.webContents.executeJavaScript('document.querySelectorAll(".task").length===1'));
   assert.ok(await files.webContents.executeJavaScript('document.querySelector(".file-name").textContent.includes("入口測試.txt")'));

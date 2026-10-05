@@ -11,7 +11,7 @@ test('API keys are stored encrypted, owner-only, and can be removed',()=>{
   secrets.set('openai','sk-test-1234567890abcdefghij');
   assert.equal(secrets.get('openai'),'sk-test-1234567890abcdefghij');
   const raw=fs.readFileSync(file,'utf8');assert.ok(!raw.includes('sk-test'),'key is not written in plain text');
-  assert.equal(fs.statSync(file).mode&0o777,0o600);
+  if(process.platform!=='win32')assert.equal(fs.statSync(file).mode&0o777,0o600);
   assert.equal(new Secrets(file,fakeSafe).get('openai'),'sk-test-1234567890abcdefghij','survives restart');
   secrets.clear('openai');assert.equal(secrets.has('openai'),false);
 });

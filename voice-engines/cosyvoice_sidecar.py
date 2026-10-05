@@ -1,6 +1,7 @@
 # CosyVoice sidecar for Agent Wardrobe: zero-shot voice cloning from a short reference clip.
 # Speaks the stdio protocol in voice-engines/sidecar.cjs ("@voice {json}" lines). No network listener.
 # Usage: python cosyvoice_sidecar.py --src <CosyVoice source> --model <model folder>
+# CosyVoice runs on CUDA by itself when PyTorch sees an NVIDIA GPU (Windows / Linux with the CUDA build); otherwise on the CPU.
 import argparse, hashlib, json, os, queue, sys, threading, time
 
 def emit(message):
@@ -95,7 +96,7 @@ def speak(message):
     return {'id': request_id, 'ok': True, 'out': message['out'], 'sampleRate': model.sample_rate, 'seconds': round(seconds, 2), 'took': round(time.time() - began, 2)}
 
 threading.Thread(target=reader, daemon=True).start()
-emit({'ready': True, 'device': 'cpu', 'sampleRate': model.sample_rate, 'version': 3 if version3 else 2, 'loadSeconds': round(time.time() - started, 1), 'torch': torch.__version__, 'textFrontend': model.frontend.text_frontend or 'none'})
+emit({'ready': True, 'device': 'cuda' if torch.cuda.is_available() else 'cpu', 'sampleRate': model.sample_rate, 'version': 3 if version3 else 2, 'loadSeconds': round(time.time() - started, 1), 'torch': torch.__version__, 'textFrontend': model.frontend.text_frontend or 'none'})
 while True:
     message = inbox.get()
     op = message.get('op')

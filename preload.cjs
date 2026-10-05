@@ -97,6 +97,16 @@ contextBridge.exposeInMainWorld('bula', {
   quit: () => ipcRenderer.invoke('bula:quit'),
   hide: () => ipcRenderer.invoke('bula:hide'),
   onSpeaking: callback => ipcRenderer.on('bula:speaking', (_event, on) => callback(on)),
+  // spoken audio plays in this page (renderer.js); main waits for audioDone
+  onAudioPlay: callback => ipcRenderer.on('bula:audio-play', (_event, clip) => callback(clip)),
+  onAudioStop: callback => ipcRenderer.on('bula:audio-stop', (_event, id) => callback(id)),
+  audioDone: (id, error) => ipcRenderer.invoke('bula:audio-done', id, error),
+  platform: process.platform,
+  // spoken audio plays in this page (renderer.js); main waits for audioDone
+  onAudioPlay: callback => ipcRenderer.on('bula:audio-play', (_event, clip) => callback(clip)),
+  onAudioStop: callback => ipcRenderer.on('bula:audio-stop', (_event, id) => callback(id)),
+  audioDone: (id, error) => ipcRenderer.invoke('bula:audio-done', id, error),
+  platform: process.platform,
   onStreaming: callback => ipcRenderer.on('bula:streaming', (_event, on) => callback(on)),
   onNotice: callback => ipcRenderer.on('bula:notice', (_event, text) => callback(text))
 });

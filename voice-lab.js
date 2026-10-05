@@ -169,3 +169,10 @@ $('save').onclick=async()=>{
 $('finish-back').onclick=()=>{location.reload();};
 window.addEventListener('beforeunload',()=>{cleanupMic();for(const u of urls)URL.revokeObjectURL(u);});
 init().catch(fail);
+// Imported audio on Windows and Linux: Chromium decodes it (wav, mp3, m4a, flac, ogg…) at the rate main asks for; channels are averaged to mono.
+window.voiceLab.onDecode(async({id,data,rate})=>{
+  try{const buffer=await new OfflineAudioContext(1,1,rate).decodeAudioData(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));
+    const mono=new Float32Array(buffer.length);for(let c=0;c<buffer.numberOfChannels;c++){const ch=buffer.getChannelData(c);for(let i=0;i<ch.length;i++)mono[i]+=ch[i]/buffer.numberOfChannels;}
+    await window.voiceLab.decoded(id,{samples:mono});}
+  catch(error){await window.voiceLab.decoded(id,{error:String(error?.message||error)});}
+});

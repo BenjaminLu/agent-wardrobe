@@ -1,6 +1,6 @@
 // Codex draws a brand-new character from a photo, as SVG parts in Annie's style that obey the face contract,
 // then compares a render of its drawing with the photo and revises. Uses the user's own Codex sign-in.
-const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {spawn}=require('node:child_process');
+const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {launch}=require('./platform.cjs');
 
 const SCHEMA={type:'object',additionalProperties:false,required:['gender','summary','palette','rig','face','outfit','mouth'],properties:{
   gender:{type:'string',enum:['male','female','neutral']},
@@ -44,7 +44,7 @@ ${JSON.stringify({rig:annie.rig,face:annie.face,mouth:annie.mouth,outfitExample:
 
 Reply with JSON only, matching the given schema.`;}
 
-const binary=()=>[process.env.CODEX_BIN,'/opt/homebrew/bin/codex','/usr/local/bin/codex',path.join(os.homedir(),'.local','bin','codex')].find(p=>p&&fs.existsSync(p));
+const binary=()=>[process.env.CODEX_BIN].find(p=>p&&fs.existsSync(p))||require('./cli.cjs').binary('codex');
 // schema: the JSON shape Codex must answer in (the character drawing by default); words: the messages for a timeout / no answer / bad JSON
 const DRAW_WORDS={slow:'Codex 畫太久了，請再試一次。',none:'Codex 沒有畫出結果',bad:'Codex 回傳的不是完整的角色資料，請再試一次。'};
 function runCodex({prompt,images=[],dir,schema=SCHEMA,words=DRAW_WORDS,timeoutMs=8*60*1000,onEvent=()=>{}}){
@@ -52,7 +52,7 @@ function runCodex({prompt,images=[],dir,schema=SCHEMA,words=DRAW_WORDS,timeoutMs
     const bin=binary();if(!bin)return reject(new Error('找不到 Codex：請先在「設定 → AI 大腦」安裝並登入 Codex。'));
     const schemaFile=path.join(dir,'schema.json');fs.writeFileSync(schemaFile,JSON.stringify(schema));
     const args=['exec','--ephemeral','--skip-git-repo-check','-s','read-only','-C',dir,'--output-schema',schemaFile,'--json',...images.flatMap(i=>['-i',i]),'-'];
-    const child=spawn(bin,args,{stdio:['pipe','pipe','pipe']});let buffer='',last=null,err='';
+    const child=launch(bin,args,{stdio:['pipe','pipe','pipe'],windowsHide:true});let buffer='',last=null,err='';
     const timer=setTimeout(()=>{child.kill();reject(new Error(words.slow));},timeoutMs);
     child.stdout.on('data',data=>{buffer+=data;let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+1);let event;try{event=JSON.parse(line);}catch{continue;}
       onEvent(event);if(event.type==='item.completed'&&event.item?.type==='agent_message')last=event.item.text;}});

@@ -6,8 +6,12 @@ on:
     paths-ignore: ['**.md', 'LICENSE*', 'NOTICE']
 jobs:
   test:
-    # Apple Silicon runner: the app targets macOS and ships arm64 native speech libraries.
-    runs-on: macos-14
+    # macOS on Apple Silicon (the main target), Windows and Linux on x64.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -16,15 +20,30 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Linux packages (virtual display, Electron's libraries)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm1 libnss3 libgtk-3-0 libxss1 libasound2t64 libarchive-tools espeak-ng gnome-keyring dbus-x11
+          # Ubuntu 24.04 blocks the unprivileged user namespaces Chromium's sandbox uses
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: npm ci
+      - name: Native speech libraries resolve on this platform
+        run: node -e "require('sherpa-onnx-node');console.log('sherpa-onnx-node', process.platform, process.arch, 'ok')"
       - name: Unit tests
         run: npm test
       - name: Electron smoke tests (offline set)
+        if: runner.os != 'Linux'
         run: npm run smoke
+      - name: Electron smoke tests (offline set, virtual display)
+        if: runner.os == 'Linux'
+        # a session bus with an unlocked GNOME Keyring, so API keys can be stored encrypted as on a desktop
+        run: dbus-run-session -- bash -c 'echo -n ci | gnome-keyring-daemon --unlock --components=secrets >/dev/null && xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run smoke'
       - name: Smoke evidence
         if: always()
+        continue-on-error: true  # screenshots are a convenience: an upload hiccup must not fail the tests
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-evidence
+          name: smoke-evidence-${{ matrix.os }}
           path: evidence/*.png
           if-no-files-found: ignore

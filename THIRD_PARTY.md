@@ -53,16 +53,25 @@ Third-party characters (VTubers, anime and game characters, VRoid Hub and Booth 
 | **Kokoro-82M** voices (sherpa-onnx export `csukuangfj/kokoro-multi-lang-v1_0`) | Hugging Face | Apache-2.0 (hexgrad/Kokoro-82M) |
 | **SenseVoice Small** speech recognition (sherpa-onnx int8 export) | Hugging Face | FunASR Model License (<https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE>) |
 | Silero VAD (`silero_vad.onnx`) | sherpa-onnx releases | MIT |
-| **llama.cpp** server (`llama-b11378-bin-macos-arm64`) | GitHub releases, ggml-org | MIT |
+| **llama.cpp** server b11378 (`llama-b11378-bin-macos-arm64` / `-macos-x64`, `-win-vulkan-x64` / `-win-cpu-x64` / `-win-cpu-arm64`, `-ubuntu-vulkan-x64` / `-ubuntu-x64` / `-ubuntu-arm64`) | GitHub releases, ggml-org | MIT |
 | **Qwen 3.5 / 3.6** weights (GGUF quantizations by unsloth) | Hugging Face | Apache-2.0 |
-| **VOICEVOX** engine 0.25.2 | GitHub releases, VOICEVOX | Engine: LGPL-3.0 or a separate licence (dual-licensed). Every VOICEVOX voice character has its own terms of use, which require credit such as 「VOICEVOX:四国めたん」. The app saves those terms with the voice. |
+| **VOICEVOX** engine 0.25.2 (macOS, Windows CPU / NVIDIA, Linux CPU / NVIDIA builds) | GitHub releases, VOICEVOX | Engine: LGPL-3.0 or a separate licence (dual-licensed). Every VOICEVOX voice character has its own terms of use, which require credit such as 「VOICEVOX:四国めたん」. The app saves those terms with the voice. |
 | **CosyVoice** (FunAudioLLM) code, CosyVoice2-0.5B and Fun-CosyVoice3-0.5B weights | GitHub, Hugging Face / ModelScope | Apache-2.0 |
 | Matcha-TTS (CosyVoice dependency) | GitHub | MIT |
 | wetext text-normalization files (pengzhendong/wetext) | ModelScope | as published on ModelScope |
 | **GPT-SoVITS** (RVC-Boss) code and pretrained weights (`lj1995/GPT-SoVITS`, `XXXXRT/GPT-SoVITS-Pretrained`) | GitHub, Hugging Face | MIT |
-| uv (Python environment for the voice engines) | GitHub releases, Astral | MIT or Apache-2.0 |
+| uv 0.12.23 (Python environment for the voice engines; per platform) | GitHub releases, Astral | MIT or Apache-2.0 |
+| PyTorch CUDA / CPU wheels (Windows and Linux voice engines) | download.pytorch.org | BSD-3-Clause (NVIDIA CUDA libraries in the CUDA wheels under NVIDIA's own licence) |
 | **Laya** decision model (`laya==0.3.26`, `npm run laya:setup`) | PyPI and its weights host | Apache-2.0 |
 | Community voice and character models, VRM / Live2D / MMD avatars from the store | VRoid Hub, Open Source Avatars, Sketchfab, Booth, official character sites | Each item's own terms, shown in the store before download |
+
+## Used from the operating system (never bundled)
+
+| What | Where |
+| --- | --- |
+| macOS `say`, `afconvert`, `textutil`, `ditto`, Spotlight (`mdls`) | macOS |
+| SAPI voices through PowerShell's System.Speech, `tar.exe` (bsdtar) | Windows |
+| `espeak-ng` / `spd-say`, `bsdtar` (libarchive-tools), a terminal emulator | Linux, if installed |
 
 ## Online services (used only when the user turns them on)
 

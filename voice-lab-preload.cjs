@@ -20,5 +20,8 @@ contextBridge.exposeInMainWorld('voiceLab',{
   clearElevenKey:()=>ipcRenderer.invoke('voicelab:eleven-key-clear'),
   close:()=>ipcRenderer.invoke('voicelab:close'),
   onInstallProgress:callback=>ipcRenderer.on('voicelab:install-progress',(_event,value)=>callback(value)),
-  onJob:callback=>ipcRenderer.on('voicelab:job',(_event,value)=>callback(value))
+  onJob:callback=>ipcRenderer.on('voicelab:job',(_event,value)=>callback(value)),
+  // Windows / Linux: imported audio is decoded in this page (WebAudio) and handed back as samples
+  onDecode:callback=>ipcRenderer.on('voicelab:decode',(_event,value)=>callback(value)),
+  decoded:(id,result)=>ipcRenderer.invoke('voicelab:decoded',id,result)
 });

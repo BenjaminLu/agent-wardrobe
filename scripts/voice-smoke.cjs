@@ -1,9 +1,10 @@
-const assert=require('node:assert/strict');const http=require('node:http');const {execFileSync}=require('node:child_process');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const assert=require('node:assert/strict');const http=require('node:http');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 // AI voice end to end against a local stand-in for OpenAI: key guide, verify + encrypted save, playback with lip-sync, clear.
 async function run({win,runtime}){
   const js=code=>win.webContents.executeJavaScript(code);
   const wait=async(fn,timeout=15000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Voice smoke timed out');await new Promise(r=>setTimeout(r,80));}};
-  const audioFile=path.join(os.tmpdir(),`voice-smoke-${process.pid}.aiff`);execFileSync('/usr/bin/say',['-o',audioFile,'hi']);const audio=fs.readFileSync(audioFile);
+  // half a second of tone as the stand-in's "mp3" (the in-app player sniffs the format, like Chromium does)
+  const audio=require('../kokoro.cjs').wav(Float32Array.from({length:12000},(_,i)=>Math.sin(i/24000*2*Math.PI*440)*.2),24000);
   const key='sk-test-voice-smoke-0123456789abcdef',seen=[];
   const server=http.createServer(async(req,res)=>{let body='';for await(const c of req)body+=c;seen.push({url:req.url,auth:req.headers.authorization,body:body&&JSON.parse(body)});
     if(req.headers.authorization!==`Bearer ${key}`){res.writeHead(401);res.end('{"error":{"message":"bad"}}');return;}
@@ -39,6 +40,6 @@ async function run({win,runtime}){
     const before=seen.length;await js(`window.bula.speak('嗨，這是語音測試。');true`);
     await wait(()=>js(`document.querySelector('#conversation').innerText.includes('尚未設定 OpenAI API key')`));assert.equal(seen.length,before,'no request without a key');
     console.log('VOICE_SMOKE',JSON.stringify({voices:13,badKeysRejected:true,keyVerifiedAndEncrypted:true,voiceUsed:'cedar',lipSync:true,clearStopsAIVoice:true}));
-  }finally{server.closeAllConnections();server.close();fs.rmSync(audioFile,{force:true});await js(`window.bula.saveSettings({provider:'codex',base:'http://127.0.0.1:1234/v1',model:'',voiceProvider:'system'})`).catch(()=>{});}
+  }finally{server.closeAllConnections();server.close();await js(`window.bula.saveSettings({provider:'codex',base:'http://127.0.0.1:1234/v1',model:'',voiceProvider:'system'})`).catch(()=>{});}
 }
 module.exports={run};

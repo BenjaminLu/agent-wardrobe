@@ -37,7 +37,7 @@ async function run({win,openVoiceLab,getVoiceLab,voices,startRemote,getSettings,
   await wait(()=>l(`document.querySelectorAll('#takes li').length===1`),10000,'take listed');
   assert.equal(await l(`document.querySelector('#mic-on').hidden`),true,'mic indicator off after stop');
   const take=await l(`document.querySelector('#takes li .q').textContent`);assert.match(take,/音質沒問題|!/);assert.doesNotMatch(take,/✗/,`take passes: ${take}`);
-  const draftDir=getVoiceLab().draft.temp.dir;assert.equal(fs.statSync(draftDir).mode&0o777,0o700,'raw audio folder is private');
+  const draftDir=getVoiceLab().draft.temp.dir;if(process.platform!=='win32')assert.equal(fs.statSync(draftDir).mode&0o777,0o700,'raw audio folder is private');  // Windows: the folder is in the user's own profile; there are no POSIX modes
   assert.ok(fs.readdirSync(draftDir).some(n=>n.startsWith('take-')),'the take waits in the private temp folder');
   await l(`document.querySelector('#create').click();true`);await wait(()=>l(`document.body.dataset.step==="finish"`),20000,'voice made');
   assert.match(await l(`document.querySelector('#kept').textContent`),/原始錄音會在儲存.*刪除/);

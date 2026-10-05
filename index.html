@@ -62,7 +62,7 @@
         <div class="voice-row"><button id="agent-console">詳細紀錄 ↗</button></div>
         <p>CLI 使用既有登入與方案額度。聊天送往所選服務；本機模式送至你的電腦。</p>
         <p id="operation-help">操作使用所選大腦。Claude 接官方工具；Codex／LM Studio 使用 App 瀏覽器與原生電腦工具。LM Studio 請載入支援 tools 的模型；電腦操作另需支援影像。</p>
-        <div id="operation-permissions"><button data-permission="screen">螢幕錄製權限</button><button data-permission="accessibility">輔助使用權限</button></div>
+        <div id="operation-permissions" data-mac-only><button data-permission="screen">螢幕錄製權限</button><button data-permission="accessibility">輔助使用權限</button></div>
         <button id="official-setup">Claude 官方操作設定</button>
       </section>
       <section class="pane" data-pane="voice" hidden><h3 class="pane-title">語音・聲音</h3>
@@ -143,7 +143,7 @@
           <label class="check"><input type="checkbox" id="wake-enabled"> 語音喚醒：說喚醒詞就開始聊天</label>
           <div class="voice-row"><span id="wake-listening">麥克風</span><meter id="mic-level" min="0" max="0.5" low="0.02" high="0.3" optimum="0.1" value="0"></meter></div>
           <label>喚醒詞（可用逗號設定多個，中英文皆可）<input id="wake-phrases" maxlength="200" placeholder="嘿安妮, Hey Annie"></label>
-          <label>叫醒後的語音辨識<select id="dictation-engine"><option value="local">本機（SenseVoice，離線）</option><option value="typeless">Typeless（較準，用你的 Typeless 帳號）</option></select></label><p id="typeless-note" class="voice-note" hidden></p>
+          <label>叫醒後的語音辨識<select id="dictation-engine"><option value="local">本機（SenseVoice，離線）</option><option value="typeless" data-mac-only>Typeless（較準，用你的 Typeless 帳號）</option></select></label><p id="typeless-note" class="voice-note" hidden></p>
           <label>靈敏度<select id="wake-sensitivity"><option value="high">高（比較好叫醒，偶爾誤觸）</option><option value="normal">一般（較少誤觸）</option></select></label>
           <div class="voice-row"><span id="asr-status"></span><button type="button" id="asr-install">下載語音辨識模型（約 240 MB）</button></div>
           <progress id="asr-progress" max="1" value="0" hidden></progress>
@@ -186,4 +186,4 @@
   <button id="stop-speech" type="button" hidden title="停止朗讀（Esc）">⏹ 停止朗讀</button>
   <nav id="toolbar"><span id="mic-indicator" hidden title="語音喚醒開啟中"></span><button id="wardrobe" title="角色與服裝（⌘⇧S）">◈ Skin</button><button id="files" title="角色文件（⌘⇧O）" aria-label="角色文件">📁</button></nav>
   <button id="emergency-stop" title="停止任務（⌘⇧X）" aria-label="停止任務"><span aria-hidden="true"></span>停止</button>
-</main><script src="locale.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>
+</main><script src="platform-text.js"></script><script src="locale.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>

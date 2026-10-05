@@ -2,11 +2,11 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const os=
 // The phone's Characters tab: change skin, make "my version" of Annie with Codex, add a 3D avatar from the open library,
 // have a library picture redrawn, and make a character from a phone photo. Stand-in Codex and fixture library data.
 async function run({win,startRemote,runtime}){
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'remote-chars-')),fake=path.join(dir,'fake-codex.cjs'),bin=path.join(dir,'codex');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'remote-chars-')),fake=path.join(dir,'fake-codex.cjs');
   const annie=JSON.parse(fs.readFileSync(path.join(__dirname,'..','mods','annie','parts.json'),'utf8'));
   const drawing={gender:'neutral',summary:'手機畫的角色',palette:{body:'#e58fb0',bodyLight:'#f6c6d6',belly:'#ffffff',accent:'#a3416a',ink:'#2a2a33',cheek:'#f4a9a3'},rig:annie.rig,face:annie.face,outfit:{svg:annie.accessories['lace-collar'].svg,hide:[]},mouth:annie.mouth};
   fs.writeFileSync(fake,`let p='';process.stdin.on('data',d=>p+=d).on('end',()=>{const d=${JSON.stringify(drawing)};if(p.includes('粉紅'))d.summary='粉紅版';console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify(d)}}));});`);
-  fs.writeFileSync(bin,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}" "$@"\n`,{mode:0o755});process.env.CODEX_BIN=bin;
+  process.env.CODEX_BIN=require('./fake-bin.cjs').fakeBin(dir,'codex',fake);
   const js=code=>win.webContents.executeJavaScript(code);
   const wait=async(fn,timeout=30000,label='')=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Remote characters smoke timed out '+label);await new Promise(r=>setTimeout(r,150));}};
   await startRemote();const info=await js(`window.bula.remotePair()`);

@@ -3,11 +3,11 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const os=
 // Decisions come from a stand-in sidecar unless GAME_SMOKE_REAL=1 uses Laya from .laya/venv.
 async function run({gameService,win:companion}){
   if(!process.env.GAME_SMOKE_REAL){
-    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pika-smoke-')),fake=path.join(dir,'fake-laya.cjs'),python=path.join(dir,'python');
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pika-smoke-')),fake=path.join(dir,'fake-laya.cjs');
     fs.writeFileSync(fake,`const rl=require('readline').createInterface({input:process.stdin});console.log('@laya '+JSON.stringify({ready:true,device:'stand-in'}));
 rl.on('line',line=>{const r=JSON.parse(line),go=r.state.includes('to the left')?'left':r.state.includes('to the right')?'right':'here',near=r.state.includes('close above');
 console.log('@laya '+JSON.stringify({id:r.id,answers:{go:{type:'choice',choice:go,probabilities:{left:go==='left'?.8:.1,here:go==='here'?.8:.1,right:go==='right'?.8:.1}},jump:{type:'noul',noul:near?.8:.1}},ms:1}));});`);
-    fs.writeFileSync(python,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}"\n`,{mode:0o755});process.env.LAYA_PYTHON=python;
+    process.env.LAYA_PYTHON=require('./fake-bin.cjs').fakeBin(dir,'python',fake);
   }
   const wait=async(fn,timeout=60000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Pikachu smoke timed out');await new Promise(r=>setTimeout(r,250));}};
   await companion.webContents.executeJavaScript(`window.bula.openGame('laya','pikachu')`);

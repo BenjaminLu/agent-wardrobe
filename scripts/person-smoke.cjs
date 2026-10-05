@@ -2,14 +2,14 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const os=
 // Photo → Codex draws (a stand-in codex binary returns a fixed drawing) → revise → save a private character → it is worn → delete.
 // Checks that the photo reaches Codex as a file that is deleted afterwards and is never kept with the character.
 async function run({win,personService,runtime,openWardrobe,getMarket}){
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'person-smoke-')),log=path.join(dir,'calls.jsonl'),fake=path.join(dir,'fake-codex.cjs'),bin=path.join(dir,'codex');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'person-smoke-')),log=path.join(dir,'calls.jsonl'),fake=path.join(dir,'fake-codex.cjs');
   const annie=JSON.parse(fs.readFileSync(path.join(__dirname,'..','mods','annie','parts.json'),'utf8'));
   const drawing={gender:'male',summary:'戴眼鏡、短髮的上班族男生',palette:{body:'#273d6b',bodyLight:'#5b7fc0',belly:'#ffffff',accent:'#1b2a4a',ink:'#2a2a33',cheek:'#f4a9a3'},rig:annie.rig,face:annie.face,outfit:{svg:annie.accessories['lace-collar'].svg,hide:[]},mouth:annie.mouth};
   fs.writeFileSync(fake,`const fs=require('fs');const args=process.argv.slice(2);let prompt='';process.stdin.on('data',d=>prompt+=d).on('end',()=>{
 const images=args.flatMap((a,i)=>a==='-i'?[args[i+1]]:[]);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({images,exist:images.map(f=>fs.existsSync(f)),revise:prompt.includes('The user asks for this change'),character:prompt.includes('existing app character')})+'\\n');
 const d=${JSON.stringify(drawing)};if(prompt.includes('頭髮再短'))d.summary='短髮版';if(prompt.includes('改成紅色上衣'))d.summary='紅衣版';
 console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify(d)}}));});`);
-  fs.writeFileSync(bin,`#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "${fake}" "$@"\n`,{mode:0o755});process.env.CODEX_BIN=bin;
+  process.env.CODEX_BIN=require('./fake-bin.cjs').fakeBin(dir,'codex',fake);
   const js=code=>win.webContents.executeJavaScript(code);
   const wait=async(fn,timeout=30000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Person smoke timed out');await new Promise(r=>setTimeout(r,150));}};
   await js(`window.bula.personOpen()`);await wait(()=>Boolean(personService.getWindow()));const pw=personService.getWindow();

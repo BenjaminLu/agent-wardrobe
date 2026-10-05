@@ -1,6 +1,7 @@
 // Phone remote: a small HTTPS-fronted web app for chatting with the character from a phone.
 // The server listens on 127.0.0.1 only; Tailscale Serve publishes it inside the user's tailnet (never the internet).
 // A phone pairs once with a 6-digit code shown on the Mac and then uses its own device token; devices can be revoked.
+const {ON_HERE}=require('./platform.cjs');
 const http=require('node:http');const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 
 const hash=token=>crypto.createHash('sha256').update(token).digest('hex');
@@ -11,8 +12,8 @@ class DeviceStore{
   // A pairing code lives five minutes and allows five tries.
   newCode(){this.code={value:String(crypto.randomInt(0,1e6)).padStart(6,'0'),expires:this.now()+5*60*1000};this.attempts=0;return this.code;}
   pair(code,name='Phone'){
-    if(!this.code||this.now()>this.code.expires)throw Object.assign(new Error('配對碼已過期，請在 Mac 上重新產生。'),{status:410});
-    if(++this.attempts>5){this.code=null;throw Object.assign(new Error('嘗試太多次，請在 Mac 上重新產生配對碼。'),{status:429});}
+    if(!this.code||this.now()>this.code.expires)throw Object.assign(new Error(`配對碼已過期，請在${ON_HERE}重新產生。`),{status:410});
+    if(++this.attempts>5){this.code=null;throw Object.assign(new Error(`嘗試太多次，請在${ON_HERE}重新產生配對碼。`),{status:429});}
     const a=Buffer.from(String(code)),b=Buffer.from(this.code.value);
     if(a.length!==b.length||!crypto.timingSafeEqual(a,b))throw Object.assign(new Error('配對碼不對。'),{status:401});
     this.code=null;const token=crypto.randomBytes(32).toString('hex'),data=this.read();

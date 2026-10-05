@@ -5,7 +5,7 @@ test('conversation survives process restart, shares brains, stores progress and 
   store.append('user','找冰箱，寬度不能超過70公分',{provider:'claude'});store.append('assistant','日系冰箱候選型號尺寸：寬68.5公分。',{provider:'claude',taskId:'task',id:'task:message',kind:'progress'});
   store.append('assistant','日系冰箱候選型號尺寸：寬68.5公分、深65公分。',{provider:'claude',taskId:'task',id:'task:message',kind:'progress'});
   for(let i=0;i<30;i++)store.append('user','無關話題'+i,{provider:'codex'});
-  const restored=new ConversationStore(file);assert.equal(restored.snapshot().length,32);assert.ok(restored.context('上次的冰箱尺寸').some(m=>m.content.includes('深65公分')));assert.ok(restored.context('冰箱').some(m=>m.content.includes('70公分')));assert.ok(restored.context('冰箱').length<=19);assert.equal(fs.statSync(file).mode&0o777,0o600);
+  const restored=new ConversationStore(file);assert.equal(restored.snapshot().length,32);assert.ok(restored.context('上次的冰箱尺寸').some(m=>m.content.includes('深65公分')));assert.ok(restored.context('冰箱').some(m=>m.content.includes('70公分')));assert.ok(restored.context('冰箱').length<=19);if(process.platform!=='win32')assert.equal(fs.statSync(file).mode&0o777,0o600);
   restored.finishTask('task','日系冰箱候選型號尺寸：寬68.5公分、深65公分。','claude','result');assert.equal(restored.snapshot().filter(m=>m.content.includes('深65公分')).length,1);
 }));
 test('legacy import is scoped to owned workspace and human text, and clear cannot resurrect old sessions',()=>fixture(root=>{
