@@ -79,6 +79,14 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
     'POST /api/stop-speech':()=>{speech.stop();return {stopped:true};},
     'POST /api/voices/bind':async({body})=>{await bind(body.id==null?null:String(body.id));return routes['GET /api/voices']();},
     // where: 'phone' returns the audio for the phone to play; 'mac' plays it on the Mac
+    // The phone reads a reply aloud in the worn character's own voice: one sentence per call, synthesized on the Mac.
+    // Without an own voice the phone uses its built-in speech instead ({voice:null}).
+    'POST /api/voices/say':async({body})=>{
+      const id=boundProfile(bindings(),worn(),voices);if(!id)return {voice:null};
+      const text=String(body.text||'').trim().slice(0,400);if(!text)throw new Error('沒有要念的文字。');
+      const out=await voices.speak(id,text);if(out.audio.length>6*1024*1024)throw new Error('這句太長了。');
+      return {voice:id,mime:out.mime,audio:out.audio.toString('base64')};
+    },
     'POST /api/voices/preview':async({body})=>{
       const p=voices.get(String(body.id||''));if(!p)throw new Error('找不到這個聲音。');
       const name=getRuntime()?.snapshot().mod.name||'Annie',text=p.engine==='voicevox'?`こんにちは、${name}です！`:`嗨，我是 ${name}！這是我的聲音。`;

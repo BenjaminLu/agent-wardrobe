@@ -75,7 +75,7 @@ async function run({win,runtime,voiceService,startRemote}){
   try{
     await phone.loadURL(info.link);const p=code=>phone.webContents.executeJavaScript(code);
     await wait(()=>p(`!document.querySelector('#app').hidden&&document.querySelector('#link').classList.contains('on')`),20000,'pair');
-    await p(`window.played=[];HTMLMediaElement.prototype.play=function(){window.played.push(this.src);return Promise.resolve();};document.querySelector('#tabs [data-tab=settings]').click();true`);
+    await p(`window.played=[];HTMLMediaElement.prototype.play=function(){window.played.push(this.src);setTimeout(()=>this.onended?.(),20);return Promise.resolve();};document.querySelector('#tabs [data-tab=settings]').click();true`);
     await wait(()=>p(`document.querySelectorAll('#v-list .voice').length===3&&document.querySelectorAll('#v-list .voice.on').length===1`),10000,'phone list');
     const n2=calls.length;await p(`[...document.querySelectorAll('#v-list .voice.on button')].find(b=>b.textContent.includes('手機')).click();true`);
     await wait(()=>p(`window.played.length===1&&window.played[0].startsWith('blob:')`),10000,'phone preview');assert.equal(calls.length,n2+1);
@@ -83,6 +83,11 @@ async function run({win,runtime,voiceService,startRemote}){
     assert.equal((await js(`window.bula.voices()`)).bound,null);
     await p(`document.querySelector('#v-list .voice[data-id="${id}"] button.bind').click();true`);await wait(()=>p(`document.querySelector('#v-list .voice[data-id="${id}"]').classList.contains('on')`),10000,'phone bind');
     assert.equal((await js(`window.bula.voices()`)).bound,id);
+    // with 🔊 on, the phone reads a reply in Annie's own voice: each sentence made on the Mac and played on the phone
+    const n3=calls.length,p3=await p(`window.played.length`);
+    await p(`document.querySelector('#voice').click();say('嗨。今天想做什麼呢？');true`);
+    await wait(()=>p(`window.played.filter(u=>u.startsWith('blob:')).length>=${p3+2}`),15000,'phone reads in own voice');
+    assert.deepEqual(calls.slice(n3).map(c=>c.text),['好，我會念出來。','嗨。','今天想做什麼呢？'],'the 🔊 confirmation and then the reply, sentence by sentence, through the bound voice');
   }finally{phone.destroy();}
   console.log('VOICES_SMOKE',JSON.stringify({presets:5,preview:true,boundTo:'annie',replySentences:2,fallback:'system',packRoundTrip:true,clonedExportRefused:true,phone:true}));
   await js(`window.bula.saveSettings({provider:'codex',base:'http://127.0.0.1:1234/v1',model:'',voiceProvider:'system'})`).catch(()=>{});

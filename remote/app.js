@@ -22,7 +22,26 @@ function linkify(el,text){
 }
 function line(text,role='assistant'){const el=document.createElement('div');el.className=`msg ${role}`;linkify(el,text);$('log').append(el);$('log').scrollTop=$('log').scrollHeight;return el;}
 // The phone reads replies aloud itself, so nothing plays out loud at home.
-function say(text){if(!speakReplies||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(text);u.lang=/[぀-ヿ]/.test(text)?'ja-JP':/[一-鿿]/.test(text)?'zh-TW':'en-US';speechSynthesis.cancel();speechSynthesis.speak(u);}
+// Replies are read aloud on the phone in the character's own voice (synthesized on the Mac, sentence by sentence, the next one
+// prepared while the current one plays); without an own voice, the phone's built-in speech is used.
+// one audio element, unlocked by the 🔊 tap: iOS only lets an element play later if it first played inside a tap
+const sayEl=new Audio();let sayRun=0,sayAudio=null;
+const sentencesOf=text=>String(text).replace(/\s*\n\s*/g,'\n').replace(/([.!?])\s+/g,'$1\n').replace(/([。！？；])/g,'$1\n').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,30);
+function stopSaying(){sayRun++;if(sayAudio){sayAudio.pause();sayAudio=null;}if('speechSynthesis' in window)speechSynthesis.cancel();}
+function systemSay(text){if(!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(text);u.lang=/[぀-ヿ]/.test(text)?'ja-JP':/[一-鿿]/.test(text)?'zh-TW':'en-US';speechSynthesis.cancel();speechSynthesis.speak(u);}
+async function say(text){
+  if(!speakReplies||!String(text||'').trim())return;stopSaying();const run=sayRun,parts=sentencesOf(text);
+  const fetchPart=part=>post('/api/voices/say',{text:part}).catch(()=>({voice:null}));
+  let next=fetchPart(parts[0]);
+  for(let i=0;i<parts.length;i++){
+    const got=await next;if(run!==sayRun)return;
+    if(!got.voice){systemSay(parts.slice(i).join(' '));return;}  // no own voice (or the Mac couldn't make it): the phone's own speech
+    if(i+1<parts.length)next=fetchPart(parts[i+1]);
+    const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(got.audio),c=>c.charCodeAt(0))],{type:got.mime}));sayAudio=sayEl;sayEl.src=url;
+    await new Promise(done=>{sayAudio.onended=sayAudio.onerror=done;sayAudio.play().catch(done);});URL.revokeObjectURL(url);if(run!==sayRun)return;
+  }
+  sayAudio=null;
+}
 function render(state){
   $('stop-speech').hidden=!state.speaking;
   $('name').textContent=state.mod.name;document.title=`${state.mod.name} 遙控`;
@@ -295,7 +314,7 @@ async function pair(code){
     history.replaceState(null,'','/remote/');await start();}
   catch(error){showPair(error.message);}
 }
-$('voice').onclick=()=>{speakReplies=!speakReplies;$('voice').textContent=speakReplies?'🔊':'🔇';$('voice').setAttribute('aria-pressed',String(speakReplies));if(speakReplies)say('好，我會念出來。');};
+$('voice').onclick=()=>{speakReplies=!speakReplies;if(!speakReplies)stopSaying();else{sayEl.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';sayEl.play().catch(()=>{});}$('voice').textContent=speakReplies?'🔊':'🔇';$('voice').setAttribute('aria-pressed',String(speakReplies));if(speakReplies)say('好，我會念出來。');};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 const code=new URLSearchParams(location.search).get('pair');
 if(code&&!token)pair(code);else if(token)start().catch(error=>showPair(error.message));else showPair();
