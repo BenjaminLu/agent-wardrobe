@@ -29,6 +29,8 @@ async function run({win,startRemote,runtime}){
     { const copy=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'my-mods',runtime.state.modId,'mod.json'),'utf8'));assert.match(copy.description,/（我的版本）$/);assert.match(copy.license,/^Your own version of "Annie"/); }
     fs.mkdirSync(path.join(__dirname,'..','evidence'),{recursive:true});fs.writeFileSync(path.join(__dirname,'..','evidence','remote-characters.png'),(await phone.webContents.capturePage()).toPNG());
     // open library: a 3D avatar is added and worn
+    // the store tab scrolls on its own (a long list must not be cut off)
+    assert.equal(await p(`getComputedStyle(document.querySelector('#tab-store')).overflowY`),'auto');
     await p(`for(const i of document.querySelectorAll('.lib-sources input'))i.checked=i.value==='vrm';document.querySelector('#lib-q').value='elf';document.querySelector('#lib-form').requestSubmit();true`);
     await wait(()=>p(`document.querySelectorAll('#lib-results .lib').length===1`),20000,'lib vrm');
     await p(`document.querySelector('#lib-results .lib button').click();true`);await wait(()=>runtime.snapshot().mod.renderer==='vrm'&&runtime.state.modId.startsWith('me-elel'),30000,'vrm worn');
