@@ -22,6 +22,7 @@ function endPreview(error){
 }
 document.addEventListener('click',event=>{const button=event.target.closest?.('button');if(button&&!button.disabled&&/試聽|Preview/i.test(button.textContent))trackPreview(button);},true);
 function renderState(state) {
+  $('stop-speech').hidden=!state.speaking;
   if(previewing){if(state.speaking&&!previewing.started){previewing.started=true;previewing.button.textContent=settings?.language?.startsWith('zh')!==false?'🔊 播放中…':'🔊 Playing…';}else if(!state.speaking&&previewing.started)endPreview();}
   const changed=!characterState||characterState.modId!==state.modId||characterState.skinId!==state.skinId||characterState.mod?.updated!==state.mod?.updated;
   if(changed) Avatars.mount($('pet-wrap'),state.mod,state.skin,'bula',{orbit:'window'});
@@ -399,6 +400,12 @@ async function loadVoices(){
     const li=document.createElement('li');li.className=p.id===s.bound?'bound':'';li.dataset.id=p.id;
     const title=document.createElement('b');title.textContent=`${p.cloned?'🔒 ':''}${p.name}${p.id===s.bound?`　✓ ${name} 使用中`:''}`;
     const credit=document.createElement('span');credit.className='credit';credit.textContent=`${ENGINE_NAMES[p.engine]||p.engine} · ${p.license.credit?`標示：${p.license.credit} · `:''}${p.license.label}${p.license.commercial?'':' · 非商用'}${p.cloned?` · ${p.consent.person} 本人同意，只在這台 Mac 使用`:''}`;
+    // speaking speed of this voice (saved with it); cloned voices often come out slow
+    const speed=document.createElement('label');speed.className='voice-speed';const value=document.createElement('span');const range=document.createElement('input');
+    range.type='range';range.min='0.7';range.max='1.5';range.step='0.05';range.value=String(p.params?.speed||1);value.textContent=`${Number(range.value).toFixed(2)}×`;
+    range.oninput=()=>{value.textContent=`${Number(range.value).toFixed(2)}×`;};
+    range.onchange=async()=>{try{const r=await window.bula.voiceSpeed(p.id,Number(range.value));status(`「${p.name}」語速 ${r.speed}×`);}catch(error){message(cleanError(error),'error');}};
+    speed.append('語速 ',value,range);
     const row=document.createElement('div');row.className='voice-row';
     row.append(vbutton('▶ 試聽',()=>window.bula.voicePreview({profileId:p.id})),
       p.id===s.bound?vbutton(`${name} 改回預設語音`,async()=>{await window.bula.voiceBind(null);loadVoices();}):vbutton(`給 ${name} 用`,async()=>{await window.bula.voiceBind(p.id);loadVoices();status(`${name} 換上了「${p.name}」`);}));
@@ -407,7 +414,7 @@ async function loadVoices(){
     if(p.cloned){exp.disabled=true;exp.title='用真人聲音複製的聲音只能在這台 Mac 使用，不能匯出。';}
     else if(p.license.tier==='personal'){exp.disabled=true;exp.title='這個聲音只限自己在這台 Mac 使用（例如社群聲音模型），不能匯出。';}
     row.append(exp,vbutton('刪除',async()=>{if(!confirm(`刪除聲音「${p.name}」？`))return;await window.bula.voiceRemove(p.id);loadVoices();},'danger'));
-    li.append(title,credit,row);return li;}));
+    li.append(title,credit,speed,row);return li;}));
 }
 const kokoroOption=v=>{const o=document.createElement('option');o.value=v.name;o.textContent=KOKORO_NAMES[v.name]||v.name;return o;};
 function mixLabels(){const b=+$('mix-blend').value,p=+$('mix-pitch').value;$('mix-blend-value').textContent=`${b}% A · ${100-b}% B`;$('mix-pitch-value').textContent=`${p>0?'+':''}${p} 半音`;$('mix-speed-value').textContent=`${(+$('mix-speed').value).toFixed(2)}×`;}
@@ -577,3 +584,7 @@ window.bula.onWatch(event=>{
 });
 $('open-game').onclick=()=>{$('settings').hidden=true;document.body.classList.remove('settings');window.bula.openGame($('game-engine').value,$('game-choice').value);};
 $('show-onboarding').onclick=()=>{$('settings').hidden=true;document.body.classList.remove('settings');startOnboarding();};
+
+// Stop reading aloud: the button by the character (shown while it speaks), or Esc
+$('stop-speech').onclick=event=>{event.stopPropagation();window.bula.stop();};
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&characterState?.speaking){event.preventDefault();event.stopImmediatePropagation();window.bula.stop();}},true);

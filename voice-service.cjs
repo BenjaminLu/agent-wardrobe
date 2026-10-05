@@ -46,6 +46,10 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   handle('bula:voice-save',save);
   handle('bula:voice-preview',preview);
   handle('bula:voice-bind',id=>bind(id==null?null:String(id)));
+  // a voice's speaking speed, kept in its profile; each engine clamps it to the range it supports
+  async function setSpeed(id,speed){const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const value=Math.max(.7,Math.min(1.5,Number(speed)||1));
+    const saved=await voices.save({...p,params:{...p.params,speed:Math.round(value*100)/100}});remoteEvent('voices',{});return {id:saved.id,speed:saved.params.speed};}
+  handle('bula:voice-speed',(id,speed)=>setSpeed(id,speed));
   handle('bula:voice-remove',id=>remove(String(id)));
   handle('bula:voice-policy',id=>{const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const file=p.files.includes('policy.md')?path.join(root,p.id,'policy.md'):null;return {license:p.license,policy:file?fs.readFileSync(file,'utf8').slice(0,64*1024):null};});
   handle('bula:voice-export',async id=>{
@@ -66,7 +70,9 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   handle('bula:voice-japanese',()=>{const s=getSettings();s.replyLanguage='ja';persist();return {replyLanguage:'ja'};});
 
   const routes={
-    'GET /api/voices':async()=>{const s=await snapshot();return {profiles:s.profiles.map(({id,name,engine,license,cloned})=>({id,name,engine,license,cloned})),bound:s.bound,modId:s.modId,modName:getRuntime()?.snapshot().mod.name};},
+    'GET /api/voices':async()=>{const s=await snapshot();return {profiles:s.profiles.map(({id,name,engine,license,cloned,params})=>({id,name,engine,license,cloned,params:{speed:params?.speed||1}})),bound:s.bound,modId:s.modId,modName:getRuntime()?.snapshot().mod.name};},
+    'POST /api/voices/speed':({body})=>setSpeed(body.id,body.speed),
+    'POST /api/stop-speech':()=>{speech.stop();return {stopped:true};},
     'POST /api/voices/bind':async({body})=>{await bind(body.id==null?null:String(body.id));return routes['GET /api/voices']();},
     // where: 'phone' returns the audio for the phone to play; 'mac' plays it on the Mac
     'POST /api/voices/preview':async({body})=>{

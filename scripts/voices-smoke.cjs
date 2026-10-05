@@ -47,6 +47,16 @@ async function run({win,runtime,voiceService,startRemote}){
   await js(`window.bula.speak('嗨，我是 Annie。今天想做什麼呢？')`);
   await wait(()=>calls.length>=before+2&&talking.includes(true)&&talking.at(-1)===false,15000,'reply spoken');
   assert.deepEqual(calls.slice(before).map(c=>c.text),['嗨，我是 Annie。','今天想做什麼呢？'],'sentence by sentence through the profile');
+  // the voice's speed is saved with it
+  assert.equal((await js(`window.bula.voiceSpeed(${JSON.stringify(id)},1.3)`)).speed,1.3);
+  assert.equal((await js(`window.bula.voices()`)).profiles.find(p=>p.id===id).params.speed,1.3,'saved with the voice');
+  // ⏹ 停止朗讀 shows while the character speaks and stops the rest of a long reply
+  const longBefore=calls.length;talking.length=0;
+  await js(`window.bula.speak('第一句。第二句。第三句。第四句。第五句。第六句。')`);
+  await wait(()=>js(`!document.querySelector('#stop-speech').hidden`),10000,'stop button shown');
+  await js(`document.querySelector('#stop-speech').click();true`);
+  await wait(()=>talking.at(-1)===false&&js(`document.querySelector('#stop-speech').hidden`),10000,'stopped');
+  await new Promise(r=>setTimeout(r,800));assert.ok(calls.length-longBefore<6,`stopped before the end (${calls.length-longBefore} of 6 sentences)`);
   // another character without a voice falls back to the voice provider (macOS say here)
   await js(`window.bula.select({modId:'miso'})`);await wait(()=>runtime.state.modId==='miso');const n=calls.length;talking.length=0;
   await js(`window.bula.speak('嗯')`);await wait(()=>talking.includes(true)&&talking.at(-1)===false,15000,'fallback');assert.equal(calls.length,n,'Miso does not use Annie\'s voice');

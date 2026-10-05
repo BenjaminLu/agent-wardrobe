@@ -16,6 +16,7 @@
   <div id="task-bar" hidden><span id="task-state"></span><button id="task-stop" type="button">■ 停止</button></div>
   <section class="tab" id="tab-chat">
     <div id="log" aria-live="polite"></div>
+    <button id="stop-speech" type="button" class="stop-speech" hidden>⏹ 停止 Mac 朗讀</button>
     <form id="chat"><select id="mode" aria-label="模式"><option value="chat">聊天</option><option value="auto">自動判斷</option><option value="browser">瀏覽器任務</option><option value="computer">電腦任務</option><option value="files">整理存檔</option></select>
       <input id="text" autocomplete="off" placeholder="跟我說點什麼…" maxlength="2000"><button>送出</button></form>
   </section>

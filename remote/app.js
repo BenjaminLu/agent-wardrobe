@@ -24,6 +24,7 @@ function line(text,role='assistant'){const el=document.createElement('div');el.c
 // The phone reads replies aloud itself, so nothing plays out loud at home.
 function say(text){if(!speakReplies||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(text);u.lang=/[぀-ヿ]/.test(text)?'ja-JP':/[一-鿿]/.test(text)?'zh-TW':'en-US';speechSynthesis.cancel();speechSynthesis.speak(u);}
 function render(state){
+  $('stop-speech').hidden=!state.speaking;
   $('name').textContent=state.mod.name;document.title=`${state.mod.name} 遙控`;
   if(!pet||pet.dataset.mod!==`${state.mod.id}/${state.skin.id}`){$('pet').replaceChildren();pet=Avatars.mount($('pet'),state.mod,state.skin,'remote-pet');if(pet)pet.dataset.mod=`${state.mod.id}/${state.skin.id}`;}
   if(pet)Avatars.update(pet,state);
@@ -215,7 +216,11 @@ async function loadVoices(){
       row.append(btn(p.id===data.bound?'✓ 使用中（按一下改回預設）':'用這個聲音',async()=>{await post('/api/voices/bind',{id:p.id===data.bound?null:p.id});loadVoices();},'bind'),
         btn('▶ 手機試聽',async b=>{const r=await post('/api/voices/preview',{id:p.id,where:'phone'});const bytes=Uint8Array.from(atob(r.audio),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:r.mime}));const audio=new Audio(url);b.textContent='🔊 播放中…';await new Promise(done=>{audio.onended=audio.onerror=done;audio.play().catch(done);});URL.revokeObjectURL(url);}),
         btn('▶ Mac 試聽',()=>post('/api/voices/preview',{id:p.id,where:'mac'})));
-      box.append(title,lic,row);return box;}));}
+      // speaking speed, saved with the voice on the Mac
+      const speed=document.createElement('label');speed.className='voice-speed';const v=document.createElement('span');const r=document.createElement('input');r.type='range';r.min='0.7';r.max='1.5';r.step='0.05';r.value=String(p.params?.speed||1);
+      v.textContent=`${Number(r.value).toFixed(2)}×`;r.oninput=()=>{v.textContent=`${Number(r.value).toFixed(2)}×`;};r.onchange=()=>post('/api/voices/speed',{id:p.id,speed:Number(r.value)}).catch(e=>alert(e.message));
+      speed.append('語速 ',v,r);
+      box.append(title,lic,speed,row);return box;}));}
   catch(error){$('v-note').textContent=error.message;}
 }
 // --- 錄音做聲音: consent first, then one ~10 s reading recorded here (MediaRecorder; the page is HTTPS through Tailscale),
@@ -294,3 +299,6 @@ $('voice').onclick=()=>{speakReplies=!speakReplies;$('voice').textContent=speakR
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 const code=new URLSearchParams(location.search).get('pair');
 if(code&&!token)pair(code);else if(token)start().catch(error=>showPair(error.message));else showPair();
+
+// stop the Mac reading a reply aloud
+$('stop-speech').onclick=()=>post('/api/stop-speech',{}).catch(e=>alert(e.message));

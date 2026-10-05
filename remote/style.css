@@ -52,3 +52,4 @@ header{display:flex;align-items:center;gap:8px;padding:10px 0}header b{font-size
 .rec-check{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px}.rec-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
 #rec blockquote{margin:6px 0;font-size:18px;line-height:1.6}#rec audio{width:100%;margin:8px 0}#rec-btn.on{background:#d92d20;color:#fff}
 .mic-on{color:#fff;background:#d92d20;border-radius:999px;padding:4px 10px;font-weight:600}
+.stop-speech{display:block;width:100%;margin:6px 0;border:0;border-radius:12px;padding:10px;background:#22375a;color:#fff;font-size:15px}.voice-speed{display:flex;align-items:center;gap:6px;font-size:13px;margin:4px 0}.voice-speed input{flex:1}
