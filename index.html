@@ -66,6 +66,11 @@
         <button id="official-setup">Claude 官方操作設定</button>
       </section>
       <section class="pane" data-pane="voice" hidden><h3 class="pane-title">語音・聲音</h3>
+        <div id="voice-current" class="voice-current">
+          <p id="voice-current-text"></p>
+          <label><span id="voice-for-label">這個角色用</span><select id="voice-for" aria-label="這個角色的聲音"></select></label>
+        </div>
+        <div id="voice-default"><b class="section-title">預設語音</b><p class="voice-note" id="voice-default-note">沒有專屬聲音的角色都用這個。</p>
         <div id="voice-settings">
           <label>語音<select id="voice-provider"><option value="edge">台灣腔 · Edge 線上語音（免費）</option><option value="kokoro">本機 AI 語音 · Kokoro（免費、離線）</option><option value="openai">OpenAI AI 語音</option><option value="system">macOS 內建語音</option><option value="off">關閉語音</option></select></label>
           <div id="edge-voice" hidden>
@@ -100,7 +105,8 @@
             </div>
           </div>
         </div>
-        <div id="voices-settings"><b class="section-title">聲音</b>
+          </div>
+      <div id="voices-settings"><b class="section-title">我的聲音庫</b><p class="voice-note">做好的聲音放在這裡，可以給任何角色用。</p>
           <p id="voices-bound" class="voice-note"></p>
           <p id="voices-lang" class="voice-note" hidden>VOICEVOX 只會說日文，現在的回覆語言不是日文。<button type="button" id="voices-japanese">讓角色用日文回覆</button></p>
           <ul id="voices-list"></ul>

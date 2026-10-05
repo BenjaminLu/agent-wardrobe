@@ -208,11 +208,11 @@ function onAssist(value){if(!value)return;const job=value.job;$('assist-status')
 let voiceMod=null;
 async function loadVoices(){
   try{const data=await api('/api/voices'),bound=data.profiles.find(p=>p.id===data.bound);
-    $('v-note').textContent=bound?`${data.modName} 用「${bound.name}」說話。`:data.profiles.length?`${data.modName} 用上面選的 Mac 語音說話。`:'還沒有聲音。在 Mac 的「設定 → 聲音」可以混出新的聲音。';
+    $('v-note').textContent=bound?`🔊 ${data.modName} 現在用專屬聲音「${bound.name}」，上面的預設語音不影響她。`:data.profiles.length?`🔊 ${data.modName} 現在用預設語音。從下面選一個就會改用專屬聲音。`:'還沒有專屬聲音。在 Mac 的「設定 → 語音・聲音」可以做新的聲音，或用下面的錄音。';
     $('v-list').replaceChildren(...data.profiles.map(p=>{const box=document.createElement('div');box.className=`voice${p.id===data.bound?' on':''}`;box.dataset.id=p.id;
       const title=document.createElement('b');title.textContent=`${p.cloned?'🔒 ':''}${p.name}`;const lic=document.createElement('small');lic.textContent=[p.license.credit&&`標示：${p.license.credit}`,p.license.label].filter(Boolean).join(' · ');
       const row=document.createElement('div');row.className='row';const btn=(text,fn,cls)=>{const b=document.createElement('button');b.type='button';b.textContent=text;if(cls)b.className=cls;b.onclick=async()=>{const label=b.textContent;if(/試聽/.test(label)){b.disabled=true;b.textContent='⏳ 準備聲音…';}try{await fn(b);}catch(error){alert(error.message);}finally{b.disabled=false;b.textContent=label;}};return b;};
-      row.append(btn(p.id===data.bound?'✓ 使用中':'用這個聲音',async()=>{await post('/api/voices/bind',{id:p.id===data.bound?null:p.id});loadVoices();},'bind'),
+      row.append(btn(p.id===data.bound?'✓ 使用中（按一下改回預設）':'用這個聲音',async()=>{await post('/api/voices/bind',{id:p.id===data.bound?null:p.id});loadVoices();},'bind'),
         btn('▶ 手機試聽',async b=>{const r=await post('/api/voices/preview',{id:p.id,where:'phone'});const bytes=Uint8Array.from(atob(r.audio),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:r.mime}));const audio=new Audio(url);b.textContent='🔊 播放中…';await new Promise(done=>{audio.onended=audio.onerror=done;audio.play().catch(done);});URL.revokeObjectURL(url);}),
         btn('▶ Mac 試聽',()=>post('/api/voices/preview',{id:p.id,where:'mac'})));
       box.append(title,lic,row);return box;}));}

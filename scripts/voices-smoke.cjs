@@ -18,7 +18,8 @@ async function run({win,runtime,voiceService,startRemote}){
   await js(`window.bula.select({modId:'annie'})`);await wait(()=>runtime.state.modId==='annie');
   await js(`window.bula.saveSettings({provider:'codex',base:'http://127.0.0.1:1234/v1',model:'',voiceProvider:'system'})`);
   // 新增聲音 → 萌系混音: five presets, sliders, preview
-  await js(`document.querySelector('#settings-toggle').click();true`);await wait(()=>js(`document.querySelector('#voices-bound').textContent.length>0`),10000,'voices section');
+  await js(`document.querySelector('#settings-toggle').click();true`);await wait(()=>js(`document.querySelector('#voice-current-text').textContent.length>0`),10000,'voices section');
+  assert.match(await js(`document.querySelector('#voice-current-text').textContent`),/現在用預設語音/);
   // settings are split into sections with a sidebar; the voice section shows only voice settings
   await js(`document.querySelector('#settings-nav [data-pane=voice]').click();true`);
   assert.deepEqual(await js(`[...document.querySelectorAll('#settings-panes .pane')].filter(p=>!p.hidden).map(p=>p.dataset.pane)`),['voice']);
@@ -34,6 +35,12 @@ async function run({win,runtime,voiceService,startRemote}){
   assert.ok(Math.abs(derived[123]-(.6*(sid('zf_xiaoyi')+1)+.4*(sid('zf_xiaobei')+1)))<1e-4,'speaker 0 holds 60% 小藝 + 40% 小北');assert.equal(derived[PER*7+1],8,'other speakers unchanged');
   // save → bound to Annie; her replies go through the mix
   await js(`document.querySelector('#mix-save').click();true`);await wait(()=>js(`document.querySelectorAll('#voices-list li.bound').length===1`),10000,'saved and bound');
+  // the top of the page says which voice is heard, and the default voice is marked as not applying to Annie
+  await wait(()=>js(`/專屬聲音/.test(document.querySelector('#voice-current-text').textContent)`),5000,'current voice');
+  assert.equal(await js(`document.querySelector('#voice-default').classList.contains('inactive')&&document.querySelector('#voice-for').value===document.querySelector('#voices-list li.bound').dataset.id`),true);
+  // the picker at the top switches back to the default voice and back again
+  await js(`(()=>{const s=document.querySelector('#voice-for');s.value='';s.dispatchEvent(new Event('change'));return true;})()`);await wait(()=>js(`/現在用預設語音/.test(document.querySelector('#voice-current-text').textContent)`),5000,'picker to default');
+  await js(`(()=>{const s=document.querySelector('#voice-for');s.selectedIndex=1;s.dispatchEvent(new Event('change'));return true;})()`);await wait(()=>js(`/專屬聲音/.test(document.querySelector('#voice-current-text').textContent)`),5000,'picker to own voice');
   const state=await js(`window.bula.voices()`);const id=state.bound;assert.match(id,/^v-[a-z0-9-]+$/);assert.equal(state.bindings.annie,id);assert.equal(state.profiles[0].license.tier,'open');
   assert.ok(fs.existsSync(path.join(app.getPath('userData'),'voices',id,'voice.json')));
   const before=calls.length;talking.length=0;

@@ -381,18 +381,27 @@ window.bula.onMicLevel(level=>{$('mic-level').value=level;});
 let voicesState=null,vvSpeakers=[];
 const ENGINE_NAMES={'kokoro-mix':'萌系混音','voicevox':'VOICEVOX','cosyvoice':'錄音複製','sovits':'錄音複製','elevenlabs':'ElevenLabs'};
 const vbutton=(text,fn,cls)=>{const b=document.createElement('button');b.type='button';b.textContent=text;if(cls)b.className=cls;b.onclick=()=>Promise.resolve().then(fn).catch(error=>previewing?endPreview(cleanError(error)):message(cleanError(error),'error'));return b;};
+$('voice-for').onchange=async()=>{const id=$('voice-for').value||null;await window.bula.voiceBind(id);await loadVoices();status(id?`${characterState?.mod.name||'角色'} 換上了「${$('voice-for').selectedOptions[0].textContent}」`:'改回預設語音');};
+$('voice-provider').addEventListener('change',()=>loadVoices().catch(()=>{}));
 async function loadVoices(){
   voicesState=await window.bula.voices();const s=voicesState,name=characterState?.mod.name||'角色',bound=s.profiles.find(p=>p.id===s.bound);
-  $('voices-bound').textContent=bound?`${name} 現在用「${bound.name}」說話。`:`${name} 還沒有自己的聲音，使用上面選的語音。`;
+  // One answer to "which voice will I hear": the character's own voice wins; otherwise the default voice below
+  $('voices-bound').hidden=true;
+  const def=$('voice-provider').selectedOptions[0]?.textContent||'',off=$('voice-provider').value==='off';
+  $('voice-for-label').textContent=`${name} 用`;
+  $('voice-for').replaceChildren(new Option(`預設語音（${def}）`,''),...s.profiles.map(p=>new Option(`${p.cloned?'🔒 ':''}${p.name}`,p.id)));$('voice-for').value=bound?.id||'';
+  $('voice-current-text').textContent=off?'🔇 語音已關閉：所有角色都不說話（在下方「預設語音」打開）。':bound?`🔊 ${name} 現在用專屬聲音「${bound.name}」。`:`🔊 ${name} 現在用預設語音：${def}。`;
+  $('voice-default').classList.toggle('inactive',Boolean(bound)&&!off);
+  $('voice-default-note').textContent=bound&&!off?`${name} 有專屬聲音，這裡的設定只影響沒有專屬聲音的角色。`:'沒有專屬聲音的角色都用這個。';
   $('voices-lang').hidden=!(bound?.engine==='voicevox'&&$('reply-language').value!=='ja');
   $('voice-lab').hidden=typeof window.bula.openVoiceLab!=='function';
   $('voices-list').replaceChildren(...s.profiles.map(p=>{
     const li=document.createElement('li');li.className=p.id===s.bound?'bound':'';li.dataset.id=p.id;
-    const title=document.createElement('b');title.textContent=`${p.cloned?'🔒 ':''}${p.name}`;
+    const title=document.createElement('b');title.textContent=`${p.cloned?'🔒 ':''}${p.name}${p.id===s.bound?`　✓ ${name} 使用中`:''}`;
     const credit=document.createElement('span');credit.className='credit';credit.textContent=`${ENGINE_NAMES[p.engine]||p.engine} · ${p.license.credit?`標示：${p.license.credit} · `:''}${p.license.label}${p.license.commercial?'':' · 非商用'}${p.cloned?` · ${p.consent.person} 本人同意，只在這台 Mac 使用`:''}`;
     const row=document.createElement('div');row.className='voice-row';
     row.append(vbutton('▶ 試聽',()=>window.bula.voicePreview({profileId:p.id})),
-      p.id===s.bound?vbutton('解除綁定',async()=>{await window.bula.voiceBind(null);loadVoices();}):vbutton('綁定到目前角色',async()=>{await window.bula.voiceBind(p.id);loadVoices();status(`${name} 換上了「${p.name}」`);}));
+      p.id===s.bound?vbutton(`${name} 改回預設語音`,async()=>{await window.bula.voiceBind(null);loadVoices();}):vbutton(`給 ${name} 用`,async()=>{await window.bula.voiceBind(p.id);loadVoices();status(`${name} 換上了「${p.name}」`);}));
     if(p.engine==='voicevox')row.append(vbutton('利用規約',async()=>{const info=await window.bula.voicePolicy(p.id);message(`${info.license.credit||p.name}\n${info.policy||'（沒有取得規約文字）'}`);}));
     const exp=vbutton('匯出',async()=>{const r=await window.bula.voiceExport(p.id);if(r.saved)status(`已匯出聲音包：${r.saved}`);});
     if(p.cloned){exp.disabled=true;exp.title='用真人聲音複製的聲音只能在這台 Mac 使用，不能匯出。';}

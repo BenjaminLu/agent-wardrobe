@@ -78,3 +78,8 @@ main{height:100vh}
 body.settings #conversation,body.settings #chat-form{display:none}
 #voice-settings{border-top:0}
 .preview-note{display:inline-block;margin-left:6px;color:#b4442f;font-size:12px}button.busy{opacity:.75;cursor:progress}
+.voice-current{background:#eef7fd;border:1px solid #cfe6f5;border-radius:12px;padding:8px 10px;margin-bottom:10px}
+.voice-current p{margin:0 0 6px;font-weight:600;color:#155f91}
+#voice-default.inactive #voice-settings{opacity:.45}
+#voice-default.inactive #voice-default-note{color:#9a5a12}
+#voices-list li.bound b{color:#1678b8}
