@@ -35,18 +35,21 @@ function modeFor(text,params){return params.refText&&(!params.lang||detectLang(t
 
 function validate(params={}){
   const p={model:MODELS[params.model]?params.model:'CosyVoice2-0.5B',refText:String(params.refText||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,300),
-    lang:LANGS.includes(params.lang)?params.lang:null,speed:Number.isFinite(+params.speed)?Math.max(.7,Math.min(1.4,+params.speed)):1};
+    lang:LANGS.includes(params.lang)?params.lang:null,speed:Number.isFinite(+params.speed)?Math.max(.7,Math.min(1.4,+params.speed)):1,
+    // 'fast' (default): 4 flow steps, about 40% quicker with words still clear; 'best': the full 10 steps
+    quality:params.quality==='best'?'best':'fast'};
   if(!p.lang)p.lang=p.refText?detectLang(p.refText):'zh';
   return p;
 }
 
 // CosyVoice was trained on Simplified Chinese: Traditional input comes out garbled (measured with SenseVoice: 「收到好友
 // H T O N方记起…」 for Traditional, the exact sentence for Simplified), so Chinese text is converted before synthesis.
+const STEPS={fast:4,best:10};
 let simplify=null;
 const forModel=text=>detectLang(text)==='zh'?(simplify||=require('opencc-js').Converter({from:'t',to:'cn'}))(text):text;
 // 8 threads measured fastest on an M3 Max (RTF ~2 against ~3–4 with PyTorch's default); MPS produced garbage, so CPU it is.
 const THREADS=Math.min(8,Math.max(2,Math.floor(os.cpus().length/2)));
-function create({dir,fetchImpl=fetch,sidecar=null,idleMs=10*60*1000,threads=THREADS}={}){
+function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THREADS}={}){
   const envFor=model=>createPythonEnv({dir,python:'3.10',packages:PACKAGES,buildConstraints:['setuptools<81'],source:SOURCE,files:WETEXT,fetchImpl,
     models:[{name:model,repo:MODELS[model].repo,revision:MODELS[model].revision,include:name=>!SKIP.test(name),
       mirrors:[name=>`https://modelscope.cn/models/${MODELS[model].modelscope}/resolve/master/${name}`]}]});
@@ -87,9 +90,16 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=10*60*1000,threads=THRE
       const clean=String(text||'').trim().slice(0,1000);if(!clean)throw new Error('沒有要念的文字。');
       const out=path.join(os.tmpdir(),`agent-wardrobe-cosyvoice-${process.pid}-${crypto.randomBytes(6).toString('hex')}.wav`);
       try{
-        await sidecarFor(params.model).request('speak',{text:forModel(clean),ref,refText:forModel(params.refText),mode:modeFor(clean,params),speed:params.speed,out},{signal});
+        await sidecarFor(params.model).request('speak',{text:forModel(clean),ref,refText:forModel(params.refText),mode:modeFor(clean,params),speed:params.speed,steps:STEPS[params.quality],out},{signal});
         return {audio:fs.readFileSync(out),mime:'audio/wav'};
       }finally{fs.rmSync(out,{force:true});}
+    },
+    // Start the engine and prepare this voice ahead of time (the first sentence after a cold start otherwise waits ~1 min)
+    async warm({profile,dir:profileDir}){
+      const params=validate(profile?.params);const ref=path.join(profileDir,'reference.wav');if(!fs.existsSync(ref)||(!sidecar&&!envFor(params.model).installed()))return false;
+      const out=path.join(os.tmpdir(),`agent-wardrobe-cosyvoice-${process.pid}-warm-${crypto.randomBytes(4).toString('hex')}.wav`);
+      try{await sidecarFor(params.model).request('warm',{text:params.lang==='en'?'Hi.':params.lang==='ja'?'こんにちは。':'你好。',ref,refText:forModel(params.refText),mode:'zero_shot',speed:params.speed,steps:STEPS[params.quality],out});return true;}
+      catch{return false;}finally{fs.rmSync(out,{force:true});}
     },
     stop(options){for(const s of sidecars.values())s.stop(options);},
     get running(){return [...sidecars.values()].some(s=>s.running);},

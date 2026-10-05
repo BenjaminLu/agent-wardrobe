@@ -124,6 +124,10 @@ test('cosyvoice engine: prepares the reference, picks zero-shot or cross-lingual
   const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse).filter(c=>c.op==='speak');
   assert.deepEqual(calls.map(c=>c.mode),['zero_shot','cross_lingual','cross_lingual']);assert.equal(calls[0].refText,'今天天气真好','Traditional Chinese reaches the model as Simplified');assert.equal(calls[0].text,'你好呀');
   assert.ok(calls.every(c=>!fs.existsSync(c.out)),'temporary output files are removed');
+  // fast synthesis by default (4 flow steps); 'best' quality asks for the full 10
+  assert.deepEqual(calls.map(c=>c.steps),[4,4,4]);assert.equal(cosyvoice.validate({}).quality,'fast');assert.equal(cosyvoice.validate({quality:'best'}).quality,'best');assert.equal(cosyvoice.validate({quality:'x'}).quality,'fast');
+  await engine.speak({text:'你好',profile:{params:{...prepared.params,quality:'best'}},dir});
+  assert.equal(fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse).filter(c=>c.op==='speak').at(-1).steps,10);
   await assert.rejects(engine.speak({text:'hi',profile,dir:tmp('empty-')}),/參考錄音不見了/);
   assert.equal(cosyvoice.validate({model:'evil',speed:9,refText:'a\nb'}).model,'CosyVoice2-0.5B');assert.equal(cosyvoice.validate({speed:9}).speed,1.4);
   engine.stop({now:true});

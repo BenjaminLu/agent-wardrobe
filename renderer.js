@@ -406,6 +406,9 @@ async function loadVoices(){
     range.oninput=()=>{value.textContent=`${Number(range.value).toFixed(2)}×`;};
     range.onchange=async()=>{try{const r=await window.bula.voiceSpeed(p.id,Number(range.value));status(`「${p.name}」語速 ${r.speed}×`);}catch(error){message(cleanError(error),'error');}};
     speed.append('語速 ',value,range);
+    // cloned CosyVoice voices: fast (default, ~40% quicker) or best quality
+    if(p.engine==='cosyvoice'){const q=document.createElement('select');q.append(new Option('快速合成','fast'),new Option('最佳音質（較慢）','best'));q.value=p.params?.quality||'fast';
+      q.onchange=async()=>{try{await window.bula.voiceSpeed(p.id,Number(range.value),q.value);status(`「${p.name}」改成${q.selectedOptions[0].textContent}`);}catch(error){message(cleanError(error),'error');}};speed.append(q);}
     const row=document.createElement('div');row.className='voice-row';
     row.append(vbutton('▶ 試聽',()=>window.bula.voicePreview({profileId:p.id})),
       p.id===s.bound?vbutton(`${name} 改回預設語音`,async()=>{await window.bula.voiceBind(null);loadVoices();}):vbutton(`給 ${name} 用`,async()=>{await window.bula.voiceBind(p.id);loadVoices();status(`${name} 換上了「${p.name}」`);}));

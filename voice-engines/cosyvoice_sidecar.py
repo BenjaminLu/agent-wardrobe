@@ -46,6 +46,16 @@ except Exception as error:  # report and exit; the app shows the message
     emit({'fatal': f'{type(error).__name__}: {error}'})
     sys.exit(1)
 
+# Fewer flow-matching steps: on an M3 Max's CPU, 4 steps instead of 10 cut synthesis from ~2.2x to ~1.4x the audio's length,
+# and SenseVoice still transcribes the result word for word. (Running the flow on MPS is faster still but produces noise.)
+flow_steps = {'value': 10}
+_decoder_forward = model.model.flow.decoder.forward
+def _forward_with_steps(*args, **kwargs):
+    if 'n_timesteps' in kwargs:
+        kwargs['n_timesteps'] = flow_steps['value']
+    return _decoder_forward(*args, **kwargs)
+model.model.flow.decoder.forward = _forward_with_steps
+
 # CosyVoice 3 expects a system prompt in front of the prompt text (zero-shot) or the text (cross-lingual)
 SYSTEM = 'You are a helpful assistant.<|endofprompt|>'
 speakers = {}
@@ -63,6 +73,7 @@ def speak(message):
     request_id = message['id']
     text, ref, ref_text = message['text'], message['ref'], message.get('refText') or ''
     speed = float(message.get('speed') or 1.0)
+    flow_steps['value'] = max(2, min(10, int(message.get('steps') or 10)))
     began = time.time()
     if ref_text and message.get('mode') != 'cross_lingual':
         spk = speaker_id(ref, ref_text)
@@ -93,6 +104,10 @@ while True:
     try:
         if op == 'speak':
             emit(speak(message))
+        elif op == 'warm':  # load the speaker and run one short line, so the first real sentence starts quickly
+            message = {**message, 'text': message.get('text') or '你好。'}
+            result = speak(message)
+            emit({'id': message.get('id'), 'ok': result.get('ok', False), 'warm': True, 'took': result.get('took')})
         elif op == 'ping':
             emit({'id': message.get('id'), 'ok': True})
         else:

@@ -16,7 +16,7 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   const voices=createVoices({root,secrets:typeof secrets==='function'?null:secrets,engines:[mix,voicevox]});
   const bindings=()=>{const s=getSettings();return s.characterVoices&&typeof s.characterVoices==='object'?s.characterVoices:(s.characterVoices={});};
   const worn=()=>getRuntime()?.state.modId;
-  const summary=p=>({id:p.id,name:p.name,engine:p.engine,license:p.license,cloned:Boolean(p.consent),consent:p.consent?{person:p.consent.person,at:p.consent.at}:null,params:p.engine==='kokoro-mix'||p.engine==='voicevox'?p.params:{},createdAt:p.createdAt});
+  const summary=p=>({id:p.id,name:p.name,engine:p.engine,license:p.license,cloned:Boolean(p.consent),consent:p.consent?{person:p.consent.person,at:p.consent.at}:null,params:p.engine==='kokoro-mix'||p.engine==='voicevox'?p.params:p.engine==='cosyvoice'?{speed:p.params?.speed||1,quality:p.params?.quality||'fast'}:{speed:p.params?.speed||1},createdAt:p.createdAt});
   async function snapshot(){
     const modId=worn();
     return {profiles:voices.list().map(summary),engines:await voices.engines(),bindings:{...bindings()},bound:boundProfile(bindings(),modId,voices),modId,
@@ -24,7 +24,7 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   }
   function bind(profileId,modId=worn()){
     if(profileId!=null&&!voices.get(profileId))throw new Error('找不到這個聲音。');
-    const map=bindings();if(profileId)map[modId]=profileId;else delete map[modId];persist();remoteEvent('voices',{});return snapshot();
+    const map=bindings();if(profileId)map[modId]=profileId;else delete map[modId];persist();remoteEvent('voices',{});warmBound();return snapshot();
   }
   function remove(id){voices.remove(id);const map=bindings();for(const [mod,pid] of Object.entries(map))if(pid===id)delete map[mod];persist();remoteEvent('voices',{});return snapshot();}
   // a draft from the sliders is checked like a saved profile but not written anywhere
@@ -46,10 +46,14 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   handle('bula:voice-save',save);
   handle('bula:voice-preview',preview);
   handle('bula:voice-bind',id=>bind(id==null?null:String(id)));
-  // a voice's speaking speed, kept in its profile; each engine clamps it to the range it supports
-  async function setSpeed(id,speed){const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const value=Math.max(.7,Math.min(1.5,Number(speed)||1));
-    const saved=await voices.save({...p,params:{...p.params,speed:Math.round(value*100)/100}});remoteEvent('voices',{});return {id:saved.id,speed:saved.params.speed};}
-  handle('bula:voice-speed',(id,speed)=>setSpeed(id,speed));
+  // a voice's speaking speed (and, for cloned CosyVoice voices, fast or best quality), kept in its profile; each engine clamps it
+  async function setSpeed(id,speed,quality){const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const value=Math.max(.7,Math.min(1.5,Number(speed)||p.params?.speed||1));
+    const saved=await voices.save({...p,params:{...p.params,speed:Math.round(value*100)/100,...(quality?{quality:quality==='best'?'best':'fast'}:{})}});remoteEvent('voices',{});warmBound();return {id:saved.id,speed:saved.params.speed,quality:saved.params.quality||null};}
+  // the worn character's own voice is prepared in the background, so its first sentence doesn't wait for the engine to start
+  let warming=null;
+  function warmBound(){const id=boundProfile(bindings(),worn(),voices);if(!id||warming===id)return;warming=id;voices.warm(id).catch(()=>{}).finally(()=>{if(warming===id)warming=null;});}
+  {let lastMod=null;getRuntime()?.on?.('change',s=>{if(s.modId!==lastMod){lastMod=s.modId;warmBound();}});setTimeout(warmBound,3000).unref?.();}
+  handle('bula:voice-speed',(id,speed,quality)=>setSpeed(id,speed,quality));
   handle('bula:voice-remove',id=>remove(String(id)));
   handle('bula:voice-policy',id=>{const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const file=p.files.includes('policy.md')?path.join(root,p.id,'policy.md'):null;return {license:p.license,policy:file?fs.readFileSync(file,'utf8').slice(0,64*1024):null};});
   handle('bula:voice-export',async id=>{
@@ -71,7 +75,7 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
 
   const routes={
     'GET /api/voices':async()=>{const s=await snapshot();return {profiles:s.profiles.map(({id,name,engine,license,cloned,params})=>({id,name,engine,license,cloned,params:{speed:params?.speed||1}})),bound:s.bound,modId:s.modId,modName:getRuntime()?.snapshot().mod.name};},
-    'POST /api/voices/speed':({body})=>setSpeed(body.id,body.speed),
+    'POST /api/voices/speed':({body})=>setSpeed(body.id,body.speed,body.quality),
     'POST /api/stop-speech':()=>{speech.stop();return {stopped:true};},
     'POST /api/voices/bind':async({body})=>{await bind(body.id==null?null:String(body.id));return routes['GET /api/voices']();},
     // where: 'phone' returns the audio for the phone to play; 'mac' plays it on the Mac

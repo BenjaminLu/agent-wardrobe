@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('bula', {
   voiceSave: data => ipcRenderer.invoke('bula:voice-save', data),
   voicePreview: data => ipcRenderer.invoke('bula:voice-preview', data),
   voiceBind: id => ipcRenderer.invoke('bula:voice-bind', id),
-  voiceSpeed: (id, speed) => ipcRenderer.invoke('bula:voice-speed', id, speed),
+  voiceSpeed: (id, speed, quality) => ipcRenderer.invoke('bula:voice-speed', id, speed, quality),
   voiceRemove: id => ipcRenderer.invoke('bula:voice-remove', id),
   voicePolicy: id => ipcRenderer.invoke('bula:voice-policy', id),
   voiceExport: id => ipcRenderer.invoke('bula:voice-export', id),

@@ -105,6 +105,8 @@ function createVoices({root,secrets=null,engines=[]}){
     if(!result||!Buffer.isBuffer(result.audio)||!MIMES.includes(result.mime))fail(`「${engine.label}」沒有回傳可播放的聲音。`);
     return result;
   }
+  // let the engine get ready for this voice ahead of time (engines without warm-up do nothing)
+  async function warm(profileId){const profile=get(profileId);const engine=profile&&registry.get(profile.engine);if(!engine?.warm)return false;return engine.warm({profile,dir:path.join(root,profile.id)});}
   async function speak(profileId,input,options){const profile=get(profileId);if(!profile)fail('找不到這個聲音，可能已被刪除。');return speakProfile(profile,input,options);}
   function exportPack(id){
     const profile=get(id);if(!profile)fail('找不到這個聲音。');
@@ -125,7 +127,7 @@ function createVoices({root,secrets=null,engines=[]}){
     const extra={};for(const name of draft.files){const data=entries.get(name);if(!data)fail(`聲音包缺少「${name}」。`);extra[name]=data;}
     return save({...draft,files:[]},{extra});  // the pack's own licence is kept as it is
   }
-  return {list,get,save,remove,registerEngine,engines:engineList,engine:id=>registry.get(id)||null,speak,speakProfile,exportPack,importPack,root,secrets};
+  return {list,get,save,remove,registerEngine,engines:engineList,engine:id=>registry.get(id)||null,speak,speakProfile,warm,exportPack,importPack,root,secrets};
 }
 // Which profile speaks for the worn character: its binding, if that profile still exists; otherwise null (the voiceProvider applies).
 function boundProfile(characterVoices,modId,voices){const id=characterVoices&&Object.prototype.hasOwnProperty.call(characterVoices,modId)?characterVoices[modId]:null;return id&&voices.get(id)?id:null;}
