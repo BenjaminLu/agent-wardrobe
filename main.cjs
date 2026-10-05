@@ -567,7 +567,7 @@ function saveSettings(data) {
   const provider = ['codex','claude','local'].includes(data.provider) ? data.provider : 'codex';
   const base = ai.localBase(data.base);
   // Only an actual change of brain has to wait for a running reply; other settings save any time.
-  if (provider !== runtime.state.provider) { if (!uiApplyReady({chatBusy,toolTask,taskRunning:Boolean(agentSession.child),activity:runtime.state.activity})) throw new Error('角色正在回覆或執行任務，等它完成後再切換 AI 大腦（其他設定可以先存）。'); runtime.provider(provider); }
+  if (provider !== runtime.state.provider) { if (['working','waiting_for_approval'].includes(runtime.state.activity)) throw new Error('角色正在回覆或執行任務，等它完成後再切換 AI 大腦（其他設定可以先存）。'); runtime.provider(provider); }
   settings = {
     ...settings,
     provider,

@@ -30,3 +30,12 @@ for(const name of ['ocean','mint','sakura','dark'])test(`${name} defines every c
 test('ocean preserves every original colour except the three contrast corrections',()=>{
   const ocean=theme('ocean');for(const [key,value] of Object.entries(base))assert.equal(ocean[key],value,key);
 });
+test('settings and onboarding define exactly the ocean theme properties and values',()=>{
+  const block=[...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([,selectors])=>{
+    const names=selectors.split(',').map(s=>s.trim());
+    return names.includes('body.settings')&&names.includes('body.onboarding');
+  });
+  assert.ok(block,'body.settings, body.onboarding theme block exists');
+  const props=Object.fromEntries([...block[2].matchAll(/--([\w-]+)\s*:\s*([^;{}]+)/g)].map(([,key,value])=>[key,value.trim()]));
+  assert.deepEqual(props,theme('ocean'),'settings and onboarding must retain every ocean property without additions or changes');
+});
