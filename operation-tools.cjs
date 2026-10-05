@@ -1,5 +1,6 @@
-const fs=require('node:fs');const path=require('node:path');const {execFile}=require('node:child_process');
+const {NativeInput,support:computerSupport}=require('./computer-input.cjs');
 const {reportTool}=require('./output-store.cjs');
+const lazyClipboard={readText:()=>require('electron').clipboard.readText(),writeText:text=>require('electron').clipboard.writeText(text)};
 const tool=(name,description,properties={},required=[])=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false}});
 const number={type:'number'},string={type:'string'},integer={type:'integer'};
 const browserTools=[
@@ -36,13 +37,11 @@ function validate(name,args,mode){
 }
 const SNAPSHOT=`(()=>{window.__wardrobeTargets=[...document.querySelectorAll('a,button,input,textarea,select,[role="button"]')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0}).slice(0,200);return {url:location.href,title:document.title,text:document.body.innerText.slice(0,16000),elements:window.__wardrobeTargets.map((e,id)=>({id,tag:e.tagName,type:e.type||'',text:(e.getAttribute('aria-label')||e.innerText||e.placeholder||'').slice(0,180)}))}})()`;
 class OperationTools {
-  constructor({onClose=()=>{},saveReport=null}={}){this.saveReport=saveReport;this.onClose=onClose;this.browser=null;this.children=new Set();this.stopped=false;this.observed=false;this.targetPid=null;}
-  stop(){this.stopped=true;for(const child of this.children)child.kill('SIGKILL');this.children.clear();if(this.browser&&!this.browser.isDestroyed()){this.browser.webContents.stop();this.browser.close();}this.browser=null;}
+  constructor({onClose=()=>{},saveReport=null}={}){this.saveReport=saveReport;this.onClose=onClose;this.browser=null;this.stopped=false;this.observed=false;this.targetPid=null;this.targetWindow=null;this.input=new NativeInput({clipboard:lazyClipboard});}
+  stop(){this.stopped=true;this.input.stop();if(this.browser&&!this.browser.isDestroyed()){this.browser.webContents.stop();this.browser.close();}this.browser=null;}
   check(signal){if(this.stopped||signal?.aborted)throw new Error('Operation cancelled');}
-  native(input){return new Promise((resolve,reject)=>{
-    const helper=path.join(__dirname,'bin/native-input');if(!fs.existsSync(helper))return reject(new Error('Native input helper missing; run npm run build:native.'));
-    const child=execFile(helper,[JSON.stringify(input)],{timeout:5000,maxBuffer:4096},(error,stdout,stderr)=>{this.children.delete(child);error?reject(new Error(stderr||error.message)):resolve(stdout);});this.children.add(child);
-  });}
+  // macOS: bin/native-input (Swift) as before; Windows/X11 scale logical points to device pixels with the primary display's factor.
+  native(input){return this.input.run(input,process.platform==='darwin'?{}:{scale:require('electron').screen.getPrimaryDisplay().scaleFactor});}
   async window(){
     if(this.browser&&!this.browser.isDestroyed())return this.browser;
     const {BrowserWindow}=require('electron');
@@ -75,22 +74,22 @@ class OperationTools {
     const {desktopCapturer,screen,systemPreferences}=require('electron');
     const bounds=screen.getPrimaryDisplay().bounds;
     if(name==='computer_observe'){
-      if(process.platform!=='darwin')throw new Error('Native computer tools currently require macOS');
-      if(systemPreferences.getMediaAccessStatus('screen')!=='granted')throw new Error('Enable Screen Recording for Agent Wardrobe in macOS System Settings, then restart the App.');
-      this.targetPid=JSON.parse(await this.native({action:'frontmost'})).pid;this.check(signal);
+      const status=computerSupport();if(!status.available)throw new Error(status.reason);
+      if(process.platform==='darwin'&&systemPreferences.getMediaAccessStatus('screen')!=='granted')throw new Error('Enable Screen Recording for Agent Wardrobe in macOS System Settings, then restart the App.');
+      const front=JSON.parse(await this.native({action:'frontmost'}));this.targetPid=front.pid;this.targetWindow=front.window||null;this.check(signal);
       const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:1600,height:1000}});this.check(signal);
       const source=sources.find(s=>s.display_id===String(screen.getPrimaryDisplay().id));if(!source||source.thumbnail.isEmpty())throw new Error('Primary display capture unavailable');
       this.observed=true;return {text:JSON.stringify({width:bounds.width,height:bounds.height,imageWidth:source.thumbnail.getSize().width,imageHeight:source.thumbnail.getSize().height,coordinates:'Scale screenshot pixels to logical display coordinates before clicking.'}),image:'data:image/jpeg;base64,'+source.thumbnail.toJPEG(75).toString('base64')};
     }
     if(!this.observed)throw new Error('Observe the computer before taking an action');
     if(name==='computer_click'&&(args.x<0||args.y<0||args.x>=bounds.width||args.y>=bounds.height))throw new Error('Coordinates outside primary display');
-    if(!systemPreferences.isTrustedAccessibilityClient(false))throw new Error('Enable Accessibility for Agent Wardrobe in macOS System Settings.');
+    if(process.platform==='darwin'&&!systemPreferences.isTrustedAccessibilityClient(false))throw new Error('Enable Accessibility for Agent Wardrobe in macOS System Settings.');
     this.check(signal);
     const action=name.slice('computer_'.length);const input={...args,action};delete input.reason;
     if(action==='click'){input.x+=bounds.x;input.y+=bounds.y;}
-    input.targetPid=this.targetPid;const result=await this.native(input);
+    input.targetPid=this.targetPid;if(this.targetWindow)input.targetWindow=this.targetWindow;const result=await this.native(input);
     this.check(signal);this.observed=false;return {text:result.trim()+' Observe again to verify the action.'};
   }
   async read(wc){const data=await wc.executeJavaScript(SNAPSHOT);this.observed=true;return {text:JSON.stringify(data)};}
 }
-module.exports={specs,validate,OperationTools};
+module.exports={specs,validate,OperationTools,computerSupport};

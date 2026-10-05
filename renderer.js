@@ -67,6 +67,9 @@ async function init() {
   t = window.bulaLocale(settings.language); document.documentElement.lang = settings.language;
   const settingsLabel=settings.language.startsWith('zh') ? '設定' : settings.language.startsWith('ja') ? '設定' : 'Settings';
   $('settings-label').textContent=settingsLabel; $('settings-toggle').title=settingsLabel; $('settings-toggle').setAttribute('aria-label',settingsLabel);
+  // Computer use needs a native input backend (macOS helper, Windows SendInput helper, X11 xdotool); Wayland or a missing tool disables the mode with the reason.
+  const computer=await window.bula.computerSupport();$('operation-permissions').hidden=!computer.permissions;
+  if(!computer.available){const option=$('task-mode').querySelector('option[value=computer]');option.disabled=true;option.title=computer.reason;if($('task-mode').value==='computer')$('task-mode').value='auto';}
   renderState(await window.bula.state());history=histories[settings.provider];
   $('conversation').replaceChildren();if(history.length)history.slice(-100).forEach(m=>message(m.content,m.role,m.artifacts));else message(t.greeting.replaceAll('{name}',characterState.mod.name));
   $('prompt').placeholder=t.placeholder.replaceAll('{name}',characterState.mod.name);

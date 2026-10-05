@@ -1,0 +1,164 @@
+name: release
+# A v* tag builds macOS, Windows and Linux and attaches them to a draft GitHub Release (published by hand).
+# A manual run builds the same files and only uploads them as workflow artifacts.
+# Signing is used only when its secrets exist; otherwise the builds are unsigned (macOS ad-hoc).
+#   macOS:   MAC_CERTIFICATE_P12 (base64 Developer ID .p12), MAC_CERTIFICATE_PASSWORD, MAC_SIGN_IDENTITY,
+#            MAC_BUNDLE_ID, and for notarization APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
+#   Windows: WINDOWS_CERTIFICATE_PFX (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
+      MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:native
+      - name: Import the Developer ID certificate
+        if: env.MAC_CERTIFICATE_P12 != ''
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"; password="$(openssl rand -hex 16)"
+          echo "$MAC_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MAC_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          if [ -n "$APPLE_ID" ]; then
+            xcrun notarytool store-credentials agent-wardrobe --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --keychain "$keychain"
+            echo "AGENT_WARDROBE_NOTARY_PROFILE=agent-wardrobe" >> "$GITHUB_ENV"
+          fi
+      - name: Package
+        env:
+          AGENT_WARDROBE_SIGN_IDENTITY: ${{ secrets.MAC_SIGN_IDENTITY }}
+          AGENT_WARDROBE_BUNDLE_ID: ${{ secrets.MAC_BUNDLE_ID }}
+        run: |
+          if [ -n "$MAC_CERTIFICATE_P12" ] && [ -n "$AGENT_WARDROBE_SIGN_IDENTITY" ]; then npm run package:mac -- --release; else npm run package:mac; fi
+          version=$(node -p "require('./package.json').version")
+          rm -f "dist/Agent Wardrobe.zip"
+          ditto -c -k --keepParent "dist/Agent Wardrobe.app" "dist/Agent-Wardrobe-$version-mac-arm64.zip"
+          ls -lh dist/*.zip
+      - name: The built app starts (its computer-use helper answers)
+        run: |
+          "dist/Agent Wardrobe.app/Contents/MacOS/Electron" --smoke-test --native-input-smoke 2>&1 | tee smoke.log | grep -v '^$' | tail -5
+          grep -q NATIVE_INPUT_SMOKE smoke.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/*.zip
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:native
+      - name: NSIS for the installer
+        shell: pwsh
+        run: if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
+      - name: Signing certificate
+        if: env.WINDOWS_CERTIFICATE_PFX != ''
+        shell: pwsh
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($file, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_PFX))
+          "WINDOWS_CERTIFICATE_FILE=$file" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Package
+        env:
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npm run package:win
+      - name: The built app starts and drives the mouse and keyboard
+        shell: bash
+        run: |
+          "dist/Agent Wardrobe-win32-x64/Agent Wardrobe.exe" --smoke-test --native-input-smoke > smoke.log 2>&1 || true
+          tail -5 smoke.log; grep -q NATIVE_INPUT_SMOKE smoke.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: appimagetool
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+      - run: npm run package:linux
+      - name: The built app and AppImage start and drive the mouse and keyboard (Xvfb, xdotool)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xdotool xvfb openbox > /dev/null
+          xvfb-run -a sh -c 'openbox & sleep 2; dist/agent-wardrobe-linux-x64/agent-wardrobe --no-sandbox --smoke-test --native-input-smoke' > smoke.log 2>&1 || true
+          grep NATIVE_INPUT_SMOKE smoke.log || { tail -20 smoke.log; exit 1; }
+          xvfb-run -a sh -c 'openbox & sleep 2; APPIMAGE_EXTRACT_AND_RUN=1 dist/*.AppImage --smoke-test --native-input-smoke' > appimage.log 2>&1 || true
+          grep NATIVE_INPUT_SMOKE appimage.log || { tail -20 appimage.log; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/*.tar.gz
+            dist/*.AppImage
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ls -lh artifacts
+          if gh release view "$TAG" > /dev/null 2>&1; then gh release upload "$TAG" artifacts/* --clobber
+          else gh release create "$TAG" artifacts/* --draft --title "Agent Wardrobe $TAG" --generate-notes; fi

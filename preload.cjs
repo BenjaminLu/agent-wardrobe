@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('bula', {
   onTask:callback=>{ipcRenderer.on('bula:task-event',(_event,data)=>callback(data));},
   taskSteer:data=>ipcRenderer.invoke('bula:task-steer',data),
   operationPermissions:kind=>ipcRenderer.invoke('bula:operation-permissions',kind),
+  computerSupport:()=>ipcRenderer.invoke('bula:computer-support'),
   officialSetup:()=>ipcRenderer.invoke('bula:official-setup'),
   emergencyStop:()=>ipcRenderer.invoke('bula:emergency-stop'),
   agentConsole:()=>ipcRenderer.invoke('bula:agent-console'),

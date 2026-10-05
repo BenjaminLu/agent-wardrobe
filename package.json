@@ -10,6 +10,8 @@
     "start": "electron .",
     "test": "node --test test/*.test.cjs",
     "package:mac": "node scripts/package-mac.cjs",
+    "package:win": "node scripts/package-win.cjs",
+    "package:linux": "node scripts/package-linux.cjs",
     "sign:setup": "node scripts/create-signing-identity.cjs",
     "build:vrm": "esbuild vendor-src/vrm-kit.js --bundle --minify --format=iife --legal-comments=eof --outfile=vendor/vrm-kit.js",
     "smoke": "node scripts/run-smokes.cjs",
@@ -24,6 +26,7 @@
     "electron": "^41.10.7",
     "esbuild": "^0.28.2",
     "pixi.js": "^8.22.0",
+    "resedit": "^3.1.0",
     "three": "^0.186.1",
     "untitled-pixi-live2d-engine": "^1.4.0"
   },

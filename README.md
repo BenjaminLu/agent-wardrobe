@@ -39,6 +39,43 @@ npm run package:mac -- --release
 
 This signs every binary with the hardened runtime and the entitlements in `build/entitlements.mac.plist`. It then notarizes and staples the app, and writes `dist/Agent Wardrobe.zip`.
 
+#### Windows
+
+Build on Windows (x64) with Node.js 20. The C# input helper compiles with the `csc.exe` that ships with Windows, so no SDK is needed.
+
+```powershell
+npm ci
+npm run build:native    # → bin\native-input.exe (computer use)
+npm run package:win     # → dist\Agent-Wardrobe-<version>-win-x64.zip, plus dist\Agent-Wardrobe-Setup-<version>-x64.exe if NSIS 3 is installed
+```
+
+The zip is a portable app: unzip it anywhere and run `Agent Wardrobe.exe`. The installer installs for the current user only, in `%LOCALAPPDATA%\Programs\Agent Wardrobe`, so it needs no admin prompt. It adds a Start menu entry and an uninstaller.
+
+Signing is optional:
+
+- **A certificate file:** set `WINDOWS_CERTIFICATE_FILE` (a `.pfx`) and `WINDOWS_CERTIFICATE_PASSWORD`.
+- **Azure Trusted Signing:** set `AZURE_SIGNING_DLIB` (the `Azure.CodeSigning.Dlib.dll` path) and `AZURE_SIGNING_METADATA` (its `metadata.json`).
+
+`signtool` comes from the Windows SDK, or from the path in `SIGNTOOL`. An unsigned build runs, but Microsoft Defender SmartScreen warns the first time: choose **More info → Run anyway**. A signed build still warns until its certificate has built up reputation.
+
+#### Linux
+
+Build on Linux (x64 or arm64) with Node.js 20:
+
+```sh
+npm ci
+npm run package:linux   # → dist/agent-wardrobe-<version>-linux-x64.tar.gz, plus an AppImage if appimagetool is on PATH (or set APPIMAGETOOL)
+```
+
+- **tar.gz:** extract it to `/opt/agent-wardrobe`, and copy `agent-wardrobe.desktop` to `~/.local/share/applications/` and `agent-wardrobe.png` to `~/.local/share/icons/`. Chromium's sandbox needs `chrome-sandbox` to be setuid root: run `sudo chown root:root chrome-sandbox && sudo chmod 4755 chrome-sandbox`, or start the app with `--no-sandbox`.
+- **AppImage:** make it executable and run it. An AppImage can't carry a setuid sandbox. It starts with `--no-sandbox` only when the system blocks unprivileged user namespaces, as Ubuntu 23.10 and later do.
+
+#### Releases
+
+`.github/workflows/release.yml` runs on a `v*` tag. It builds macOS (Apple Silicon), Windows and Linux, and attaches them to a **draft** GitHub Release for you to review and publish. A manual run (**Actions → release → Run workflow**) builds the same files and only keeps them as workflow artifacts. Without signing secrets, the builds are unsigned (ad-hoc on macOS); the workflow file lists the secrets it uses.
+
+Every build ships the wake-word model, the bundled Mods and the vendored renderers. Engines and models that download on first use are never bundled: llama.cpp and Qwen, VOICEVOX, CosyVoice and GPT-SoVITS, the Kokoro and speech-recognition models, and Live2D's Cubism Core. `scripts/package-common.cjs` holds the shared file list for all three platforms.
+
 ## Features
 
 ### Brains
@@ -57,6 +94,19 @@ Codex and Claude use your existing subscription through their official CLIs. If 
 - The character picks an emotion for every reply. In auto mode it decides whether a request needs a browser, desktop or files task.
 - Tasks write their output to `~/Desktop/Agent Wardrobe/`. ⌘⇧X stops a task.
 - Replies can be in Traditional Chinese, Simplified Chinese, English or Japanese, or follow your language.
+
+### Computer use
+
+Desktop tasks (Codex and LM Studio brains) look at the primary display and use the native mouse and keyboard:
+
+| Platform | Support | Needs |
+| --- | --- | --- |
+| macOS | Full | Screen Recording and Accessibility permission (buttons in Settings) |
+| Windows 10 / 11 | Full, DPI-aware | Nothing extra: `bin\native-input.exe` (SendInput) ships with the app |
+| Linux, X11 session | Full | `xdotool` (`sudo apt install xdotool`). CJK and emoji are typed by pasting through the clipboard, which is restored afterwards |
+| Linux, Wayland session | Unavailable | Wayland doesn't let apps move the pointer or type into other windows. Log in with an X11 session (for example "Ubuntu on Xorg") to use it |
+
+When computer use is unavailable, the **電腦操作 / Computer use** task mode is greyed out with the reason, on the desktop and on the phone. On Windows and Linux, the model's `command` modifier means Ctrl, and `option` means Alt. Screenshots use Electron's screen capture on every platform.
 
 ### Characters
 

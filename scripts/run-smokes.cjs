@@ -36,7 +36,9 @@ const suites = [
   { name: 'game with Laya', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_REAL: '1' }, file: path.join(root, '.laya', 'venv', 'bin', 'python'), online: true },
   { name: 'built-in local model', args: ['--builtin-smoke'], marker: 'BUILTIN_SMOKE', needs: ['LLM_MODEL_SRC'] },
   { name: 'wake word handing off to Typeless (real app, fake mic)', args: ['--typeless-smoke'], marker: 'TYPELESS_SMOKE', env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: '/Applications/Typeless.app', online: true },
-  { name: 'wake word and dictation', args: ['--wake-smoke'], marker: 'WAKE_SMOKE', needs: ['ASR_MODEL_SRC'], env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: fakeMic }
+  { name: 'wake word and dictation', args: ['--wake-smoke'], marker: 'WAKE_SMOKE', needs: ['ASR_MODEL_SRC'], env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: fakeMic },
+  // computer-use input: macOS checks the helper answers; Windows and X11 really move, click, type (CJK), drag and scroll in a test window
+  { name: 'computer-use input backend', args: ['--native-input-smoke'], marker: 'NATIVE_INPUT_SMOKE', file: { darwin: path.join(root, 'bin', 'native-input'), win32: path.join(root, 'bin', 'native-input.exe') }[process.platform] || '/usr/bin/xdotool' }
 ];
 const userData = path.join(root, '.smoke-userdata');
 let failed = 0;

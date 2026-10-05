@@ -124,7 +124,7 @@ function fillSettings(data){
   $('s-model').replaceChildren(...data.builtinModels.map(m=>option(m.id,m.name)));$('s-model').value=s.builtinModel;$('s-model-row').hidden=$('s-brain').value!=='builtin';
   $('s-reply').value=s.replyLanguage||'auto';$('s-voice').value=data.volume?s.voiceProvider:'off';
   $('s-note').textContent=data.remoteTasks?'這支手機可以叫 Mac 做事（瀏覽器、電腦、整理存檔）。':'要從手機叫 Mac 做事，請在 Mac 的「設定 → 手機遙控」打開「允許手機下達電腦任務」。';
-  for(const value of ['browser','computer','files','auto'])$('mode').querySelector(`[value=${value}]`).disabled=!data.remoteTasks;if(!data.remoteTasks&&$('mode').value!=='chat')$('mode').value='chat';
+  for(const value of ['browser','computer','files','auto'])$('mode').querySelector(`[value=${value}]`).disabled=!data.remoteTasks;if(data.computer&&!data.computer.available){const o=$('mode').querySelector('[value=computer]');o.disabled=true;o.title=data.computer.reason;if($('mode').value==='computer')$('mode').value='chat';}if(!data.remoteTasks&&$('mode').value!=='chat')$('mode').value='chat';
 }
 const change=async(pathname,body)=>{try{fillSettings(await post(pathname,body));}catch(error){alert(error.message);fillSettings(remoteSettings);}};
 $('s-mod').onchange=()=>{const mod=remoteSettings.characters.find(m=>m.id===$('s-mod').value);change('/api/select',{modId:mod.id,skinId:mod.skins[0].id,personaId:mod.personas[0].id});};
