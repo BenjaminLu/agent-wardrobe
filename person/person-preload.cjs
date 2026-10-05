@@ -1,5 +1,6 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('person',{
+  cameraAccess:()=>ipcRenderer.invoke('person:camera-access'),
   draw:dataUrl=>ipcRenderer.invoke('person:draw',dataUrl),
   revise:instruction=>ipcRenderer.invoke('person:revise',instruction),
   save:name=>ipcRenderer.invoke('person:save',name),

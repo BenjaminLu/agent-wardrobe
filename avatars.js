@@ -321,5 +321,7 @@
     };
     return controller;
   }
-  window.Avatars={mount,update,blink,look,react,has,setAssetLoader,setLive2dCore,orbit:(el,dx,dy)=>controllers.get(el)?.orbit(dx,dy),view:el=>controllers.get(el)?.view(),motion:el=>controllers.get(el)?.motion?.()||null,ready:el=>controllers.get(el)?.ready||Promise.resolve()};
+  // release a mounted character (3D ones free their WebGL context)
+  function unmount(container){controllers.get(container.firstElementChild)?.dispose();controllers.delete(container.firstElementChild);container.replaceChildren();}
+  window.Avatars={mount,unmount,MODELS,update,blink,look,react,has,setAssetLoader,setLive2dCore,orbit:(el,dx,dy)=>controllers.get(el)?.orbit(dx,dy),view:el=>controllers.get(el)?.view(),motion:el=>controllers.get(el)?.motion?.()||null,ready:el=>controllers.get(el)?.ready||Promise.resolve()};
 })();

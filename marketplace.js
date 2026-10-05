@@ -31,13 +31,23 @@ function build(){
     views.set(mod.id,view);$('cards').append(card);
   }
 }
+// 3D / Live2D previews each hold a WebGL context, and Chromium only keeps a handful alive (with many 3D characters, or on a
+// small GPU, older ones are lost). So they are drawn only while their card is on screen and released when it scrolls away.
+const live=new Map();
+const onScreen=new IntersectionObserver(entries=>{for(const entry of entries){const view=[...views.values()].find(v=>v.preview===entry.target);if(!view?.pending)continue;
+  const {mod,skin}=view.pending;if(entry.isIntersecting){if(!live.has(view)){Avatars.mount(view.preview,mod,skin,`market-${mod.id}`);live.set(view,skin.id);}}
+  else if(live.has(view)){Avatars.unmount(view.preview);live.delete(view);view.preview.dataset.waiting='3D';}}},{rootMargin:'200px'});
+function showPreview(view,mod,skin){
+  if(!Avatars.MODELS.includes(mod.renderer)){Avatars.mount(view.preview,mod,skin,`market-${mod.id}`);return;}
+  view.pending={mod,skin};if(live.has(view)){Avatars.mount(view.preview,mod,skin,`market-${mod.id}`);live.set(view,skin.id);}else onScreen.observe(view.preview);
+}
 function accept(state){
   if(current&&current.instanceId===state.instanceId&&state.revision<current.revision)return;
   const modChanged=!current||current.modId!==state.modId;current=state;
   $('active-name').textContent=`${state.mod.name} · ${state.skin.name}`;
   if(modChanged)$('personality').replaceChildren(...state.mod.personas.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;return option;}));$('personality').value=state.personaId;
   for(const mod of catalog){const view=views.get(mod.id);const selected=state.modId===mod.id;if(selected)view.skinId=state.skinId;view.card.classList.toggle('selected',selected);const skin=mod.skins.find(s=>s.id===view.skinId)||mod.skins[0];
-    if(view.renderedSkin!==skin.id){Avatars.mount(view.preview,mod,skin,`market-${mod.id}`);view.renderedSkin=skin.id;}
+    if(view.renderedSkin!==skin.id){view.renderedSkin=skin.id;showPreview(view,mod,skin);}
     view.apply.textContent=selected?(zh?'桌面使用中':'On your desktop'):(zh?'套用 Mod':'Apply Mod');
     for(const button of view.skins.children)button.setAttribute('aria-pressed',String(button.dataset.skinId===skin.id));
   }
@@ -48,7 +58,7 @@ $('personality').onchange=()=>select({modId:current.modId,personaId:$('personali
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='f'){event.preventDefault();focusSearch();}if(event.key==='Escape')window.marketplace.close();});
 window.marketplace.onState(state=>{if(catalog.length)accept(state);});
 // a character was drawn, edited or deleted: rebuild the cards
-window.marketplace.onRefresh(async()=>{const data=await window.marketplace.data();catalog=data.catalog;views.clear();$('cards').replaceChildren();build();current=null;accept(data.state);filter();});
+window.marketplace.onRefresh(async()=>{const data=await window.marketplace.data();catalog=data.catalog;for(const view of live.keys())Avatars.unmount(view.preview);live.clear();onScreen.disconnect();views.clear();$('cards').replaceChildren();build();current=null;accept(data.state);filter();});
 $('new-person').onclick=()=>window.marketplace.newPerson().catch(report);
 const focusSearch=()=>{const box=$('library').hidden?$('search'):$('library-query');box.focus();box.select();};
 window.marketplace.onFocusSearch(focusSearch);

@@ -29,7 +29,8 @@ function useImage(source,width,height){
 }
 function stopCamera(){stream?.getTracks().forEach(t=>t.stop());stream=null;$('snap').hidden=true;$('camera').hidden=false;}
 $('camera').onclick=async()=>{
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:960},audio:false});$('video').srcObject=stream;await $('video').play();
+  try{if(!await window.person.cameraAccess())throw new Error('沒有相機權限：請到「系統設定 → 隱私權與安全性 → 相機」允許 Agent Wardrobe，或改用「選照片」。');
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:960},audio:false});$('video').srcObject=stream;await $('video').play();
     $('video').hidden=false;$('photo').hidden=true;$('hint').hidden=true;$('snap').hidden=false;$('camera').hidden=true;$('status').textContent='對準臉和上半身，按「拍照」後 3 秒拍下';}
   catch{$('status').textContent='開不了相機：請到「系統設定 → 隱私權與安全性 → 相機」允許 Agent Wardrobe，或改用「選照片」。';}
 };

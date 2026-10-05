@@ -47,11 +47,18 @@ for (const suite of suites) {
   if (!suite.reuse) fs.rmSync(userData, { recursive: true, force: true });
   const started = Date.now();
   suite.prepare?.();
-  const run = spawnSync(electron, ['.', '--smoke-test', ...suite.args], { cwd: root, env: { ...process.env, ...suite.env }, encoding: 'utf8', timeout: 10 * 60 * 1000 });
+  const run = spawnSync(electron, ['.', '--smoke-test', ...suite.args], { cwd: root, env: { ...process.env, ...suite.env }, encoding: 'utf8', timeout: (suite.minutes || (suite.online || suite.needs ? 10 : 4)) * 60 * 1000 });  // a stuck suite fails in minutes, not after CI's own limit
   const output = `${run.stdout}\n${run.stderr}`;
   const ok = run.status === 0 && output.includes(suite.marker) && !output.includes('POC_SMOKE_FAILED');
   console.log(`${ok ? 'pass' : 'FAIL'}  ${suite.name} (${Math.round((Date.now() - started) / 1000)} s)`);
-  if (!ok) { failed++; console.log(output.split('\n').filter(line => /FAILED|Error|assert/i.test(line)).slice(0, 8).join('\n')); }
+  if (!ok) {
+    failed++;
+    // the failure itself first; GPU and system noise (WebGL, XPC) would otherwise fill the summary
+    const lines = output.split('\n').filter(line => line.trim() && !/gl_utils|GL_CONTEXT_LOST|GL_OUT_OF_MEMORY|XPC error|IMKCF|TSM AdjustCapsLock/.test(line));
+    const at = lines.findIndex(line => line.includes('POC_SMOKE_FAILED'));
+    console.log(run.error?.code === 'ETIMEDOUT' || run.signal ? `  timed out after ${Math.round((Date.now() - started) / 1000)} s; last output:` : '');
+    console.log((at >= 0 ? lines.slice(at, at + 14) : lines.slice(-14)).map(line => `  ${line.slice(0, 300)}`).join('\n'));
+  }
   suite.cleanup?.();
   if (!suite.keep) fs.rmSync(userData, { recursive: true, force: true });
 }

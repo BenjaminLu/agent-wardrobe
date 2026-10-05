@@ -31,7 +31,11 @@ async function run({runtime,openWardrobe,getMarket,personService}){
   await only(['sketchfab'],'knight');await wait(()=>mk(`Boolean(${card('Anime Knight Girl')})`));
   await mk(`${card('Anime Knight Girl')}.querySelector('button').click();true`);await wait(()=>runtime.state.modId.startsWith('me-anime-knight-girl'));
   const glbDir=path.join(app.getPath('userData'),'my-mods',runtime.state.modId);assert.equal(JSON.parse(fs.readFileSync(path.join(glbDir,'mod.json'),'utf8')).renderer,'gltf');
+  // 3D previews draw only while their card is on screen: none while the store page is shown, the new one once its card is in view
+  assert.equal(await mk(`document.querySelectorAll('#page-installed .avatar-3d canvas').length`),0,'3D previews are released on the store page');
+  await mk(`document.querySelector('[data-page=installed]').click();[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3').textContent.includes('Anime Knight')).scrollIntoView();true`);
   await wait(()=>mk(`(()=>{const c=[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3').textContent.includes('Anime Knight'));return Boolean(c?.querySelector('.avatar-3d canvas'))&&!c.querySelector('.avatar-3d').dataset.error;})()`),15000);
+  await mk(`document.querySelector('[data-page=store]').click();true`);
   fs.mkdirSync(path.join(__dirname,'..','evidence'),{recursive:true});fs.writeFileSync(path.join(__dirname,'..','evidence','library.png'),(await getMarket().webContents.capturePage()).toPNG());
   // anime pictures are reference-only fan art: Codex redraws one as an editable character and the source is credited
   await only(['booru'],'貓耳');await wait(()=>mk(`document.querySelectorAll('.lib-card').length===1`));

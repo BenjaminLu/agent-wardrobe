@@ -154,6 +154,8 @@ function createPerson({app,handle,ipcMain,systemPreferences,catalog,onSaved,root
     return {begin,loaded,drawPhoto,outfitPhoto,redraw,revise,save,reset,get busy(){return busy;}};
   }
   const from=fn=>(event,...args)=>{if(!window||event.sender!==window.webContents)throw new Error('Unknown window');return fn(...args);};
+  // macOS asks for the camera only when 📷 開相機 is pressed, not when the window opens (choosing a photo needs no camera)
+  ipcMain.handle('person:camera-access',from(async()=>process.platform!=='darwin'||systemPreferences.getMediaAccessStatus('camera')==='granted'||systemPreferences.askForMediaAccess('camera').catch(()=>false)));
   ipcMain.handle('person:draw',from(dataUrl=>windowEditor.drawPhoto(dataUrl)));
   ipcMain.handle('person:revise',from(text=>windowEditor.revise(text)));
   ipcMain.handle('person:save',from(name=>windowEditor.save(name)));
@@ -170,7 +172,6 @@ function createPerson({app,handle,ipcMain,systemPreferences,catalog,onSaved,root
   async function open(language='zh',{edit=null,skinId=null,image=null}={}){
     if(window&&!window.isDestroyed())window.close();
     windowEditor=createEditor({onProgress:p=>send('person:progress',p),onClosed:()=>window?.close()});windowEditor.begin({edit,skinId,image});
-    if(process.platform==='darwin'&&systemPreferences.getMediaAccessStatus('camera')!=='granted')await systemPreferences.askForMediaAccess('camera').catch(()=>false);
     // its own session, so the camera is allowed here and nowhere else
     const camera=session.fromPartition('person-camera');
     const allowed=(contents,permission,details)=>contents===window?.webContents&&permission==='media'&&(details?.mediaTypes?details.mediaTypes.every(type=>type==='video'):true);
