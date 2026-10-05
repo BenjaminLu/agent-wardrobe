@@ -16,7 +16,7 @@ async function startControl({runtime,catalog,modsRoot=path.join(__dirname,'mods'
       const url=new URL(req.url,origin);
       const credential=req.headers.authorization?.replace(/^Bearer /,'') || (url.pathname==='/api/events'?url.searchParams.get('token'):null);
       if(url.pathname.startsWith('/api/')&&!authorized(req,credential)){send(res,401,{error:'Open the control page from the desktop app'});return;}
-      if(req.method==='GET'&&url.pathname==='/api/catalog'){send(res,200,{catalog,state:runtime.snapshot(),language});return;}
+      if(req.method==='GET'&&url.pathname==='/api/catalog'){send(res,200,{catalog,state:runtime.snapshot(),language:typeof language==='function'?language():language});return;}
       if(req.method==='GET'&&url.pathname==='/api/desktop'&&onInspectDesktop){send(res,200,await onInspectDesktop());return;}
       if(req.method==='GET'&&url.pathname==='/api/events'){
         if(onControlConnect)onControlConnect();

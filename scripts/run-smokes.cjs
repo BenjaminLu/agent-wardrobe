@@ -12,6 +12,7 @@ const fakeMic = path.join(root, 'evidence', 'fake-mic.wav');
 // the voice studio smoke records from Chromium's fake microphone playing generated "speech" (no real mic, no real voice)
 const voicelabMic = path.join(require('node:os').tmpdir(), `voicelab-fake-mic-${process.pid}.wav`);
 const suites = [
+  { name: 'interface language and chat themes', args: ['--ui-prefs-smoke'], marker: 'UI_PREFS_SMOKE' },
   { name: 'companion, marketplace, web wardrobe', args: [], marker: 'POC_SMOKE' },
   { name: 'phone characters: skins, edit, library, photo (stand-ins)', args: ['--remote-characters-smoke'], marker: 'REMOTE_CHARACTERS_SMOKE', env: { LIBRARY_FIXTURE: '1' } },
   { name: 'avatar store: featured, VRoid Hub, Sketchfab glTF, redraw a picture (fixture data)', args: ['--library-smoke'], marker: 'LIBRARY_SMOKE', env: { LIBRARY_FIXTURE: '1' } },

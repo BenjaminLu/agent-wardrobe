@@ -24,3 +24,12 @@ test('web wardrobe can load validated Mod assets and nothing else from Mod folde
     for(const p of ['/mods/pixel-byte/mod.json','/mods/pixel-byte/parts.json','/mods/pixel-byte/..%2F..%2Fmain.cjs','/mods/nope/x.png','/mods/annie/parts.json'])assert.equal((await get(p)).status,404,p);
   }finally{await control.close();}
 });
+test('catalog reads the current interface language on every request',async()=>{
+  const catalog=loadCatalog(),runtime=new Runtime(catalog);let language='en';
+  const control=await startControl({runtime,catalog,language:()=>language});
+  try{
+    const headers={Authorization:`Bearer ${control.token}`};
+    const read=async()=> (await (await fetch(control.origin+'/api/catalog',{headers})).json()).language;
+    assert.equal(await read(),'en');language='ja';assert.equal(await read(),'ja');
+  }finally{await control.close();}
+});

@@ -1,4 +1,5 @@
 const { Notification, app, BrowserWindow, WebContentsView, session, ipcMain, Menu, Tray, nativeImage, screen, globalShortcut, dialog, systemPreferences, shell, desktopCapturer, clipboard, safeStorage } = require('electron');
+const {startupPrefs,applyUiPrefs,uiApplyReady}=require('./ui-prefs.cjs');
 const tts = require('./tts.cjs');
 const { createSpeech } = require('./speech.cjs');
 const kokoro = require('./kokoro.cjs');
@@ -75,7 +76,7 @@ function emergencyStop(){
 }
 agentSession.on('event',data=>{
   if(agentWindow&&!agentWindow.isDestroyed())agentWindow.webContents.send('agent-console:event',data);
-  if(data.type==='closed'&&runtime)taskEvent(taskFeedback.closed());
+  if(data.type==='closed'&&runtime){taskEvent(taskFeedback.closed());recheckUiApply();}
   if(data.type==='error'&&runtime){taskFeedback.finished=true;taskEvent(taskFeedback.event('error',{text:data.message}));}
 });
 async function openAgentConsole({automatic=false}={}){
@@ -96,6 +97,34 @@ for(const [name,action] of [['input',text=>agentSession.input(text)],['resize',(
   ipcMain.on('agent-console:'+name,(event,...args)=>{if(event.sender!==agentWindow?.webContents)return;try{action(...args);}catch{}});
 }
 
+function menuLabels(){
+  const zh=settings.language.startsWith('zh');
+  return {game:zh?'讓角色玩遊戲（實驗）':'Let the character play (experimental)',show:zh?'顯示／恢復人物':'Show / restore companion',files:zh?'角色文件（搜尋與開啟）':'Character files (search & open)',wardrobe:zh?'Mod 市集（搜尋角色與 Skin）':'Mod Marketplace (search characters & skins)',connect:zh?'連接 Claude 專案 hooks…':'Connect Claude project hooks…',remove:zh?'移除 Claude 觀察 hooks':'Remove Claude observation hooks',stop:zh?'停止說話':'Stop speaking',stream:zh?'直播模式（滑鼠穿透）':'Stream mode (click-through)',quit:zh?'結束 Agent Wardrobe':'Quit Agent Wardrobe'};
+}
+function rebuildApplicationMenu(){
+  const labels=menuLabels();
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
+    { label: labels.show, click: restore },
+    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
+    { label: labels.files, accelerator:'CommandOrControl+Shift+O',click:openFiles },
+    { label: labels.game, click: () => gameService.open() },
+    { label: labels.connect, click: () => connectClaude().catch(error=>dialog.showErrorBox('Claude hooks',error.message)) },
+    { label: labels.remove, click: () => {try{if(settings.claudeProject){hooks.configure({project:settings.claudeProject,remove:true});delete settings.claudeProject;persist();}}catch(error){dialog.showErrorBox('Claude hooks',error.message);}} },
+    { label: labels.stop, click: stopSpeech }, { type: 'separator' }, { role: 'quit', label: labels.quit }
+  ] },{role:'editMenu'}]));
+}
+function rebuildTrayMenu(){
+  const labels=menuLabels();
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: labels.show, click: restore },
+    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
+    { label: labels.files,click:openFiles },
+    { label: labels.game, click: () => gameService.open() },
+    { label: labels.stream, click: () => setStreaming(true) },
+    { label: labels.stop, click: stopSpeech },
+    { label: labels.quit, click: () => app.quit() }
+  ]));
+}
 app.setName('Agent Wardrobe');
 // A packaged smoke must not write inside the signed bundle; that breaks its seal and the privacy grants tied to it.
 // app.isPackaged is false here because the bundle keeps Electron's executable name.
@@ -277,8 +306,7 @@ app.whenReady().then(async () => {
     const directory=path.join(app.getPath('home'),'.claude','projects',cwd.replace(/[^a-zA-Z0-9]/g,'-'));
     conversations.importLegacy(directory,cwd);
   }
-  settings.language = app.getPreferredSystemLanguages()[0] || app.getLocale() || 'en';
-  settings.voice = settings.language.startsWith('zh') ? (/Hans|CN|SG/i.test(settings.language) ? 'Tingting' : 'Eddy (Chinese (Taiwan))') : settings.language.startsWith('ja') ? 'Kyoko' : 'Samantha';
+  Object.assign(settings,startupPrefs(settings,[...app.getPreferredSystemLanguages(),app.getLocale()].filter(Boolean)));
   try { require('./voice-lab.cjs').sweepTemp(app.getPath('temp')); } catch {}  // raw recordings left by a crash
   personService.loadSaved((id, error) => { modErrors.push({ id, message: error.message }); console.error(`Mod ${id} skipped: ${error.message}`); });
   runtime = new Runtime(catalog, settings);
@@ -293,8 +321,9 @@ app.whenReady().then(async () => {
     if (win && !win.isDestroyed()) {win.webContents.send('bula:state', state);win.setTitle(`${state.mod.name} · Agent Wardrobe`);}
     if(marketWindow&&!marketWindow.isDestroyed())marketWindow.webContents.send('bula:state',state);
     if(tray)tray.setToolTip(`Agent Wardrobe · ${state.mod.name}`);
+    recheckUiApply();
   });
-  const controlOptions={ runtime, catalog, language: settings.language, onSelect: selectMod, onProvider: provider => { runtime.provider(provider); settings.provider=provider; persist(); return runtime.snapshot(); }, onConnectClaude:connectClaude, onHook:observeHook,onInspectDesktop:inspectDesktop,identity:loadIdentity(app.getPath('userData'))};
+  const controlOptions={ runtime, catalog, language: () => settings.language, onSelect: selectMod, onProvider: provider => { runtime.provider(provider); settings.provider=provider; persist(); return runtime.snapshot(); }, onConnectClaude:connectClaude, onHook:observeHook,onInspectDesktop:inspectDesktop,identity:loadIdentity(app.getPath('userData'))};
   control = await startControl(controlOptions);
   saveIdentity(app.getPath('userData'),{token:control.token,port:control.port});
   fs.mkdirSync(app.getPath('userData'),{recursive:true});
@@ -324,29 +353,11 @@ app.whenReady().then(async () => {
     && (details?.mediaTypes ? details.mediaTypes.length > 0 && details.mediaTypes.every(type => type === 'audio') : details?.mediaType !== 'video');
   win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(micAllowed(contents, permission, details)));
   win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => permission === 'media' && micAllowed(contents, permission, details));
-  const zh=settings.language.startsWith('zh');
-  const labels={game:zh?'讓角色玩遊戲（實驗）':'Let the character play (experimental)',show:zh?'顯示／恢復人物':'Show / restore companion',files:zh?'角色文件（搜尋與開啟）':'Character files (search & open)',wardrobe:zh?'Mod 市集（搜尋角色與 Skin）':'Mod Marketplace (search characters & skins)',connect:zh?'連接 Claude 專案 hooks…':'Connect Claude project hooks…',remove:zh?'移除 Claude 觀察 hooks':'Remove Claude observation hooks',stop:zh?'停止說話':'Stop speaking',stream:zh?'直播模式（滑鼠穿透）':'Stream mode (click-through)',quit:zh?'結束 Agent Wardrobe':'Quit Agent Wardrobe'};
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
-    { label: labels.show, click: restore },
-    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
-    { label: labels.files, accelerator:'CommandOrControl+Shift+O',click:openFiles },
-    { label: labels.game, click: () => gameService.open() },
-    { label: labels.connect, click: () => connectClaude().catch(error=>dialog.showErrorBox('Claude hooks',error.message)) },
-    { label: labels.remove, click: () => {try{if(settings.claudeProject){hooks.configure({project:settings.claudeProject,remove:true});delete settings.claudeProject;persist();}}catch(error){dialog.showErrorBox('Claude hooks',error.message);}} },
-    { label: labels.stop, click: stopSpeech }, { type: 'separator' }, { role: 'quit', label: labels.quit }
-  ] },{role:'editMenu'}]));
+  rebuildApplicationMenu();
   const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon-256.png')).resize({ width: 20, height: 20, quality: 'best' });
   tray = new Tray(icon);
   tray.setToolTip('Agent Wardrobe');
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: labels.show, click: restore },
-    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
-    { label: labels.files,click:openFiles },
-    { label: labels.game, click: () => gameService.open() },
-    { label: labels.stream, click: () => setStreaming(true) },
-    { label: labels.stop, click: stopSpeech },
-    { label: labels.quit, click: () => app.quit() }
-  ]));
+  rebuildTrayMenu();
   tray.on('click', restore);
   globalShortcut.register('CommandOrControl+Shift+B', restore);
   if(!globalShortcut.register('CommandOrControl+Shift+O',openFiles))console.warn('Files shortcut unavailable; use the folder button.');
@@ -361,7 +372,7 @@ app.whenReady().then(async () => {
   if (modErrors.length) win.webContents.send('bula:notice', `${modErrors.length} 個 Mod 無法載入，已略過：${modErrors.map(e => `${e.id}（${e.message}）`).join('、')}`);
   if (process.argv.includes('--open-wardrobe') && !process.argv.includes('--smoke-test')) await openWardrobe();
   if (process.argv.includes('--smoke-test')) {
-    try { if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
+    try { if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--ui-prefs-smoke'))await require('./scripts/ui-prefs-smoke.cjs').run({win,holdReply(){chatBusy=true;runtime.activity('working');return ()=>{chatBusy=false;runtime.activity('success');recheckUiApply();};}});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
     catch(error) { console.error('POC_SMOKE_FAILED',error); app.exit(1); }
   }
 }).catch(error=>{
@@ -514,7 +525,7 @@ async function startTask(data){
       if(toolTask===current&&!controller.signal.aborted)taskEvent(taskFeedback.observe({event:'Stop',sessionId:id,result:result.text}));
     }).catch(error=>{
       if(toolTask===current&&!controller.signal.aborted)taskEvent(taskFeedback.observe({event:'StopFailure',sessionId:id,result:error.message,error:'provider_error'}));
-    }).finally(()=>{server?.stop();tools.stopped=true;if(toolTask===current)toolTask=null;});
+    }).finally(()=>{server?.stop();tools.stopped=true;if(toolTask===current)toolTask=null;recheckUiApply();});
     return {id,mode:data.mode,provider};
   }
   const cwd=path.join(app.getPath('userData'),'agent-workspace');fs.mkdirSync(cwd,{recursive:true});
@@ -532,12 +543,31 @@ async function startTask(data){
 }
 handle('bula:task',startTask);
 handle('bula:open-output',async id=>{const folder=outputs.folder(id);const error=await shell.openPath(folder);if(error)throw new Error(error);return true;});
+let uiLanguagePending=false;
+function recheckUiApply(){
+  if(!uiLanguagePending||!runtime||!uiApplyReady({chatBusy,toolTask,taskRunning:Boolean(agentSession.child),activity:runtime.state.activity}))return;
+  uiLanguagePending=false;
+  rebuildApplicationMenu();if(tray)rebuildTrayMenu();
+  for(const window of [marketWindow,filesWindow])if(window&&!window.isDestroyed())window.webContents.reload();
+  if(win&&!win.isDestroyed())win.webContents.send('bula:ui-language');
+}
+handle('bula:ui-prefs',data=>{
+  const result=applyUiPrefs(settings,data,[...app.getPreferredSystemLanguages(),app.getLocale()].filter(Boolean));
+  settings=result.settings;persist();
+  if(result.languageChanged){uiLanguagePending=true;recheckUiApply();}
+  return settings;
+});
+handle('bula:reload-companion',()=>{
+  // Recheck here too: work may have begun between the notification and this IPC.
+  if(uiApplyReady({chatBusy,toolTask,taskRunning:Boolean(agentSession.child),activity:runtime.state.activity}))win.webContents.reload();
+  else uiLanguagePending=true;
+});
 handle('bula:save-settings', data => saveSettings(data));
 function saveSettings(data) {
   const provider = ['codex','claude','local'].includes(data.provider) ? data.provider : 'codex';
   const base = ai.localBase(data.base);
   // Only an actual change of brain has to wait for a running reply; other settings save any time.
-  if (provider !== runtime.state.provider) { if (['working','waiting_for_approval'].includes(runtime.state.activity)) throw new Error('角色正在回覆或執行任務，等它完成後再切換 AI 大腦（其他設定可以先存）。'); runtime.provider(provider); }
+  if (provider !== runtime.state.provider) { if (!uiApplyReady({chatBusy,toolTask,taskRunning:Boolean(agentSession.child),activity:runtime.state.activity})) throw new Error('角色正在回覆或執行任務，等它完成後再切換 AI 大腦（其他設定可以先存）。'); runtime.provider(provider); }
   settings = {
     ...settings,
     provider,
@@ -600,7 +630,7 @@ async function chatTurn(input, options, { speakAloud = true, from = null } = {})
     }
     conversations.append('user',text,{provider:settings.provider});conversations.append('assistant',reply.text,{provider:requestSettings.provider});runtime.activity('success',reply.emotion); if (speakAloud) speak(reply.text); remoteEvent('message', { role: 'user', text, from }); remoteEvent('message', { role: 'assistant', text: reply.text, from }); return { ok: true, ...reply }; }
   catch (error) { const last=conversations.snapshot().at(-1);if(!(last?.role==='user'&&last.content===text))conversations.append('user',text,{provider:settings.provider});runtime.activity('error','nervous'); return { ok: false, error: error.message === 'fetch failed' ? (settings.localEngine === 'builtin' ? '內建模型沒有回應，請再試一次。' : 'Local AI is unavailable. Load a model and start the LM Studio server.') : error.message }; }
-  finally {chatBusy=false;}
+  finally {chatBusy=false;recheckUiApply();}
 }
 handle('bula:stream', setStreaming);
 // --- 錄音複製: the cloning engines (CosyVoice, GPT-SoVITS, ElevenLabs) on the voice registry, and the 聲音工作室 window.

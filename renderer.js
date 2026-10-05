@@ -49,9 +49,18 @@ function setActiveTask(id){activeTask=id;document.body.classList.toggle('task-ru
 // 3D Mods (VRM, glTF, MMD) add the orbit gesture to the hint line; Live2D is flat and moves like the 2D companions.
 function hintFor(mod){const zh=settings?.language?.startsWith('zh');return (zh?`拖曳移動 ${mod.name} · 點一下聊天 · ⌘＋捲動縮放`:`Drag to move ${mod.name} · click to chat · ⌘-scroll to resize`).replace(['vrm','gltf','mmd'].includes(mod.renderer)?/^[^·]*·\s*/:/$^/,'')+(['vrm','gltf','mmd'].includes(mod.renderer)?(zh?' · 3D：拖曳旋轉、⌥拖曳移動':' · 3D: drag to rotate, ⌥-drag to move'):'');}
 function status(text) { $('status').textContent = text; }
+const UI_RELOAD_STATE='bula-ui-reload';
+window.bula.onUiLanguage(()=>{
+  const pane=$('settings').hidden?null:document.querySelector('#settings-nav [aria-selected=true]')?.dataset.pane||'brain';
+  sessionStorage.setItem(UI_RELOAD_STATE,JSON.stringify({draft:$('prompt').value,pane}));
+  window.bula.reloadCompanion().catch(error=>{$('ui-prefs-status').textContent=cleanError(error);});
+});
 async function init() {
+  let restored;
+  try{const value=sessionStorage.getItem(UI_RELOAD_STATE);sessionStorage.removeItem(UI_RELOAD_STATE);if(value)restored=JSON.parse(value);}catch{}
   settings = await window.bula.settings();
   document.documentElement.style.setProperty('--scale',settings.scale||1);
+  document.body.dataset.theme=settings.theme;
   document.body.dataset.chatSize=settings.chatSize||'large';
   history.push(...(await window.bula.history()).map(m=>({role:m.role,content:m.content,artifacts:m.artifacts})));
   if(!settings.language.startsWith('zh')){
@@ -65,6 +74,15 @@ async function init() {
   $('files').title=settings.language.startsWith('zh')?'角色文件（⌘⇧O）':'Character files (⌘⇧O)';
   $('wardrobe').title=settings.language.startsWith('zh')?'Mod 市集（⌘⇧S）':'Mod Marketplace (⌘⇧S)';
   t = window.bulaLocale(settings.language); document.documentElement.lang = settings.language;
+  $('ui-language').value=settings.uiLanguage;
+  $('theme').value=settings.theme;$('theme-preview').dataset.theme=settings.theme;
+  $('ui-language-label').textContent=t.uiLanguageLabel;$('theme-label').textContent=t.themeLabel;
+  $('ui-language').querySelector('[value=auto]').textContent=t.auto;
+  for(const name of ['ocean','mint','sakura','dark'])$('theme').querySelector(`[value=${name}]`).textContent=t['theme'+name[0].toUpperCase()+name.slice(1)];
+  document.querySelector('#settings-nav [data-pane=general] span').textContent=t.generalTab;
+  document.querySelector('#settings-panes [data-pane=general] .pane-title').textContent=t.generalTab;
+  $('theme-preview').querySelector('.assistant').textContent=t.heading;
+  $('theme-preview').querySelector('.user').textContent=t.ready;
   const settingsLabel=settings.language.startsWith('zh') ? '設定' : settings.language.startsWith('ja') ? '設定' : 'Settings';
   $('settings-label').textContent=settingsLabel; $('settings-toggle').title=settingsLabel; $('settings-toggle').setAttribute('aria-label',settingsLabel);
   renderState(await window.bula.state());history=histories[settings.provider];
@@ -78,6 +96,10 @@ async function init() {
   const providers = await window.bula.providers();
   for (const name of ['codex','claude']) if (!providers[name]) $('provider').querySelector(`[value="${name}"]`).textContent += t.missing;
   localFields(); status(`${settings.provider === 'local' ? t.local : settings.provider} · ${t.ready}`);
+  if(restored){
+    if(typeof restored.draft==='string')$('prompt').value=restored.draft;
+    if(restored.pane){if($('settings').hidden)$('settings-toggle').click();showPane(restored.pane);}
+  }
   document.body.dataset.ready='true';armIdle();
 }
 function localFields() { $('local-settings').hidden = $('provider').value !== 'local'; $('builtin-settings').hidden = $('provider').value !== 'builtin'; if ($('provider').value === 'builtin') showLlm(); showCli(); }
@@ -138,9 +160,35 @@ function showPane(name){
 }
 for(const b of document.querySelectorAll('#settings-nav button'))b.onclick=()=>showPane(b.dataset.pane);
 {let pane='brain';try{pane=localStorage.getItem('settings-pane')||pane;}catch{}showPane(pane);}
-$('save').onclick = async () => {
-  try { settings = await window.bula.saveSettings({ ...brainChoice($('provider').value), builtinModel:document.querySelector('input[name=llm-model]:checked')?.value||settings.builtinModel, gameEngine:$('game-engine').value, game:$('game-choice').value, base:$('base').value, model:$('model').value, replyLanguage:$('reply-language').value, ...voiceChoice() }); await saveWake().catch(error=>message(String(error.message).replace(/^Error invoking remote method '[^']+': (Error: )?/,''),'error')); $('settings').hidden = true; document.body.classList.remove('settings'); status(`${settings.provider} · ${t.saved}`); }
-  catch (e) { message(e.message, 'error'); $('settings').hidden = true; document.body.classList.remove('settings'); }
+async function saveAllSettings(){
+  try{settings=await window.bula.saveSettings({ ...brainChoice($('provider').value), builtinModel:document.querySelector('input[name=llm-model]:checked')?.value||settings.builtinModel, gameEngine:$('game-engine').value, game:$('game-choice').value, base:$('base').value, model:$('model').value, replyLanguage:$('reply-language').value, ...voiceChoice() });}
+  catch(error){return {ok:false,error:error.message,wakeError:null};}
+  let wakeError=null;try{await saveWake();}catch(error){wakeError=cleanError(error);}
+  return {ok:true,error:null,wakeError};
+}
+$('save').onclick=async()=>{
+  const result=await saveAllSettings();
+  if(result.error)message(result.error,'error');
+  if(result.wakeError)message(result.wakeError,'error');
+  $('settings').hidden=true;document.body.classList.remove('settings');
+  if(result.ok)status(`${settings.provider} · ${t.saved}`);
+};
+$('ui-language').onchange=async()=>{
+  const previous=settings.uiLanguage,uiLanguage=$('ui-language').value;
+  $('ui-language').disabled=true;$('ui-prefs-status').textContent='';
+  try{
+    const result=await saveAllSettings();
+    if(!result.ok){$('ui-language').value=previous;$('ui-prefs-status').textContent=cleanError(result.error);return;}
+    if(result.wakeError)$('ui-prefs-status').textContent=result.wakeError;
+    settings=await window.bula.uiPrefs({uiLanguage});
+  }catch(error){$('ui-language').value=previous;$('ui-prefs-status').textContent=cleanError(error);}
+  finally{$('ui-language').disabled=false;}
+};
+$('theme').onchange=async()=>{
+  const previous=settings.theme,theme=$('theme').value;$('theme').disabled=true;
+  try{settings=await window.bula.uiPrefs({theme});document.body.dataset.theme=settings.theme;$('theme-preview').dataset.theme=settings.theme;}
+  catch(error){$('theme').value=previous;$('ui-prefs-status').textContent=cleanError(error);}
+  finally{$('theme').disabled=false;}
 };
 $('chat-form').onsubmit = async event => {
   event.preventDefault(); const text = $('prompt').value.trim(); if (!text || busy||composing) return;clearTimeout(voiceTimer);
