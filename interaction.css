@@ -1,0 +1,2 @@
+.card{cursor:pointer}.card:focus-visible{outline:3px solid #59a58a;outline-offset:3px}.card:hover{border-color:#88aa8d}
+#error:not(:empty){position:fixed;top:85px;left:50%;transform:translateX(-50%);z-index:10;max-width:90vw;padding:12px 18px;border:1px solid #ddb7a3;background:#fff1e8;border-radius:12px;box-shadow:0 4px 18px #54351920}#connection.offline{color:#a04d41}.disconnected .card{opacity:.6;cursor:not-allowed}

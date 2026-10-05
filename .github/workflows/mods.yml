@@ -1,0 +1,24 @@
+name: mods
+# Fast check for Mod pull requests: validates only the Mods the change touches, without installing anything.
+on:
+  pull_request:
+    paths: ['mods/**']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate changed Mods
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE"...HEAD -- mods | cut -d/ -f1-2 | sort -u)
+          echo "Changed Mods: $changed"
+          node scripts/check-mods.cjs $changed

@@ -1,0 +1,17 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'"><title>AI 輔助下載</title><link rel="stylesheet" href="assisted.css"></head><body>
+<header id="bar">
+  <div class="row">
+    <button id="back" type="button" title="上一頁" aria-label="上一頁">‹</button>
+    <select id="site" aria-label="網站"></select>
+    <form id="find"><input id="query" type="search" maxlength="80" autocomplete="off" placeholder="關鍵字（例如：ずんだもん、猫耳、VRM）" aria-label="搜尋"><button type="submit">找</button></form>
+    <button id="terms" type="button" class="ai">AI 看條款</button>
+  </div>
+  <div class="row line"><span id="status" aria-live="polite"></span><span id="url"></span></div>
+</header>
+<section id="panel" hidden>
+  <div id="summary"></div>
+  <div id="candidates" role="radiogroup" aria-label="要加入的角色"></div>
+  <div class="actions"><button id="import" type="button" disabled>加入我的角色</button><button id="dismiss" type="button">關閉</button></div>
+  <p class="advisory">AI 摘要僅供參考，以原作者條款為準。登入和同意條款請你自己操作，App 不會代你輸入帳密或按下同意。</p>
+</section>
+<script src="assisted.js"></script></body></html>

@@ -1,0 +1,24 @@
+const {contextBridge,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('marketplace',{
+  data:()=>ipcRenderer.invoke('marketplace:data'),
+  select:value=>ipcRenderer.invoke('marketplace:select',value),
+  close:()=>ipcRenderer.invoke('marketplace:close'),
+  modAsset:(modId,file)=>ipcRenderer.invoke('marketplace:mod-asset',modId,file),
+  live2dCore:()=>ipcRenderer.invoke('marketplace:live2d-core'),
+  installLive2dCore:()=>ipcRenderer.invoke('marketplace:live2d-core-install'),
+  onState:callback=>ipcRenderer.on('bula:state',(_event,state)=>callback(state)),
+  onFocusSearch:callback=>ipcRenderer.on('marketplace:focus-search',callback),
+  editPerson:(id,skinId)=>ipcRenderer.invoke('marketplace:edit-person',id,skinId),
+  newPerson:()=>ipcRenderer.invoke('marketplace:new-person'),
+  librarySearch:(query,sources)=>ipcRenderer.invoke('marketplace:library-search',query,sources),
+  libraryThumb:key=>ipcRenderer.invoke('marketplace:library-thumb',key),
+  libraryImport:key=>ipcRenderer.invoke('marketplace:library-import',key),
+  accounts:()=>ipcRenderer.invoke('marketplace:accounts'),
+  vroidConfigure:value=>ipcRenderer.invoke('marketplace:vroid-configure',value),
+  vroidConnect:()=>ipcRenderer.invoke('marketplace:vroid-connect'),
+  vroidDisconnect:()=>ipcRenderer.invoke('marketplace:vroid-disconnect'),
+  sketchfabToken:value=>ipcRenderer.invoke('marketplace:sketchfab-token',value),
+  assistOpen:value=>ipcRenderer.invoke('marketplace:assist-open',value),
+  openPage:url=>ipcRenderer.invoke('marketplace:open-page',url),
+  onRefresh:callback=>ipcRenderer.on('marketplace:refresh',()=>callback())
+});

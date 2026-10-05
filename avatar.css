@@ -1,0 +1,24 @@
+.avatar{width:100%;max-height:280px;overflow:visible}.character{transform-origin:170px 170px;animation:avatar-float 4s ease-in-out infinite}.avatar .right-fin{transform-origin:170px 170px;animation:avatar-wave 4s ease-in-out infinite}.avatar .blink,.avatar .open-mouth,.avatar .sad-mouth,.avatar .brows,.avatar .sweat,.avatar .tears{display:none}.avatar.blinking .eyes{display:none}.avatar.blinking .blink{display:block}.avatar.talking .smile,.avatar.talking .sad-mouth{display:none}.avatar.talking .open-mouth{display:block;animation:avatar-mouth .24s ease-in-out infinite alternate;transform-origin:171px 189px}.avatar[data-emotion=smug] .brows{display:block}.avatar[data-emotion=nervous] .sweat{display:block}.avatar[data-emotion=sad] .tears,.avatar[data-emotion=sad] .sad-mouth{display:block}.avatar[data-emotion=sad] .smile{display:none}.avatar[data-emotion=surprised] .open-mouth{display:block}.avatar[data-emotion=surprised] .smile{display:none}.avatar[data-emotion=happy] .character{animation-duration:1.6s}.avatar[data-activity=working] .character{animation:avatar-work 1s ease-in-out infinite}.avatar[data-activity=waiting_for_approval] .character{animation:none}@keyframes avatar-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-7px) rotate(1deg)}}@keyframes avatar-work{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-3px) rotate(2deg)}}@keyframes avatar-wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}@keyframes avatar-mouth{from{transform:scaleY(.4)}to{transform:scaleY(1)}}@media(prefers-reduced-motion:reduce){.avatar .character,.avatar .right-fin{animation:none}}
+
+.avatar .joy-eyes{display:none}
+
+.avatar[data-renderer=svg].talking .open-mouth{animation-duration:.28s}
+/* Mods that ship joy eyes show them while happy (SVG parts and PNG layers). */
+.avatar:is([data-renderer=svg],[data-renderer=png])[data-emotion=happy]:has(.joy-eyes) :is(.eyes,.blink){display:none}
+.avatar:is([data-renderer=svg],[data-renderer=png])[data-emotion=happy] .joy-eyes{display:block}
+
+.avatar .wink,.avatar .love-eyes{display:none}
+.avatar .pupils{transition:transform .18s ease-out}
+.avatar[data-react] .character{animation:avatar-poke .5s ease-out}
+.avatar[data-react=joy] .eyes,.avatar[data-react=joy] .blink,.avatar[data-react=wink] .eyes,.avatar[data-react=wink] .blink,.avatar[data-react=love] .eyes,.avatar[data-react=love] .blink{display:none}
+.avatar[data-react=joy] .joy-eyes,.avatar[data-react=wink] .wink,.avatar[data-react=love] .love-eyes{display:block}
+.avatar[data-react=surprised] .open-mouth,.avatar[data-react=love] .cheeks{display:block}.avatar[data-react=surprised] .smile{display:none}
+@keyframes avatar-poke{0%{transform:none}30%{transform:translateY(-12px) scale(1.04,.96)}60%{transform:scale(.97,1.03)}100%{transform:none}}
+@media(prefers-reduced-motion:reduce){.avatar[data-react] .character{animation:none}.avatar .pupils{transition:none}}
+/* PNG layers: an expression layer only hides the default one when the Mod provides it. */
+.avatar[data-renderer=png] .open{display:block}
+.avatar[data-renderer=png]:not(:has(.open-mouth)).talking .smile{display:block}
+/* 3D canvas stands on the bottom of the character area, like the SVG companions. */
+.avatar-3d{display:flex;align-items:flex-end;justify-content:center;width:100%;max-height:280px}.avatar-3d canvas{display:block;max-height:100%;object-fit:contain}
+/* Live2D without Live2D's Cubism Core yet: a short note and, on the Mac, the download button. */
+.live2d-consent{align-self:center;margin:0 10px;padding:10px 12px;border-radius:12px;background:#ffffffee;border:1px solid #d8e5ee;box-shadow:0 2px 10px #0b2a4a1a;font-size:12px;line-height:1.5;color:#2c4a60;text-align:left}.live2d-consent p{margin:0 0 6px}.live2d-consent button{border:0;border-radius:8px;padding:6px 10px;background:#22375a;color:#fff;font-size:12px;cursor:pointer}.live2d-consent button:disabled{opacity:.6;cursor:default}

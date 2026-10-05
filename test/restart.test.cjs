@@ -1,0 +1,7 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const {loadIdentity,saveIdentity}=require('../control-identity.cjs');const {startControl}=require('../control-server.cjs');const {Runtime}=require('../runtime.cjs');const {loadCatalog}=require('../mods.cjs');
+test('same control URL and authorization work after app runtime restart',async()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-restart-'));const catalog=loadCatalog();let server;
+  const start=async()=>{const runtime=new Runtime(catalog);server=await startControl({runtime,catalog,language:'en',identity:loadIdentity(directory),onSelect:v=>runtime.select(v)});saveIdentity(directory,{port:server.port,token:server.token});return runtime;};
+  try{const first=await start();const oldUrl=server.origin;const headers={Authorization:`Bearer ${server.token}`,'Content-Type':'application/json'};first.select({modId:'miso'});await server.close();const second=await start();assert.equal(server.origin,oldUrl);assert.notEqual(second.state.instanceId,first.state.instanceId);const response=await fetch(oldUrl+'/api/select',{method:'POST',headers,body:JSON.stringify({modId:'byte',skinId:'arcade'})});assert.equal(response.status,200);assert.equal(second.state.skinId,'arcade');}finally{if(server)await server.close();fs.rmSync(directory,{recursive:true,force:true});}
+});

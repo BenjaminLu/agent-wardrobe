@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'none'">
+<title>聲音工作室</title><link rel="stylesheet" href="voice-lab.css"></head>
+<body>
+<header><h1>🎙 聲音工作室</h1><span id="mic-on" class="mic-on" hidden role="status">● 錄音中</span></header>
+<p id="error" class="error" role="alert" hidden></p>
+
+<section id="step-method" class="step">
+  <h2>想怎麼做聲音？</h2>
+  <div class="methods">
+    <button type="button" class="method" data-method="quick"><b>⚡ 快速複製</b><span>念約 10 秒，本機 CosyVoice 馬上做好。</span></button>
+    <button type="button" class="method" data-method="train"><b>🎓 高品質訓練</b><span>錄幾分鐘，本機 GPT-SoVITS 訓練（要一段時間）。</span></button>
+    <button type="button" class="method" data-method="cloud"><b>☁️ 雲端</b><span>ElevenLabs 即時複製（你自己的付費帳號）。</span></button>
+    <button type="button" class="method" data-method="design"><b>✨ AI 設計聲音</b><span>用一句話描述，例如「可愛的動漫少女，活潑」。</span></button>
+    <button type="button" class="method" data-method="pack"><b>📦 匯入社群聲音模型</b><span>GPT-SoVITS 模型包（.ckpt + .pth + 參考音檔）。</span></button>
+  </div>
+  <p id="no-voices" class="warn" hidden>這版 App 的聲音核心還沒裝好：可以試做，但還不能儲存。</p>
+</section>
+
+<section id="step-consent" class="step" hidden>
+  <h2>這是誰的聲音？對方同意嗎？</h2>
+  <p>複製真人的聲音之前，一定要先問過本人。做好的聲音只存在這台 Mac，只給你自己用，不能匯出或分享。</p>
+  <label>這是誰的聲音<input id="consent-person" maxlength="60" placeholder="例如：我自己、小明"></label>
+  <label class="check"><input id="consent-agreed" type="checkbox"> 我已經問過本人，他／她同意用這段聲音做 AI 聲音，只在這台 Mac 上自己使用。</label>
+  <div class="row"><button id="consent-back" type="button">← 返回</button><button id="consent-next" type="button" class="primary" disabled>同意，下一步</button></div>
+</section>
+
+<section id="step-record" class="step" hidden>
+  <h2 id="record-title">錄音</h2>
+  <div id="engine-status" class="engine"></div>
+  <div id="eleven-key" class="key" hidden>
+    <label>ElevenLabs API key（只存在這台 Mac，加密保存）<input id="eleven-key-input" type="password" autocomplete="off" placeholder="sk_…"></label>
+    <button id="eleven-key-save" type="button">儲存並驗證</button>
+  </div>
+  <div class="prompts"><div class="prompt-head"><b>請念這段：</b><select id="prompt-lang"><option value="zh">中文</option><option value="ja">日本語</option><option value="en">English</option></select><button id="prompt-next" type="button">換一句</button></div>
+    <blockquote id="prompt-text"></blockquote></div>
+  <div class="recorder">
+    <button id="record" type="button" class="record">● 開始錄音</button>
+    <div class="meter" aria-label="音量"><div id="level"></div></div><span id="timer">0.0 秒</span>
+    <label class="import">匯入音檔…<input id="import" type="file" accept=".wav,.mp3,.m4a,.aac,.aif,.aiff,.caf,.flac,audio/*" multiple hidden></label>
+  </div>
+  <p class="hint">不會自動錄音：按下才開始，再按一次停止。錄音只暫存在一個私人資料夾，做好聲音後就刪掉。</p>
+  <ul id="takes"></ul>
+  <label id="ref-text-row" hidden>錄音裡說了什麼（要跟錄音一致）<textarea id="ref-text" rows="2"></textarea></label>
+  <label id="name-row-cloud" hidden><input id="remove-noise" type="checkbox"> 讓 ElevenLabs 去除背景雜音</label>
+  <div class="row"><button id="record-back" type="button">← 返回</button><button id="create" type="button" class="primary" disabled>做成聲音</button></div>
+  <div id="job" class="job" hidden><div class="job-head"><b id="job-title"></b><button id="job-cancel" type="button">取消訓練</button></div>
+    <ol id="job-stages"></ol><div class="bar"><div id="job-bar"></div></div><p id="job-detail" class="hint"></p></div>
+</section>
+
+<section id="step-design" class="step" hidden>
+  <h2>✨ AI 設計聲音</h2>
+  <div id="eleven-key-design" class="key" hidden>
+    <label>ElevenLabs API key（只存在這台 Mac，加密保存）<input id="eleven-key-input-2" type="password" autocomplete="off" placeholder="sk_…"></label>
+    <button id="eleven-key-save-2" type="button">儲存並驗證</button>
+  </div>
+  <label>描述想要的聲音<textarea id="design-prompt" rows="3" maxlength="1000" placeholder="可愛的動漫少女，活潑"></textarea></label>
+  <div class="row"><button id="design-back" type="button">← 返回</button><button id="design-go" type="button" class="primary">產生試聽</button></div>
+  <div id="design-results"></div>
+</section>
+
+<section id="step-pack" class="step" hidden>
+  <h2>📦 匯入社群聲音模型（GPT-SoVITS）</h2>
+  <p class="warn">社群聲音模型多半用原作配音訓練，僅供自己使用。匯入的模型只會存在這台 Mac，不能匯出。只匯入你信任的來源：我們會先檢查模型檔，裡面若要求執行程式就不匯入。</p>
+  <div id="pack-engine" class="engine"></div>
+  <label>參考音檔說了什麼（可留空，會從檔名或文字檔讀）<input id="pack-ref-text" maxlength="300"></label>
+  <div class="row"><button id="pack-back" type="button">← 返回</button><button id="pack-pick" type="button" class="primary">選擇模型檔…</button></div>
+</section>
+
+<section id="step-finish" class="step" hidden>
+  <h2>聲音做好了！</h2>
+  <p id="kept" class="ok"></p>
+  <label>試聽文字<input id="preview-text" value="你好！這是我的新聲音，聽起來怎麼樣？" maxlength="300"></label>
+  <div class="row"><button id="preview" type="button">▶ 試聽</button><audio id="preview-audio" controls hidden></audio></div>
+  <label>聲音名字<input id="voice-name" maxlength="40" placeholder="例如：小明的聲音"></label>
+  <label class="check"><input id="bind" type="checkbox" checked> <span id="bind-label">綁定到目前角色</span></label>
+  <div class="row"><button id="finish-back" type="button">重新開始</button><button id="save" type="button" class="primary">儲存聲音</button></div>
+  <p id="saved" class="ok" hidden></p>
+</section>
+<script src="voice-lab.js"></script>
+</body></html>

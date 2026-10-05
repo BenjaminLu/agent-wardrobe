@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.log
+.smoke-userdata/
+smoke*.png
+evidence/
+bin/
+
+# Personal reference photos and anything generated from them stay out of the repository.
+design/**/reference*.jpg
+design/**/concept*.png
+*.private.*
+
+# Experimental Laya game model (npm run laya:setup)
+.laya/
+.DS_Store
+.claude/
+.scratch/

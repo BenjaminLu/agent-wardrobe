@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src blob:"><title>Mod Marketplace</title><link rel="stylesheet" href="marketplace.css"><link rel="stylesheet" href="avatar.css"></head><body>
+<header><div class="wordmark">WARDROBE <span id="edition">DESKTOP</span></div><span class="shortcut">⌘⇧S</span></header>
+<main><p class="eyebrow" id="eyebrow">YOUR AGENT, YOUR CHARACTER</p><h1 id="title">Mod Marketplace</h1><p class="lede" id="lede">Find a character. Choose a skin. Make it yours.</p>
+<nav id="pages" role="tablist"><button type="button" role="tab" data-page="installed" aria-selected="true">My characters</button><button type="button" role="tab" data-page="store" aria-selected="false">Avatar store</button></nav>
+<div id="page-installed"><div class="search-row"><label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" maxlength="200" aria-label="Search Mods" placeholder="Search characters, skins or personalities…"><kbd>⌘F</kbd></label><button id="clear">Clear</button></div>
+<section class="active"><span id="active-label">ON YOUR DESKTOP</span><strong id="active-name"></strong><label><span id="personality-label">Personality</span><select id="personality"></select></label></section>
+<div class="results-heading"><h2 id="results-label">Explore Mods</h2><span id="count" aria-live="polite"></span><button id="new-person" type="button">📷 Character from a photo</button></div><div id="cards"></div><p id="empty" hidden>No matching Mods. Try another name or skin.</p></div>
+<section id="library" hidden>
+  <div class="results-heading"><h2 id="library-label">Avatar store</h2><span id="library-note" data-zh="動漫・遊戲・VTuber 角色，每個都標出使用條款">Anime, game and VTuber characters, each with its terms</span></div>
+  <form id="library-form"><input id="library-query" type="search" maxlength="80" placeholder="Search anime, game and VTuber characters…" aria-label="Search the avatar store">
+    <button id="library-go" type="submit">Search</button>
+    <div class="sources">
+    <label><input type="checkbox" name="source" value="featured" checked> <span data-zh="精選角色">Featured</span></label>
+    <label><input type="checkbox" name="source" value="vroid" checked> <span>VRoid Hub</span></label>
+    <label><input type="checkbox" name="source" value="vrm" checked> <span>Open Source Avatars</span></label>
+    <label><input type="checkbox" name="source" value="sketchfab" checked> <span data-zh="Sketchfab 3D">Sketchfab 3D</span></label>
+    <label><input type="checkbox" name="source" value="booru" checked> <span data-zh="動漫圖（重畫參考）">Anime pictures (redraw reference)</span></label>
+    </div></form>
+  <div id="assist-row"><span data-zh="沒有 API 的網站：在 App 的下載視窗裡找，AI 幫你看條款">Sites without an API: browse in the app's download window; AI reads the terms</span></div>
+  <div id="accounts"></div>
+  <p id="library-status"></p><div id="library-results"></div>
+</section><p id="error" role="alert" hidden></p>
+<footer id="scope">Local collection · Includes 3 Mods and 6 skins. Online listings, purchases and downloads are not connected yet.</footer>
+</main><script src="avatars.js"></script><script src="marketplace.js"></script></body></html>

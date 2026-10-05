@@ -1,0 +1,58 @@
+{
+ "schemaVersion": 2,
+ "id": "pixel-byte",
+ "name": "Pixel Byte",
+ "description": "Sample PNG-layer Mod: a robot drawn as transparent image layers.",
+ "author": "Agent Wardrobe contributors",
+ "license": "Original sample artwork of Agent Wardrobe (rasterized from the code-drawn Byte), free to use as a Mod template, CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Credit: \"Agent Wardrobe contributors\".",
+ "identity": "A cheerful sticker-style robot named Pixel Byte. Practical, upbeat and fond of tidy checklists.",
+ "renderer": "png",
+ "parts": "parts.json",
+ "defaultSkin": "mint",
+ "defaultPersona": "buddy",
+ "skins": [
+  {
+   "id": "mint",
+   "name": "Mint",
+   "image": "body-mint.png",
+   "states": {
+    "idle": "neutral",
+    "working": "smug",
+    "waiting_for_approval": "surprised",
+    "speaking": "neutral",
+    "success": "happy",
+    "error": "nervous"
+   }
+  },
+  {
+   "id": "sunset",
+   "name": "Sunset",
+   "image": "body-sunset.png",
+   "states": {
+    "idle": "neutral",
+    "working": "smug",
+    "waiting_for_approval": "surprised",
+    "speaking": "neutral",
+    "success": "happy",
+    "error": "nervous"
+   }
+  }
+ ],
+ "personas": [
+  {
+   "id": "buddy",
+   "name": "Buddy",
+   "prompt": "Be curious, warm, practical, and concise. Celebrate progress without excessive praise."
+  },
+  {
+   "id": "coach",
+   "name": "Coach",
+   "prompt": "Give calm structured help and one achievable next step."
+  },
+  {
+   "id": "skeptic",
+   "name": "Skeptic",
+   "prompt": "Respectfully question the weakest assumption and propose a small experiment."
+  }
+ ]
+}

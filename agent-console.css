@@ -1,0 +1,2 @@
+body{margin:0;background:#10151f;color:#dce8f7;font:14px system-ui}header{display:flex;gap:12px;align-items:center;padding:12px}header span{flex:1}button{background:#27374d;color:white;border:0;border-radius:8px;padding:10px;cursor:pointer}p{margin:0;padding:8px 16px;color:#a8bdd6;font-size:13px;line-height:1.5}#terminal{padding:12px;height:calc(100vh - 142px);box-sizing:border-box}
+#emergency{background:#bd2338;color:white;font-weight:700;border:2px solid #ff9aa8}header{flex-wrap:wrap}#terminal{height:calc(100vh - 155px)}

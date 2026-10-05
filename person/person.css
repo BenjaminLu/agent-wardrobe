@@ -1,0 +1,18 @@
+*{box-sizing:border-box}body{margin:0;padding:16px 20px;background:#f6fafd;color:#172c47;font:14px -apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif}
+h1{font-size:19px;margin:0 0 4px}.note{color:#5d7a8e;margin:0 0 12px;font-size:13px}
+main{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#frame{position:relative;aspect-ratio:3/4;background:#e4eef5;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#frame video,#frame img{width:100%;height:100%;object-fit:cover}#hint{color:#7894a2}#count{position:absolute;font-size:80px;color:#fff;text-shadow:0 2px 12px #0008}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}button,.button{border:0;border-radius:10px;padding:9px 14px;background:#e4f2fb;color:#155f91;font-size:14px;cursor:pointer}.primary{background:#1c8fe1;color:#fff}button:disabled{opacity:.45;cursor:default}
+#status{min-height:18px;color:#5d7a8e;font-size:13px}
+#pet{height:250px;display:flex;justify-content:center;background:#fff;border-radius:16px;border:1px solid #d3e7ef}#pet>*{height:100%}
+label{display:block;margin:8px 0;color:#33576e;font-size:13px}input:not([type=checkbox]),select{display:block;width:100%;margin-top:4px;padding:7px;border:1px solid #c8dfe8;border-radius:8px;background:#fff;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.check{display:flex;align-items:center;gap:6px}
+#placeholder{color:#7894a2;align-self:center}#summary{color:#33576e;min-height:18px}#revise-form{display:flex;gap:8px;align-items:flex-end}#revise-form label{flex:1}
+#pet{height:300px;align-items:center}
+#pet{height:220px}
+#expressions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}#expressions figure{margin:0;background:#fff;border:1px solid #d3e7ef;border-radius:10px;padding:2px 0 4px;text-align:center}
+#expressions .cell{height:84px;display:flex;justify-content:center}#expressions .cell>*{height:100%}#expressions figcaption{font-size:11px;color:#5d7a8e}
+main{grid-template-columns:5fr 6fr}
+[hidden]{display:none!important}
+#pet img.reference{height:100%;object-fit:contain}#redraw{margin:8px 0}

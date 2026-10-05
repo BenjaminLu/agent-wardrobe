@@ -1,0 +1,15 @@
+*{box-sizing:border-box}html,body{margin:0;background:#f5f8fc;color:#19304b;font:13px -apple-system,BlinkMacSystemFont,sans-serif}button,input,select{font:inherit}button{cursor:pointer}[hidden]{display:none!important}
+#bar{padding:10px 14px 6px;border-bottom:1px solid #dde6f0;background:#fff}.row{display:flex;gap:8px;align-items:center}
+#back{border:1px solid #d5dfeb;background:#fff;border-radius:9px;width:34px;height:32px;font-size:20px;line-height:1}#back:disabled{opacity:.4}
+select{padding:6px 10px;border:1px solid #c5d8ea;border-radius:9px;background:#fff;color:inherit}
+#find{display:flex;gap:6px;flex:1}#query{flex:1;min-width:0;padding:7px 10px;border:1px solid #cfdde7;border-radius:9px}#find button{border:0;border-radius:9px;padding:7px 14px;background:#22375a;color:#fff}
+.ai{border:0;border-radius:9px;padding:7px 12px;background:#6b4fd8;color:#fff;font-weight:600}.ai:disabled{opacity:.5}
+.line{justify-content:space-between;margin-top:6px;font-size:12px;color:#5d7a8e;min-height:16px}#url{color:#93a5b6;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#panel{padding:10px 14px 12px;background:#fbfcfe;border-bottom:1px solid #dde6f0;max-height:440px;overflow:auto}
+.terms{background:#fff;border:1px solid #e1e3f6;border-radius:12px;padding:10px 12px}.terms h3{margin:0 0 6px;font-size:14px}.terms .badge{font-size:11px;font-weight:600;color:#8a5a00;background:#fff1cc;border-radius:6px;padding:1px 6px;margin-left:6px}
+.terms p{margin:4px 0;line-height:1.5}.facts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.fact{font-size:11px;border-radius:6px;padding:2px 7px;background:#eef3f8}.fact.yes{background:#e9f6ec;color:#2f7a45}.fact.no{background:#fdecea;color:#9b3e2b}.fact.maybe{background:#fdf0e1;color:#9a5a12}
+.files{font-size:11px;color:#6a8496}.warn{color:#9a5a12}.error{color:#9b3e2b}
+#candidates{display:flex;flex-direction:column;gap:4px;margin:8px 0}#candidates label{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #e1eaf0;border-radius:10px;padding:6px 10px}#candidates label.off{opacity:.55}
+#candidates small{color:#6a8496}
+.actions{display:flex;gap:8px}#import{border:0;border-radius:10px;padding:8px 16px;background:#183f69;color:#fff;font-weight:600}#import:disabled{opacity:.45}#dismiss{border:1px solid #d5dfeb;background:#fff;border-radius:10px;padding:8px 14px}
+.advisory{font-size:11px;color:#7a8a9c;margin:8px 0 0}

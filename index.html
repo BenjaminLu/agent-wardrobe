@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src blob:"><title>Agent Wardrobe</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="avatar.css"></head>
+<body>
+<main>
+  <section id="onboarding" hidden aria-live="polite">
+    <div class="ob-steps"><span></span><span></span><span></span><span></span></div>
+    <div class="ob-page" data-step="0">
+      <h2 data-en="Hi! First, pick my AI brain">嗨！先選我的 AI 大腦</h2>
+      <p data-en="I use it to chat and to do things for you. Codex and Claude use your signed-in account; the local model is free and needs no account.">我會用它來聊天和幫你做事。Codex／Claude 用你已登入的帳號；本機模型免費、不用帳號。</p>
+      <div class="ob-choices" id="ob-brains"></div>
+      <div id="ob-llm" hidden><p class="ob-note" data-en="Pick a local model. It downloads after you press Get started:">選一個本機模型，按「開始使用」後才會下載：</p><div class="ob-choices" id="ob-llm-models"></div></div>
+    </div>
+    <div class="ob-page" data-step="1" hidden>
+      <h2 data-en="How should I sound?">我要用什麼聲音說話？</h2>
+      <div class="ob-choices">
+        <label><input type="radio" name="ob-voice" value="edge"><b data-en="Taiwanese Mandarin">台灣腔</b><small data-en="Free, online; the text goes to Microsoft">免費，要連網，文字會送到微軟</small></label>
+        <label><input type="radio" name="ob-voice" value="kokoro"><b data-en="Local AI voice">本機 AI 語音</b><small data-en="Free and offline; about 400 MB to download once">免費、離線，第一次要下載約 400 MB</small></label>
+        <label><input type="radio" name="ob-voice" value="system"><b data-en="macOS voice">macOS 內建</b><small data-en="Nothing to download; sounds more robotic">不用下載，聲音比較機械</small></label>
+        <label><input type="radio" name="ob-voice" value="off"><b data-en="Silent">不說話</b><small data-en="Text replies only">只用文字回覆</small></label>
+      </div>
+      <p class="ob-note" data-en="For OpenAI voices, add an API key later in Settings → Voice.">想用 OpenAI 的聲音，之後可以到「設定 → 語音」輸入 API key。</p>
+      <button type="button" id="ob-preview" data-en="▶ Preview">▶ 試聽</button>
+    </div>
+    <div class="ob-page" data-step="2" hidden>
+      <h2 data-en="Call me by voice?">要不要用叫的？</h2>
+      <p><span data-en="Say “">開啟後說「</span><b id="ob-wake-word">嘿安妮</b><span data-en="” and then just ask. Speech is recognised on this Mac and is never recorded or uploaded.">」就能叫我，接著直接說問題。聲音只在這台 Mac 上辨識，不錄存、不上傳。</span></p>
+      <label class="check"><input type="checkbox" id="ob-wake"> <span data-en="Turn on the wake word (asks for microphone access)">開啟語音喚醒（會詢問麥克風權限）</span></label>
+      <label class="check"><input type="checkbox" id="ob-asr"> <span data-en="Also download speech recognition (about 240 MB) so you can talk after waking me">同時下載語音辨識模型（約 240 MB），叫醒後可以直接用說的</span></label>
+    </div>
+    <div class="ob-page" data-step="3" hidden>
+      <h2 data-en="All set!">準備好了！</h2>
+      <ul>
+        <li data-en="Click me to chat; drag to move me.">點一下我就能聊天；拖曳可以移動我。</li>
+        <li data-en="⌘-scroll over me to make me bigger or smaller.">在我身上按 ⌘ 捲動，可以把我變大變小。</li>
+        <li data-en="◈ Skin changes character and outfit; 📁 shows files I saved for you.">◈ Skin 換角色和衣服，📁 看我幫你存的檔案。</li>
+        <li data-en="Just ask for tasks, like “check today’s weather in Taipei”.">要我做事直接說，例如「幫我查今天台北天氣」。</li>
+        <li data-en="Change any of this in ⚙ Settings, where you can also reopen this guide.">之後都可以在 ⚙ 設定裡改，也能重新看這份引導。</li>
+      </ul>
+    </div>
+    <div class="ob-nav"><button type="button" id="ob-skip" data-en="Skip">略過</button><button type="button" id="ob-back" hidden data-en="Back">上一步</button><button type="button" id="ob-next">下一步</button></div>
+  </section>
+  <section id="panel">
+    <header class="drag"><span class="brand">ANNIE<span class="dot"></span></span><button id="chat-size" class="nodrag" title="放大／縮小對話框" aria-label="放大或縮小對話框">⤢</button><button id="settings-toggle" class="nodrag" title="AI 設定"><span aria-hidden="true">⚙</span> <span id="settings-label">設定</span></button><button id="close" title="收到背景（要結束請從選單列）" class="nodrag">×</button></header>
+    <div id="settings" hidden>
+      <nav id="settings-nav" role="tablist" aria-label="設定分類">
+        <button type="button" data-pane="brain">🧠<span>AI 大腦</span></button>
+        <button type="button" data-pane="voice">🔊<span>語音・聲音</span></button>
+        <button type="button" data-pane="wake">🎙<span>語音喚醒</span></button>
+        <button type="button" data-pane="characters">🎭<span>角色</span></button>
+        <button type="button" data-pane="games">🎮<span>遊戲</span></button>
+        <button type="button" data-pane="remote">📱<span>手機遙控</span></button>
+        <button type="button" data-pane="general">⚙️<span>一般</span></button>
+      </nav>
+      <div id="settings-panes">
+      <section class="pane" data-pane="brain" hidden><h3 class="pane-title">AI 大腦</h3>
+        <label>AI 大腦<select id="provider"><option value="codex">Codex · 現有帳號</option><option value="claude">Claude · 現有帳號</option><option value="builtin">本機模型 · 內建（免費）</option><option value="local">LM Studio · 本機</option></select></label>
+        <div id="cli-setup" class="voice-row" hidden><span id="cli-status"></span><button type="button" id="cli-install">安裝並登入</button></div>
+        <div id="builtin-settings" hidden><div class="ob-choices" id="llm-models"></div><progress id="llm-progress" max="1" value="0" hidden></progress><div class="voice-row"><span id="llm-status"></span><button type="button" id="llm-install">下載這個模型</button><button type="button" id="llm-remove" hidden>刪除</button></div></div>
+        <div id="local-settings" hidden><label>本機位址<input id="base" value="http://127.0.0.1:1234/v1"></label><label>模型 ID（留空自動選擇）<input id="model"></label></div>
+        <label>AI 回覆語言<select id="reply-language"><option value="auto">自動（跟著我用的語言）</option><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option><option value="ja">日本語</option></select></label>
+        <label>任務模式<select id="task-mode" aria-label="Task mode"><option value="auto">自動判斷</option><option value="chat">只聊天</option><option value="computer">電腦操作</option><option value="browser">瀏覽器操作</option><option value="files">整理資料／存檔</option></select></label>
+        <div class="voice-row"><button id="agent-console">詳細紀錄 ↗</button></div>
+        <p>CLI 使用既有登入與方案額度。聊天送往所選服務；本機模式送至你的電腦。</p>
+        <p id="operation-help">操作使用所選大腦。Claude 接官方工具；Codex／LM Studio 使用 App 瀏覽器與原生電腦工具。LM Studio 請載入支援 tools 的模型；電腦操作另需支援影像。</p>
+        <div id="operation-permissions"><button data-permission="screen">螢幕錄製權限</button><button data-permission="accessibility">輔助使用權限</button></div>
+        <button id="official-setup">Claude 官方操作設定</button>
+      </section>
+      <section class="pane" data-pane="voice" hidden><h3 class="pane-title">語音・聲音</h3>
+        <div id="voice-settings">
+          <label>語音<select id="voice-provider"><option value="edge">台灣腔 · Edge 線上語音（免費）</option><option value="kokoro">本機 AI 語音 · Kokoro（免費、離線）</option><option value="openai">OpenAI AI 語音</option><option value="system">macOS 內建語音</option><option value="off">關閉語音</option></select></label>
+          <div id="edge-voice" hidden>
+            <label>聲音<select id="edge-voice-name"></select></label>
+            <label>語速 <span id="edge-rate-value">1.0×</span><input id="edge-rate" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="edge-preview">▶ 試聽</button></div>
+            <p class="voice-note">使用 Edge 瀏覽器「大聲朗讀」的微軟線上語音：免費、免帳號，但要連網，說的文字會送到微軟。這是非官方介面，微軟改版時可能暫時無法使用，那時請先換成本機語音。</p>
+          </div>
+          <div id="kokoro-voice" hidden>
+            <div class="voice-row"><span id="kokoro-status"></span><button type="button" id="kokoro-install">下載語音模型（約 400 MB）</button></div>
+            <progress id="kokoro-progress" max="1" value="0" hidden></progress>
+            <label>聲音<select id="kokoro-voice-name"></select></label>
+            <label>語速 <span id="kokoro-speed-value">1.0×</span><input id="kokoro-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="kokoro-preview">▶ 試聽</button></div>
+            <p class="voice-note">在這台 Mac 上執行，文字不會離開電腦。模型：Kokoro-82M（Apache 2.0）。中文聲音為普通話口音。</p>
+          </div>
+          <div id="openai-voice" hidden>
+            <label>聲音<select id="openai-voice-name"></select></label>
+            <label>模型<select id="openai-model"><option value="gpt-4o-mini-tts">gpt-4o-mini-tts · 可指定語氣</option><option value="tts-1">tts-1 · 回應較快</option><option value="tts-1-hd">tts-1-hd · 音質較細</option></select></label>
+            <label>語氣（gpt-4o-mini-tts 才會套用）<input id="openai-style" maxlength="1000"></label>
+            <div class="voice-row"><span id="openai-key-status"></span><button type="button" id="openai-key-toggle">設定 API key</button><button type="button" id="voice-preview">▶ 試聽</button></div>
+            <div id="openai-key-guide" hidden>
+              <ol>
+                <li>開啟 <button type="button" data-openai="keys">OpenAI API keys 頁面</button> 並登入。API 跟 ChatGPT 訂閱分開計費，Plus／Pro 不含 API 額度。</li>
+                <li>按「Create new secret key」，名稱填 Agent Wardrobe，權限選 All（或 Restricted 時開啟語音權限），複製 sk- 開頭的 key。它只會顯示這一次。</li>
+                <li>到 <button type="button" data-openai="billing">帳單頁</button> 確認有餘額。語音按字數或播放時間計費，日常朗讀一句通常不到 1 美分；用量可在 <button type="button" data-openai="usage">用量頁</button> 查。</li>
+                <li>把 key 貼在下面，按「驗證並儲存」。</li>
+              </ol>
+              <label>API key<input id="openai-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"></label>
+              <div class="voice-row"><button type="button" id="openai-key-save">驗證並儲存</button><button type="button" id="openai-key-clear">移除 key</button></div>
+              <p id="openai-key-note">保管方式：key 驗證成功後才儲存，加密存在這台 Mac（由 macOS 鑰匙圈保護），不寫進設定檔、之後也不會再顯示，只會送到 api.openai.com。不要把 key 貼到聊天框或分享給別人；懷疑外洩就到 API keys 頁面刪掉舊的、換一把新的。</p>
+            </div>
+          </div>
+        </div>
+        <div id="voices-settings"><b class="section-title">聲音</b>
+          <p id="voices-bound" class="voice-note"></p>
+          <p id="voices-lang" class="voice-note" hidden>VOICEVOX 只會說日文，現在的回覆語言不是日文。<button type="button" id="voices-japanese">讓角色用日文回覆</button></p>
+          <ul id="voices-list"></ul>
+          <div class="voice-row"><span class="voice-note">新增聲音 →</span><button type="button" id="voice-new-mix">萌系混音</button><button type="button" id="voice-new-vv">VOICEVOX 角色</button>
+            <!-- 錄音複製 opens the 聲音工作室 window (voice-lab.cjs) -->
+            <button type="button" id="voice-lab" hidden>🎙 錄音複製</button>
+            <button type="button" id="voice-import">匯入聲音包…</button></div>
+          <div id="voice-mix" hidden>
+            <label>名稱<input id="mix-name" maxlength="40"></label>
+            <label>風格<select id="mix-preset"></select></label>
+            <label>聲音 A<select id="mix-a"></select></label>
+            <label>聲音 B<select id="mix-b"></select></label>
+            <label>混合 <span id="mix-blend-value"></span><input id="mix-blend" type="range" min="0" max="100" step="5" value="60"></label>
+            <label>音高 <span id="mix-pitch-value"></span><input id="mix-pitch" type="range" min="-6" max="8" step="1" value="0"></label>
+            <label>語速 <span id="mix-speed-value"></span><input id="mix-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="mix-preview">▶ 試聽</button><button type="button" id="mix-save">儲存並綁定到目前角色</button><button type="button" id="mix-cancel">取消</button></div>
+            <p class="voice-note">用本機 Kokoro 模型的聲音混出新的聲音，在這台 Mac 上執行（需要先下載「本機 AI 語音」模型）。授權：Apache-2.0，可商用。</p>
+          </div>
+          <div id="voice-vv" hidden>
+            <div class="voice-row"><span id="vv-status" class="voice-note"></span><button type="button" id="vv-install" hidden>下載 VOICEVOX ENGINE</button></div>
+            <progress id="vv-progress" max="1" value="0" hidden></progress>
+            <div id="vv-pick" hidden>
+              <label>角色<select id="vv-speaker"></select></label><label>風格<select id="vv-style"></select></label>
+              <label>語速 <span id="vv-speed-value"></span><input id="vv-speed" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
+              <label>音高 <span id="vv-pitch-value"></span><input id="vv-pitch" type="range" min="-0.15" max="0.15" step="0.01" value="0"></label>
+              <div class="voice-row"><button type="button" id="vv-preview">▶ 試聽</button><button type="button" id="vv-save">儲存並綁定到目前角色</button><button type="button" id="vv-cancel">取消</button></div>
+            </div>
+            <p class="voice-note">VOICEVOX 只會說日文。每個角色有自己的利用規約，使用時要標示「VOICEVOX:角色名」；儲存時會一起保存該角色的規約。</p>
+          </div>
+        </div>
+      </section>
+      <section class="pane" data-pane="wake" hidden><h3 class="pane-title">語音喚醒</h3>
+        <div id="wake-settings">
+          <label class="check"><input type="checkbox" id="wake-enabled"> 語音喚醒：說喚醒詞就開始聊天</label>
+          <div class="voice-row"><span id="wake-listening">麥克風</span><meter id="mic-level" min="0" max="0.5" low="0.02" high="0.3" optimum="0.1" value="0"></meter></div>
+          <label>喚醒詞（可用逗號設定多個，中英文皆可）<input id="wake-phrases" maxlength="200" placeholder="嘿安妮, Hey Annie"></label>
+          <label>叫醒後的語音辨識<select id="dictation-engine"><option value="local">本機（SenseVoice，離線）</option><option value="typeless">Typeless（較準，用你的 Typeless 帳號）</option></select></label><p id="typeless-note" class="voice-note" hidden></p>
+          <label>靈敏度<select id="wake-sensitivity"><option value="high">高（比較好叫醒，偶爾誤觸）</option><option value="normal">一般（較少誤觸）</option></select></label>
+          <div class="voice-row"><span id="asr-status"></span><button type="button" id="asr-install">下載語音辨識模型（約 240 MB）</button></div>
+          <progress id="asr-progress" max="1" value="0" hidden></progress>
+          <p class="voice-note">喚醒後直接說出你的問題，停頓一下就會自動送出。聲音只在這台 Mac 上辨識，不錄存、不上傳。沒下載辨識模型時，喚醒只會打開聊天框。</p>
+        </div>
+      </section>
+      <section class="pane" data-pane="characters" hidden><h3 class="pane-title">角色</h3>
+        <div id="person-settings"><b class="section-title">用照片做角色</b><div class="voice-row"><button type="button" id="person-open">📷 拍照或選照片，做成 Q 版角色</button></div><ul id="person-list"></ul></div>
+      </section>
+      <section class="pane" data-pane="games" hidden><h3 class="pane-title">遊戲</h3>
+        <div id="watch-settings"><label>陪玩吐槽：看你玩的遊戲<select id="watch-source"><option value="">（選擇遊戲視窗）</option></select></label>
+          <label>遊戲名稱（用來查玩法，不查劇情）<input id="watch-game" maxlength="80" placeholder="例如：空洞騎士"></label>
+          <div class="voice-row"><button type="button" id="watch-refresh">重新整理視窗清單</button><button type="button" id="watch-toggle">▶ 開始陪玩</button></div><p id="watch-status" class="voice-note"></p></div>
+        <div id="game-settings"><label>要玩的遊戲<select id="game-choice"><option value="lane">Lane Dash（跑酷）</option><option value="pikachu">皮卡丘打排球（第三方網頁遊戲，不隨附）</option></select></label><p id="game-third-party" class="voice-note">皮卡丘打排球是 gorisanson 製作的同人重製網頁版（gorisanson.github.io/pikachu-volleyball），開始時才從網路載入，本 App 不隨附它的程式或任何素材。Pikachu © Nintendo / Creatures / GAME FREAK / The Pokémon Company；本專案與他們無關。</p><label>遊戲決策模型<select id="game-engine"><option value="laya">Laya · 本機・免費</option><option value="jev">Jev · TypeSafe API・按用量付費</option></select></label>
+          <div id="game-jev" hidden><div class="voice-row"><span id="game-jev-status"></span><button type="button" id="game-jev-get">取得 key ↗</button><button type="button" id="game-jev-clear" hidden>移除 key</button></div><input id="game-jev-key" type="password" placeholder="貼上 Jev API key" autocomplete="off"><div class="voice-row"><button type="button" id="game-jev-save">驗證並儲存</button></div></div>
+          <button type="button" id="open-game">🎮 讓角色玩遊戲（實驗）</button></div>
+      </section>
+      <section class="pane" data-pane="remote" hidden><h3 class="pane-title">手機遙控</h3>
+        <div id="remote-settings"><b class="section-title">手機遙控（透過 Tailscale）</b>
+          <p id="remote-status" class="voice-note"></p>
+          <label class="check" id="remote-tasks-row" hidden><input type="checkbox" id="remote-tasks"> 允許手機下達電腦任務（操作電腦、瀏覽器、存檔）</label>
+          <div class="voice-row"><button type="button" id="remote-toggle">開啟手機遙控</button><button type="button" id="remote-pair" hidden>配對新手機</button></div>
+          <div id="remote-qr" hidden><div id="remote-qr-image"></div><p class="voice-note">用手機相機掃描，或在手機開 <span id="remote-link"></span> 輸入配對碼 <b id="remote-code"></b>（5 分鐘內有效）</p></div>
+          <ul id="remote-devices"></ul></div>
+      </section>
+      <section class="pane" data-pane="general" hidden><h3 class="pane-title">一般</h3>
+        <button type="button" id="show-onboarding">重新看使用引導</button>
+      </section>
+      </div>
+      <button id="save">儲存設定</button>
+    </div>
+    <div id="conversation" aria-live="polite"><div class="message assistant">嗨，我是 Annie。今天想聊點什麼？</div></div>
+    <form id="chat-form"><textarea rows="1" id="prompt" aria-label="和角色聊天" placeholder="跟 Annie 說點什麼…" maxlength="2000" autocomplete="off"></textarea><button id="voice-input" type="button" aria-pressed="false" title="Typeless 語音模式：貼入文字後自動送出（包含一般貼上）">🎙</button><button id="send" title="送出">↑</button></form>
+    <footer><span id="status">Codex · 準備好了</span><button id="reset">清空</button></footer>
+  </section>
+  <div id="subtitle" hidden></div>
+  <div id="pet-wrap" title="拖曳移動，點一下戳戳我">
+    <!-- The selected Mod model is mounted by the shared avatar renderer. -->
+  </div>
+  <nav id="toolbar"><span id="mic-indicator" hidden title="語音喚醒開啟中"></span><button id="wardrobe" title="角色與服裝（⌘⇧S）">◈ Skin</button><button id="files" title="角色文件（⌘⇧O）" aria-label="角色文件">📁</button></nav>
+  <button id="emergency-stop" title="停止任務（⌘⇧X）" aria-label="停止任務"><span aria-hidden="true"></span>停止</button>
+</main><script src="locale.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>
