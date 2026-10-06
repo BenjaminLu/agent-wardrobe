@@ -10,6 +10,7 @@ voiceInput.Dictation=FakeDictation;voiceInput.asrInstalled=()=>true;
 const {createWake}=require('../wake-service.cjs');
 
 function setup(settings={}){
+  transcripts.length=0;  // each test starts with no leftover transcripts
   const sent=[],handlers={},userData=fs.mkdtempSync(path.join(os.tmpdir(),'barge-'));let micHandler,speaking=false,stops=0;
   const win={isVisible:()=>true,show(){},isDestroyed:()=>false,webContents:{send:(channel,value)=>sent.push([channel,value])}};
   createWake({app:{getPath:()=>userData,getPreferredSystemLanguages:()=>['zh-TW'],focus(){}},handle:(name,fn)=>{handlers[name]=fn;},ipcMain:{on:(name,fn)=>{if(name==='bula:mic')micHandler=fn;}},systemPreferences:{getMediaAccessStatus:()=>'granted'},
@@ -59,5 +60,22 @@ test('stopping listening ends a follow-up window: what is said next is not sent'
     await t.handlers['bula:listen-cancel']();const before=t.sent.filter(([c])=>c==='bula:dictation').length;
     transcripts.push('不該送出');for(let i=0;i<3;i++)t.chunk(true);for(let i=0;i<8;i++)t.chunk(false);
     assert.equal(t.sent.filter(([c])=>c==='bula:dictation').length,before);
+  }finally{t.cleanup();}
+});
+test('saying only a closing word ends listening without sending it; a real question still goes through',async()=>{
+  const t=setup();try{
+    t.speak(true);for(let i=0;i<8;i++)t.chunk(true);transcripts.push('問題');for(let i=0;i<8;i++)t.chunk(false);
+    t.speak(true);t.chunk(false);t.speak(false);t.chunk(false);assert.ok(t.channels().includes('bula:follow'));
+    transcripts.push('好了。');for(let i=0;i<3;i++)t.chunk(true);for(let i=0;i<8;i++)t.chunk(false);
+    assert.deepEqual(t.sent.filter(([c])=>c==='bula:dictation').at(-1)[1],{text:'',follow:true,stopped:true});
+    // the conversation is over: the next reply is not followed by another listening window
+    const follows=t.channels().filter(c=>c==='bula:follow').length;t.speak(true);t.chunk(false);t.speak(false);t.chunk(false);
+    assert.equal(t.channels().filter(c=>c==='bula:follow').length,follows);
+  }finally{t.cleanup();}
+});
+test('a question that only starts with thanks is sent',async()=>{
+  const t=setup();try{
+    t.speak(true);for(let i=0;i<8;i++)t.chunk(true);transcripts.push('謝謝你，那明天呢？');for(let i=0;i<8;i++)t.chunk(false);
+    assert.equal(t.sent.filter(([c])=>c==='bula:dictation').at(-1)[1].text,'謝謝你，那明天呢？');
   }finally{t.cleanup();}
 });

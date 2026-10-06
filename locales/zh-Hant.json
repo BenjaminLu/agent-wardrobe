@@ -151,6 +151,8 @@
  "chat.listen.noQuestion": "沒聽到問題，再叫我一次",
  "chat.listen.paused": "已停止監聽，按 🔇 恢復",
  "chat.listen.resumed": "恢復監聽了",
+ "chat.listen.stop": "■ 停止聆聽",
+ "chat.listen.stoppedByWord": "好，有需要再叫我",
  "chat.listen.typeless": "我在聽（Typeless），請說…",
  "chat.listen.typelessProcessing": "Typeless 辨識中…",
  "chat.local": "本機",

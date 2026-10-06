@@ -151,6 +151,8 @@
  "chat.listen.noQuestion": "質問が聞こえませんでした。もう一度呼んでください",
  "chat.listen.paused": "聞き取りを停止しました。🔇 で再開",
  "chat.listen.resumed": "聞き取りを再開しました",
+ "chat.listen.stop": "■ 聞き取りを止める",
+ "chat.listen.stoppedByWord": "わかりました。また呼んでね",
  "chat.listen.typeless": "聞いています（Typeless）。どうぞ…",
  "chat.listen.typelessProcessing": "Typeless が認識中…",
  "chat.local": "ローカル",

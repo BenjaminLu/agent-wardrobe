@@ -118,3 +118,4 @@ body.dev-picking #conversation,body.dev-picking #chat-form,body.dev-picking foot
 #speak-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;font-size:14px}
 #speak-toggle:hover{background:#e4f2fb}#speak-toggle.muted{opacity:.7}
 #mic-toggle.paused::after{content:'🎙';font-size:13px;opacity:.45;text-decoration:line-through}
+#listen-stop{border:0;border-radius:8px;padding:2px 8px;margin-left:6px;background:#fde8eb;color:#b4253a;font-size:12px;cursor:pointer}

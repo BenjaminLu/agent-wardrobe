@@ -433,8 +433,12 @@ window.bula.onWake(info=>{
 // interrupting the companion, and the follow-up window after a reply, both just listen
 window.bula.onBargeIn(()=>{showChat(true);$('mic-indicator').classList.add('listening');sayStatus('chat.listen.bargeIn');});
 window.bula.onFollow(({seconds})=>{$('mic-indicator').classList.add('listening');sayStatus('chat.listen.follow',{seconds});});
-window.bula.onDictation(({text,follow})=>{
+// ■ 停止聆聽 shows whenever it is listening (after the wake word, a barge-in or in the follow-up window); a click ends it
+new MutationObserver(()=>{$('listen-stop').hidden=!$('mic-indicator').classList.contains('listening');}).observe($('mic-indicator'),{attributes:true,attributeFilter:['class']});
+$('listen-stop').onclick=event=>{event.stopPropagation();$('mic-indicator').classList.remove('listening');window.bula.listenCancel().catch(()=>{});sayStatus('chat.listen.cancelled');};
+window.bula.onDictation(({text,follow,stopped})=>{
   $('mic-indicator').classList.remove('listening');
+  if(stopped){sayStatus('chat.listen.stoppedByWord');return;}  // a closing word such as 「好了」 or 「謝謝」 ends it
   if(!text){if(follow){sayStatus('chat.listen.callMe');return;}sayStatus('chat.listen.missed');return;}
   $('prompt').value=text;$('chat-form').requestSubmit();
 });

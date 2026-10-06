@@ -59,10 +59,14 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
       listenTimer = setInterval(() => { const elapsed = Date.now() - listenStarted; if ((!dictation.heard && elapsed > (follow ? FOLLOW_MS : 6000)) || elapsed > 20000) endListening(dictation.finish()); }, 250);
     } catch (error) { listenMode = 'wake'; getWin()?.webContents.send('bula:notice', error.message); }
   }
+  // Saying only a closing word ends the listening without sending it (「謝謝你，那明天呢？」 still goes through).
+  const STOP_WORDS = /^(?:好了|好啦|可以了|不用了|不用|沒事|没事|沒事了|没事了|沒有了|没有了|謝謝|谢谢|謝啦|谢啦|謝謝你|谢谢你|就這樣|就这样|結束|结束|停|停止|停下|算了|不聊了|拜拜|掰掰|stop|that'?s all|that is all|never ?mind|nothing|no thanks|thanks|thank you|bye|goodbye|cancel|もういい|もういいよ|大丈夫|ありがとう|以上|終わり|おわり|やめて|ストップ)$/i;
+  const isStopWord = text => STOP_WORDS.test(String(text || '').replace(/[\s,，。.!！?？~～、]+/g, ' ').trim());
   function endListening(text) {
     micStats.lastDictation = { chars: (text || '').length, at: new Date().toISOString(), kind: listenKind };
     clearInterval(listenTimer); listenMode = 'wake';
     // something said aloud keeps the conversation going; a follow-up window that stays silent ends it
+    if (text && isStopWord(text)) { voiceSession = false; micStats.lastDictation.stopWord = true; getWin()?.webContents.send('bula:dictation', { text: '', follow: listenKind === 'follow', stopped: true }); return; }
     voiceSession = Boolean(text);
     if (getWin() && !getWin().isDestroyed()) getWin().webContents.send('bula:dictation', { text: text || '', follow: listenKind === 'follow' });
   }

@@ -157,6 +157,8 @@
  "chat.listen.noQuestion": "Didn't hear a question",
  "chat.listen.paused": "Stopped listening",
  "chat.listen.resumed": "Listening again",
+ "chat.listen.stop": "■ Stop listening",
+ "chat.listen.stoppedByWord": "OK, call me when you need me",
  "chat.listen.typeless": "Listening (Typeless)…",
  "chat.listen.typelessProcessing": "Typeless is transcribing…",
  "chat.local": "Local",
