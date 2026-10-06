@@ -8,11 +8,13 @@ async function run({win,startRemote,runtime}){
   fs.writeFileSync(fake,`let p='';process.stdin.on('data',d=>p+=d).on('end',()=>{const d=${JSON.stringify(drawing)};if(p.includes('粉紅'))d.summary='粉紅版';console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify(d)}}));});`);
   process.env.CODEX_BIN=require('./fake-bin.cjs').fakeBin(dir,'codex',fake);
   const js=code=>win.webContents.executeJavaScript(code);
-  const wait=async(fn,timeout=30000,label='')=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Remote characters smoke timed out '+label);await new Promise(r=>setTimeout(r,150));}};
+  // on a timeout, say what the phone's editor shows (its status line is where a failed Codex job reports)
+  let statusOf=async()=>'';
+  const wait=async(fn,timeout=30000,label='')=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Remote characters smoke timed out '+label+' | '+await statusOf().catch(()=>''));await new Promise(r=>setTimeout(r,150));}};
   await startRemote();const info=await js(`window.bula.remotePair()`);
   const phone=new BrowserWindow({width:390,height:820,show:true,webPreferences:{contextIsolation:true,sandbox:true,partition:'remote-chars-phone'}});
   try{
-    await phone.loadURL(info.link);const p=code=>phone.webContents.executeJavaScript(code);
+    await phone.loadURL(info.link);const p=code=>phone.webContents.executeJavaScript(code);statusOf=()=>p(`JSON.stringify({status:document.querySelector('#ed-status')?.textContent,looks:document.querySelectorAll('#ed-looks figure').length,saveHidden:document.querySelector('#ed-save-form')?.hidden,editor:!document.querySelector('#editor')?.hidden})`);
     await wait(()=>p(`!document.querySelector('#app').hidden&&document.querySelector('#link').classList.contains('on')`),20000,'pair');
     await p(`document.querySelector('#tabs [data-tab=characters]').click();true`);
     await wait(()=>p(`document.querySelectorAll('#char-list .char').length>=5`),20000,'list');
