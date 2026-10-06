@@ -3,9 +3,9 @@ on:
   push:
     paths-ignore: ['**.md', 'LICENSE*', 'NOTICE']
   pull_request:
-    paths-ignore: ['**.md', 'LICENSE*', 'NOTICE']
 jobs:
-  test:
+  test-os:
+    name: test (${{ matrix.os }})
     # macOS on Apple Silicon (the main target), Windows and Linux on x64.
     strategy:
       fail-fast: false
@@ -47,3 +47,14 @@ jobs:
           name: smoke-evidence-${{ matrix.os }}
           path: evidence/*.png
           if-no-files-found: ignore
+  test:
+    name: test
+    needs: [test-os]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all OS results
+        run: |
+          result="${{ needs.test-os.result }}"
+          echo "test-os result: $result"
+          [ "$result" = "success" ]
