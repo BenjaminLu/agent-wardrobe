@@ -36,6 +36,8 @@ async function run({runtime,openWardrobe,getMarket,personService}){
   const glbDir=path.join(app.getPath('userData'),'my-mods',runtime.state.modId);assert.equal(JSON.parse(fs.readFileSync(path.join(glbDir,'mod.json'),'utf8')).renderer,'gltf');
   // 3D previews draw only while their card is on screen: none while the store page is shown, the new one once its card is in view
   assert.equal(await mk(`document.querySelectorAll('#page-installed .avatar-3d canvas').length`),0,'3D previews are released on the store page');
+  // previews draw only while visible; a window hidden behind others (the other suites' windows) isn't, so bring it forward
+  getMarket().show();getMarket().focus();
   await mk(`document.querySelector('[data-page=installed]').click();true`);
   // the cards are rebuilt after an import, so wait for the new one before scrolling to it
   await wait(()=>mk(`(()=>{const c=[...document.querySelectorAll('.mod-card.private')].find(c=>c.querySelector('h3')?.textContent.includes('Anime Knight'));c?.scrollIntoView();return Boolean(c);})()`));

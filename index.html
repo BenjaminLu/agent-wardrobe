@@ -145,6 +145,8 @@
           <label>喚醒詞（可用逗號設定多個，中英文皆可）<input id="wake-phrases" maxlength="200" placeholder="嘿安妮, Hey Annie"></label>
           <label>叫醒後的語音辨識<select id="dictation-engine"><option value="local">本機（SenseVoice，離線）</option><option value="typeless" data-mac-only>Typeless（較準，用你的 Typeless 帳號）</option></select></label><p id="typeless-note" class="voice-note" hidden></p>
           <label>靈敏度<select id="wake-sensitivity"><option value="high">高（比較好叫醒，偶爾誤觸）</option><option value="normal">一般（較少誤觸）</option></select></label>
+        <label class="check"><input type="checkbox" id="barge-in"> 角色說話時可以直接插話打斷她</label>
+        <label class="check"><input type="checkbox" id="conversation-mode"> 回答完繼續聽 8 秒，不用再喊喚醒詞就能接著說</label>
           <div class="voice-row"><span id="asr-status"></span><button type="button" id="asr-install">下載語音辨識模型（約 240 MB）</button></div>
           <progress id="asr-progress" max="1" value="0" hidden></progress>
           <p class="voice-note">喚醒後直接說出你的問題，停頓一下就會自動送出。聲音只在這台 Mac 上辨識，不錄存、不上傳。沒下載辨識模型時，喚醒只會打開聊天框。</p>

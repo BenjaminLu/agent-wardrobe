@@ -90,6 +90,8 @@ contextBridge.exposeInMainWorld('bula', {
   onWake: callback => ipcRenderer.on('bula:wake', (_event, value) => callback(value)),
   onMicLevel: callback => ipcRenderer.on('bula:mic-level', (_event, value) => callback(value)),
   onDictation: callback => ipcRenderer.on('bula:dictation', (_event, value) => callback(value)),
+  onBargeIn: callback => ipcRenderer.on('bula:barge-in', (_event, value) => callback(value)),
+  onFollow: callback => ipcRenderer.on('bula:follow', (_event, value) => callback(value)),
   onTypeless: callback => ipcRenderer.on('bula:typeless', (_event, value) => callback(value)),
   onKokoroProgress: callback => ipcRenderer.on('bula:kokoro-progress', (_event, value) => callback(value)),
   cursor: () => ipcRenderer.invoke('bula:cursor'),

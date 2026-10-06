@@ -366,7 +366,7 @@ async function startMic(){
 function stopMic(){if(!mic)return;mic.stream.getTracks().forEach(track=>track.stop());mic.context.close();mic=null;$('mic-indicator').hidden=true;$('mic-indicator').classList.remove('listening');}
 function showAsr(state){const zh=settings.language.startsWith('zh');$('asr-status').textContent=state.installed?(zh?'語音辨識模型：已安裝 ✓':'Speech model: installed ✓'):state.downloading?(zh?'正在下載語音辨識模型…':'Downloading…'):(zh?'語音辨識模型：尚未下載':'Speech model: not downloaded');$('asr-install').hidden=state.installed;$('asr-install').disabled=state.downloading;$('asr-progress').hidden=!state.downloading;}
 async function initWake(){
-  const wake=await window.bula.wakeStatus();$('wake-enabled').checked=wake.enabled;$('wake-phrases').value=wake.custom;$('wake-sensitivity').value=wake.sensitivity||'high';$('dictation-engine').value=wake.engine;showTypeless(wake.typeless);$('wake-phrases').placeholder=wake.phrases.join(', ');showAsr(wake.asr);
+  const wake=await window.bula.wakeStatus();$('wake-enabled').checked=wake.enabled;$('wake-phrases').value=wake.custom;$('wake-sensitivity').value=wake.sensitivity||'high';$('barge-in').checked=wake.bargeIn!==false;$('conversation-mode').checked=wake.conversationMode!==false;$('dictation-engine').value=wake.engine;showTypeless(wake.typeless);$('wake-phrases').placeholder=wake.phrases.join(', ');showAsr(wake.asr);
   if(wake.enabled)startMic().catch(error=>message(`麥克風無法啟動：${error.message}`,'error'));
 }
 function showTypeless(state){
@@ -375,7 +375,7 @@ function showTypeless(state){
 }
 $('dictation-engine').onchange=async()=>showTypeless((await window.bula.wakeStatus()).typeless);
 async function saveWake(){
-  const result=await window.bula.wakeSettings({wakeEnabled:$('wake-enabled').checked,wakePhrases:$('wake-phrases').value,wakeSensitivity:$('wake-sensitivity').value,dictationEngine:$('dictation-engine').value});
+  const result=await window.bula.wakeSettings({wakeEnabled:$('wake-enabled').checked,wakePhrases:$('wake-phrases').value,wakeSensitivity:$('wake-sensitivity').value,bargeIn:$('barge-in').checked,conversationMode:$('conversation-mode').checked,dictationEngine:$('dictation-engine').value});
   $('wake-phrases').placeholder=result.phrases.join(', ');
   if(result.enabled)await startMic();else stopMic();
   return result;
@@ -390,9 +390,12 @@ window.bula.onWake(info=>{
   if(info.typeless){if(!$('settings').hidden){$('settings').hidden=true;document.body.classList.remove('settings');}document.activeElement?.blur?.();$('prompt').value='';$('prompt').focus();typelessArmed=Date.now()+40000;$('mic-indicator').classList.add('listening');status(zh?'我在聽（Typeless），請說…':'Listening (Typeless)…');}
   else if(info.dictation){$('mic-indicator').classList.add('listening');status(zh?'我在聽，請說…':'Listening…');}else status(zh?'我在！（下載語音辨識模型後可以直接用說的）':'I\'m here!');
 });
-window.bula.onDictation(({text})=>{
+// interrupting the companion, and the follow-up window after a reply, both just listen
+window.bula.onBargeIn(()=>{const zh=settings.language.startsWith('zh');showChat(true);$('mic-indicator').classList.add('listening');status(zh?'好，我在聽…':'Listening…');});
+window.bula.onFollow(({seconds})=>{const zh=settings.language.startsWith('zh');$('mic-indicator').classList.add('listening');status(zh?`還在聽，可以直接說下一句（${seconds} 秒）`:`Still listening for ${seconds} s`);});
+window.bula.onDictation(({text,follow})=>{
   const zh=settings.language.startsWith('zh');$('mic-indicator').classList.remove('listening');
-  if(!text){status(zh?'沒聽清楚，再叫我一次':'Didn\'t catch that');return;}
+  if(!text){if(follow){status(zh?'要再聊就叫我一聲':'Call me when you need me');return;}status(zh?'沒聽清楚，再叫我一次':'Didn\'t catch that');return;}
   $('prompt').value=text;$('chat-form').requestSubmit();
 });
 window.bula.onTypeless(({state,error})=>{
