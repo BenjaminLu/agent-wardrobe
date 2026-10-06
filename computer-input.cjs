@@ -123,6 +123,6 @@ function windowsCompiler(env=process.env){
 function buildWindows(root=ROOT){
   const csc=windowsCompiler();if(!csc)throw new Error('csc.exe (.NET Framework 4) not found; it ships with Windows 10 and 11.');
   fs.mkdirSync(path.join(root,'bin'),{recursive:true});
-  execFileSync(csc,['/nologo','/optimize+','/target:exe','/platform:anycpu','/out:'+path.join(root,'bin','native-input.exe'),path.join(root,'native-input.cs')],{stdio:'inherit'});
+  execFileSync(csc,['/nologo','/optimize+','/target:exe','/platform:anycpu','/out:'+path.join(root,'bin','native-input.exe'),path.join(root,'native','native-input.cs')],{stdio:'inherit'});
 }
 module.exports={support,helperPath,toDevice,fromDevice,keyCode,modifiers,windowsArgs,xdotoolPlan,needsPaste,parseShell,NativeInput,buildWindows,windowsCompiler};

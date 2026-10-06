@@ -5,7 +5,7 @@ const fs=require('node:fs');const path=require('node:path');
 
 const TAGS=new Set(['g','path','circle','ellipse','rect','line','polyline','polygon']);
 const ATTRS=new Set(['d','cx','cy','r','rx','ry','x','y','width','height','x1','y1','x2','y2','points','fill','stroke','stroke-width','stroke-opacity','fill-opacity','opacity','stroke-linecap','stroke-linejoin','transform','class']);
-// The face and body contract the app's CSS and interactions drive (see MODS.md).
+// The face and body contract the app's CSS and interactions drive (see docs/MODS.md).
 const CLASSES=new Set(['eyes','pupils','blink','joy-eyes','brows','cheeks','smile','open-mouth','sad-mouth','sweat','tears','wink','love-eyes','hands','legs']);
 const VARS=new Set(['body','bodyLight','belly','accent','ink','cheek']);
 const LIMIT=200000;

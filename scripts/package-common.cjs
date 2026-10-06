@@ -7,7 +7,7 @@ const DIRS=['mods','locales','vendor','game','remote','person','library-thumbs',
 const RUNTIME_PACKAGES=['sherpa-onnx-node','ws','pinyin-pro','opencc-js','qrcode-generator','ag-psd','base64-js','pako'];
 // sherpa-onnx's prebuilt native libraries come as one optional package per platform.
 const sherpaPackage=(platform,arch)=>`sherpa-onnx-${platform==='win32'?'win':platform}-${arch}`;
-const HELPERS={darwin:{source:'native-input.swift',binary:'native-input'},win32:{source:'native-input.cs',binary:'native-input.exe'}};
+const HELPERS={darwin:{source:'native/native-input.swift',binary:'native-input'},win32:{source:'native/native-input.cs',binary:'native-input.exe'}};
 // runtime:false leaves out native packages and helper binaries (the unit test checks the app's own files without building)
 function copyApp(appRoot,{platform=process.platform,arch=process.arch,runtime=true}={}){
   fs.mkdirSync(appRoot,{recursive:true});
@@ -21,7 +21,8 @@ function copyApp(appRoot,{platform=process.platform,arch=process.arch,runtime=tr
     if(!fs.existsSync(path.join(root,'node_modules',pkg)))throw new Error(`node_modules/${pkg} is missing; run npm ci on ${platform}-${arch}`);
     fs.cpSync(path.join(root,'node_modules',pkg),path.join(appRoot,'node_modules',pkg),{recursive:true,verbatimSymlinks:true});
   }
-  fs.copyFileSync(path.join(root,'agent-pty.py'),path.join(appRoot,'agent-pty.py'));
+  fs.mkdirSync(path.join(appRoot,'native'),{recursive:true});
+  fs.copyFileSync(path.join(root,'native','agent-pty.py'),path.join(appRoot,'native','agent-pty.py'));
   // Computer-use input helper: Swift on macOS, C# on Windows (both built by npm run build:native); Linux runs the system's xdotool.
   const helper=HELPERS[platform];
   if(helper&&runtime){
@@ -45,4 +46,4 @@ function missingRequires(appRoot){
 }
 const size=target=>{const stat=fs.lstatSync(target);return stat.isDirectory()?fs.readdirSync(target).reduce((sum,name)=>sum+size(path.join(target,name)),0):stat.size;};
 const megabytes=target=>`${(size(target)/1048576).toFixed(1)} MB`;
-module.exports={root,DIRS,RUNTIME_PACKAGES,sherpaPackage,copyApp,missingRequires,megabytes};
+module.exports={root,DIRS,HELPERS,RUNTIME_PACKAGES,sherpaPackage,copyApp,missingRequires,megabytes};

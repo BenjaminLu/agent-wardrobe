@@ -16,7 +16,7 @@ test('emergency stop kills a stubborn owned CLI without stopping unrelated proce
   const python=binary('python3');
   const unrelated=spawn(python,['-c','import time; time.sleep(30)']);
   const code="import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN); print('STUBBORN_READY',flush=True); time.sleep(30)";
-  const child=spawn(python,[path.join(__dirname,'../agent-pty.py'),python,'-u','-c',code]);
+  const child=spawn(python,[path.join(__dirname,'../native/agent-pty.py'),python,'-u','-c',code]);
   let output='',started=0;
   try{
     const closed=new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);child.stdout.on('data',chunk=>{output+=chunk;if(output.includes('U1RVQkJPUk5fUkVBRFk')&&!started){started=Date.now();child.stdin.write(JSON.stringify({type:'emergency'})+'\n');}});});
@@ -27,7 +27,7 @@ test('emergency stop kills a stubborn owned CLI without stopping unrelated proce
 test('PTY provides real TTY input, UTF-8 output, resize and owned shutdown', {timeout:8000,skip:process.platform==='win32'&&'agent-pty.py needs a POSIX pty (Claude terminal tasks are not offered on Windows)'},async()=>{
   const python=binary('python3');assert.ok(python);
   const code="import sys,os,time; print('TTY:'+str(sys.stdin.isatty()),flush=True); text=input(); print('ECHO:'+text,flush=True); time.sleep(30)";
-  const child=spawn(python,[path.join(__dirname,'../agent-pty.py'),python,'-u','-c',code],{stdio:['pipe','pipe','pipe']});
+  const child=spawn(python,[path.join(__dirname,'../native/agent-pty.py'),python,'-u','-c',code],{stdio:['pipe','pipe','pipe']});
   let buffer='',output='';let sent=false;
   const finished=new Promise((resolve,reject)=>{
     child.on('error',reject);child.on('close',resolve);
