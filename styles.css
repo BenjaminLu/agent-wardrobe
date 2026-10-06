@@ -92,3 +92,26 @@ body.opaque{background:linear-gradient(160deg,#f4fbff,#e3f1fa)}body.opaque #pane
 #mic-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer}
 #mic-toggle:hover{background:#e4f2fb}#mic-toggle #mic-indicator{margin:0}
 #mic-toggle.paused #mic-indicator{display:none}#mic-toggle.paused::after{content:'🔇';font-size:14px}
+/* 開發夥伴: the attached-session bar, the session picker, approval cards and tool lines */
+#dev-bar{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 8px;border-radius:10px;background:#263e58;color:#fff;font-size:11px}
+#dev-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#dev-bar button{padding:3px 8px;border-radius:7px;background:#ffffff22;color:#fff;font-size:11px;flex-shrink:0}#dev-bar button:hover{background:#ffffff38}
+#dev-stop:disabled{opacity:.4;cursor:default}
+body.dev-picking #conversation,body.dev-picking #chat-form,body.dev-picking footer,body.dev-picking #dev-bar{display:none}
+#dev-picker{margin-top:8px;height:var(--conv-h,260px);min-height:260px;display:flex;flex-direction:column;gap:4px}
+.dev-picker-head{display:flex;align-items:center;gap:6px}.dev-picker-head b{flex:1;font-size:13px}.dev-picker-head button{width:26px;height:26px;border-radius:8px;background:#e4f2fb;color:#155f91}
+#dev-picker .voice-note{font-size:10px;line-height:1.6;color:#658194;margin:2px 0}#dev-picker .check{font-size:10px;color:#4a6378;gap:4px;margin:0}
+#dev-list{list-style:none;margin:4px 0 0;padding:0;overflow-y:auto;flex:1;user-select:none}
+#dev-list li{margin-bottom:5px}#dev-list button{width:100%;text-align:left;padding:7px 9px;border:1px solid #d3e7ef;border-radius:10px;background:#fff;display:grid;grid-template-columns:22px 1fr;gap:0 6px;align-items:start}
+#dev-list button:hover{border-color:#68b7e5;background:#f3faff}#dev-list .engine{grid-row:1/4;font-size:15px;line-height:1.3}
+#dev-list .project{font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#dev-list .title{font-size:11px;color:#3d5c70;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dev-list .meta{font-size:10px;color:#809aaa}#dev-list .warn{grid-column:2;font-size:10px;color:#a0581f;background:#fff4e8;border-radius:6px;padding:2px 6px;margin-top:3px}
+#dev-list .empty{font-size:11px;color:#658194;padding:8px}
+.message.dev-note{background:#eef5fa;color:#3d5c70;font-size:11px}
+.message.tool{background:transparent;border:1px dashed #c4e3ef;color:#55788c;font-size:11px;padding:5px 10px}
+.message.approval{background:#fff8e6;border:1px solid #f1d9a6;color:#4d3a12}.message.approval b{display:block}
+.message.approval pre{margin:6px 0;padding:6px 8px;background:#fffdf6;border-radius:7px;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:140px;overflow-y:auto}
+.message.approval small{display:block;color:#7a6638;font-size:10px}.message.approval .actions{display:flex;gap:6px;margin-top:6px}
+.message.approval .actions button{padding:5px 14px;border-radius:8px;font-weight:600}.message.approval .allow{background:#1c8fe1;color:#fff}.message.approval .deny{background:#f3e3d7;color:#7a3d12}
+.message.approval .result{font-size:11px;font-weight:600;margin-top:4px}
+.message.offer .actions{display:flex;gap:6px;margin-top:6px}.message.offer button{padding:5px 12px;border-radius:8px;background:#1c8fe1;color:#fff}.message.offer button+button{background:#e4f2fb;color:#155f91}

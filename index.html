@@ -64,6 +64,9 @@
         <p id="operation-help">操作使用所選大腦。Claude 接官方工具；Codex／LM Studio 使用 App 瀏覽器與原生電腦工具。LM Studio 請載入支援 tools 的模型；電腦操作另需支援影像。</p>
         <div id="operation-permissions" data-mac-only><button data-permission="screen">螢幕錄製權限</button><button data-permission="accessibility">輔助使用權限</button></div>
         <button id="official-setup">Claude 官方操作設定</button>
+        <div id="dev-settings"><b class="section-title">開發夥伴</b>
+          <p class="voice-note">把你在終端機開過的 Claude Code 或 Codex 工作階段接進來：角色就是那個工作階段，帶著完整上下文在那個專案資料夾繼續做。打字、說話都會交給它，回覆用說的，要批准的動作會先問你。</p>
+          <div class="voice-row"><button type="button" id="dev-pick">🧑‍💻 選一個工作階段接入…</button></div></div>
       </section>
       <section class="pane" data-pane="voice" hidden><h3 class="pane-title">語音・聲音</h3>
         <div id="voice-current" class="voice-current">
@@ -177,6 +180,13 @@
       </div>
       <button id="save">儲存設定</button>
     </div>
+    <div id="dev-bar" hidden><span id="dev-label"></span><button type="button" id="dev-stop" title="打斷目前這一輪（也可以說「停下來」）">■ 停下來</button><button type="button" id="dev-leave" title="離開，回到原本的 AI 大腦">離開</button></div>
+    <section id="dev-picker" hidden aria-label="選擇要接入的工作階段">
+      <div class="dev-picker-head"><b>接入開發工作階段</b><button type="button" id="dev-refresh" title="重新整理">↻</button><button type="button" id="dev-close" title="關閉">×</button></div>
+      <p class="voice-note" id="dev-picker-note">選一個最近的 Claude Code／Codex 工作階段。接入後角色會在那個專案資料夾、帶著完整對話繼續做；離開後一樣可以回終端機接著用。</p>
+      <label class="check"><input type="checkbox" id="dev-ask-codex"> <span>Codex：需要批准的動作一律問我（不交給 Codex 自動審查）</span></label>
+      <ul id="dev-list"></ul>
+    </section>
     <div id="conversation" aria-live="polite"><div class="message assistant">嗨，我是 Annie。今天想聊點什麼？</div></div>
     <form id="chat-form"><textarea rows="1" id="prompt" aria-label="和角色聊天" placeholder="跟 Annie 說點什麼…" maxlength="2000" autocomplete="off"></textarea><button id="voice-input" type="button" aria-pressed="false" title="Typeless 語音模式：貼入文字後自動送出（包含一般貼上）">🎙</button><button id="send" title="送出">↑</button></form>
     <footer><span id="status">Codex · 準備好了</span><button id="reset">清空</button></footer>
@@ -186,6 +196,6 @@
     <!-- The selected Mod model is mounted by the shared avatar renderer. -->
   </div>
   <button id="stop-speech" type="button" hidden title="停止朗讀（Esc）">⏹ 停止朗讀</button>
-  <nav id="toolbar"><button id="mic-toggle" type="button" hidden title="停止監聽" aria-label="停止監聽"><span id="mic-indicator"></span></button><button id="wardrobe" title="角色與服裝（⌘⇧S）">◈ Skin</button><button id="files" title="角色文件（⌘⇧O）" aria-label="角色文件">📁</button></nav>
+  <nav id="toolbar"><button id="mic-toggle" type="button" hidden title="停止監聽" aria-label="停止監聽"><span id="mic-indicator"></span></button><button id="wardrobe" title="角色與服裝（⌘⇧S）">◈ Skin</button><button id="files" title="角色文件（⌘⇧O）" aria-label="角色文件">📁</button><button id="dev-open" title="開發夥伴：接入 Claude Code／Codex 工作階段" aria-label="開發夥伴">🧑‍💻</button></nav>
   <button id="emergency-stop" title="停止任務（⌘⇧X）" aria-label="停止任務"><span aria-hidden="true"></span>停止</button>
 </main><script src="platform-text.js"></script><script src="locale.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>

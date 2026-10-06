@@ -70,7 +70,7 @@ function taskEvent(event){
   if(win&&!win.isDestroyed())win.webContents.send('bula:task-event',event);
 }
 function emergencyStop(){
-  clearTimeout(setupTimer);clearTimeout(finishTimer);stopSpeech();taskEvent(taskFeedback.cancel());agentSession.emergencyStop();
+  clearTimeout(setupTimer);clearTimeout(finishTimer);stopSpeech();devCompanion.interrupt();taskEvent(taskFeedback.cancel());agentSession.emergencyStop();
   if(toolTask){toolTask.controller.abort();toolTask.tools.stop();toolTask.server?.stop();}
   return {requested:Boolean(agentSession.child||toolTask)};
 }
@@ -140,6 +140,15 @@ const settingsPath = () => path.join(app.getPath('userData'), 'bula-settings.jso
 const voice = createSpeech({ app, handle, getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, getSecrets: () => secrets, kokoroDir, getVoices: () => voiceService?.voices });
 const { speak, stop: stopSpeech } = voice;
 const wakeService = createWake({ app, handle, ipcMain, systemPreferences, getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, persist, speech: voice });
+// 開發夥伴: the companion attached to one of the user's own Claude Code / Codex sessions (dev-companion.cjs).
+// Smoke runs point it at a fixture home and stand-in CLIs; a normal run uses the real home folder and installed tools.
+const devSmoke = process.argv.includes('--smoke-test');
+const devHome = () => devSmoke && process.env.DEV_SMOKE_HOME || require('node:os').homedir();
+const devCompanion = require('./dev-companion.cjs').createDevCompanion({ getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, persist, remoteEvent: (type, data) => remoteEvent(type, data),
+  speak: text => { if (devSmoke) (global.smokeSpoken ||= []).push(text); speak(text); }, stopSpeech: () => stopSpeech(), isSpeaking: () => voice.isSpeaking(),
+  findBinary: name => (devSmoke && process.env[`DEV_SMOKE_${name.toUpperCase()}`]) || cli.binary(name), home: devHome, codexHome: () => devSmoke && process.env.DEV_SMOKE_HOME ? path.join(devHome(), '.codex') : undefined,
+  processes: devSmoke ? async () => global.smokeDevProcesses || [] : undefined, onAttention: () => { if (win && !win.isDestroyed() && !win.isVisible()) win.showInactive(); },
+  canAttach: () => chatBusy || toolTask || agentSession.child ? (settings.language.startsWith('zh') ? '請先等目前的聊天或任務結束，再接入開發夥伴。' : 'Wait for the current chat or task to finish first.') : null });
 const gameService = require('./game-service.cjs').createGame({ ipcMain, handle, getRuntime: () => runtime, getSettings: () => settings, getSecrets: () => secrets, persist, speak });
 // Watch mode needs a local model that can see images: the chosen local brain, or the built-in model if it is downloaded.
 async function watchModel() {
@@ -375,7 +384,7 @@ app.whenReady().then(async () => {
   if (modErrors.length) win.webContents.send('bula:notice', `${modErrors.length} 個 Mod 無法載入，已略過：${modErrors.map(e => `${e.id}（${e.message}）`).join('、')}`);
   if (process.argv.includes('--open-wardrobe') && !process.argv.includes('--smoke-test')) await openWardrobe();
   if (process.argv.includes('--smoke-test')) {
-    try { if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('./scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
+    try { if(process.argv.includes('--devsession-smoke'))await require('./scripts/devsession-smoke.cjs').run({win,runtime,devCompanion,startRemote,getSettings:()=>settings});else if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('./scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
     catch(error) { console.error('POC_SMOKE_FAILED',error); app.exit(1); }
   }
 }).catch(error=>{
@@ -502,6 +511,7 @@ handle('bula:task-steer',async data=>{
   return {accepted:true};
 });
 async function startTask(data){
+  if(devCompanion.attached)throw new Error(settings.language.startsWith('zh')?'開發夥伴模式中：訊息會交給接入的工作階段。要用一般任務請先按「離開」。':'Attached to a coding session; leave it first to run a task.');
   if(chatBusy)throw new Error('請等目前聊天完成。');
   if(toolTask)throw new Error('請等目前操作完成，或按緊急停止。');
   if(agentSession.child&&taskFeedback.finished){agentSession.stop();const until=Date.now()+3500;while(agentSession.child&&Date.now()<until)await new Promise(resolve=>setTimeout(resolve,50));}
@@ -547,6 +557,14 @@ async function startTask(data){
   runtime.activity('working');taskEvent(taskFeedback.event('working'));return result;
 }
 handle('bula:task',startTask);
+handle('bula:dev-state',()=>devCompanion.snapshot());
+handle('bula:dev-sessions',()=>devCompanion.sessions());
+handle('bula:dev-attach',data=>devCompanion.attach({engine:String(data?.engine||''),id:String(data?.id||''),askUser:data?.askUser===true}));
+handle('bula:dev-input',text=>devCompanion.input(typeof text==='string'?text:'',{source:'desktop'}));
+handle('bula:dev-answer',(requestId,allow)=>devCompanion.respond(String(requestId),allow===true,{source:'desktop',how:'button'}));
+handle('bula:dev-interrupt',()=>devCompanion.interrupt());
+handle('bula:dev-leave',()=>devCompanion.leave());
+handle('bula:dev-dismiss',()=>devCompanion.dismissOffer());
 handle('bula:open-output',async id=>{const folder=outputs.folder(id);const error=await shell.openPath(folder);if(error)throw new Error(error);return true;});
 handle('bula:save-settings', data => saveSettings(data));
 function saveSettings(data) {
@@ -603,6 +621,8 @@ async function chatTurn(input, options, { speakAloud = true, from = null } = {})
   if(agentSession.child)return {ok:false,error:'操作工作階段仍開啟；請先停止，再使用純聊天。'};
   if (chatBusy) return {ok:false,error:'A reply is already in progress.'};
   const text=typeof input==='string'?input:Array.isArray(input)&&input.at(-1)?.role==='user'?input.at(-1).content:null;
+  // attached to a coding session: everything typed or said goes there (answers to its approvals included)
+  if(devCompanion.attached){const result=devCompanion.input(text,from?{source:'phone',device:from}:{source:'desktop'});return {...result,dev:true};}
   if(typeof text!=='string'||!text.trim()||text.length>4000)return {ok:false,error:'Invalid chat message'};
   if(wantsDocument(text))return {ok:true,task:await startTask({mode:'files',text})};
   const history=conversations.context(text).slice(-19);history.push({role:'user',content:text});
@@ -665,7 +685,7 @@ async function startRemote() {
   if (!remote) {
     remote = createRemote({ root: __dirname, store: deviceStore, allowedHosts: () => remoteHost ? [remoteHost] : [], refreshHosts: async () => { await remoteStatus(); },
       getState: () => ({ state: runtime.snapshot(), history: conversations.snapshot().slice(-20).map(({ role, content }) => ({ role, content })) }),
-      chat: async (text, device, { auto } = {}) => { if (auto) requireRemoteTasks(); const result = await chatTurn(text, { auto }, { speakAloud: false, from: device.id }); if (result.ok) win?.webContents.send('bula:remote-chat', { device: device.name, text, reply: result.text, emotion: result.emotion }); return result; },
+      chat: async (text, device, { auto } = {}) => { if (auto || devCompanion.attached) requireRemoteTasks(); const result = await chatTurn(text, { auto }, { speakAloud: false, from: device.id }); if (result.ok && !result.dev) win?.webContents.send('bula:remote-chat', { device: device.name, text, reply: result.text, emotion: result.emotion }); return result; },
       modAsset: async (modId, file) => modAsset(modId, file), live2dCore: () => live2dCore.installed() ? live2dCore.file : null,
       routes: remoteRoutes(),
       subscribe: listener => { remoteListener = listener; const onChange = state => listener('state', state); runtime.on('change', onChange); return () => { remoteListener = null; runtime.off('change', onChange); }; } });
@@ -722,6 +742,14 @@ function remoteRoutes() {
     'POST /api/select': ({ body }) => { selectMod({ modId: body.modId, skinId: body.skinId, personaId: body.personaId }); return remoteSettings(); },
     'POST /api/task': async ({ body }) => { requireRemoteTasks(); if (!['browser', 'computer', 'files'].includes(body.mode)) throw new Error('Unknown task mode'); return { task: await startTask({ mode: body.mode, text: String(body.text || '') }) }; },
     'POST /api/stop': () => { emergencyStop(); return { stopped: true }; },
+    // 開發夥伴 from the phone: reading the state and leaving or stopping are always allowed; picking a session, sending to
+    // it (through /api/chat) and answering its approvals need 「允許手機下達電腦任務」
+    'GET /api/dev/state': () => devCompanion.snapshot(),
+    'GET /api/dev/sessions': () => { requireRemoteTasks(); return devCompanion.sessions(); },
+    'POST /api/dev/attach': ({ body }) => { requireRemoteTasks(); return devCompanion.attach({ engine: String(body.engine || ''), id: String(body.id || ''), askUser: body.askUser === true }); },
+    'POST /api/dev/answer': ({ body }) => { requireRemoteTasks(); return devCompanion.respond(String(body.requestId || ''), body.allow === true, { source: 'phone', how: 'button' }); },
+    'POST /api/dev/interrupt': () => devCompanion.interrupt(),
+    'POST /api/dev/leave': () => devCompanion.leave(),
     'GET /api/outputs': () => outputs.list('').slice(0, 40).map(({ id, title, files, updatedAt }) => ({ id, title, files, updatedAt })),
     'GET /api/output-file': ({ query }) => {
       const id = query.get('id'), name = query.get('name'); const file = outputs.file(id, name);
@@ -808,8 +836,8 @@ const smokeContext = {
   get agentWindow() { return agentWindow; }, get settings() { return settings; },
   get runtime() { return runtime; }, set runtime(value) { runtime = value; },
   get control() { return control; }, set control(value) { control = value; },
-  catalog, codex, agentSession, openAgentConsole, setStreaming, restore, openWardrobe, selectMod
+  catalog, codex, agentSession, devCompanion, openAgentConsole, setStreaming, restore, openWardrobe, selectMod
 };
-app.on('before-quit', () => { clearTimeout(setupTimer);clearTimeout(finishTimer);if(taskFeedback.id)outputs?.close(taskFeedback.id);taskFeedback.cancel();if(toolTask){toolTask.controller.abort();toolTask.tools.stop();toolTask.server?.stop();}agentSession.stop();stopSpeech(); cli.stop(); codex.stop(); llm?.stop(); gameService.stop(); watchService.stop(); voiceService?.stop(); remote?.close(); if(control)control.close(); globalShortcut.unregisterAll(); voiceLab?.cleanup(); voice.quit?.(); for (const engine of Object.values(voiceEnginesInstance || {})) engine.stop?.({ now: true }); });
+app.on('before-quit', () => { devCompanion.close(); clearTimeout(setupTimer);clearTimeout(finishTimer);if(taskFeedback.id)outputs?.close(taskFeedback.id);taskFeedback.cancel();if(toolTask){toolTask.controller.abort();toolTask.tools.stop();toolTask.server?.stop();}agentSession.stop();stopSpeech(); cli.stop(); codex.stop(); llm?.stop(); gameService.stop(); watchService.stop(); voiceService?.stop(); remote?.close(); if(control)control.close(); globalShortcut.unregisterAll(); voiceLab?.cleanup(); voice.quit?.(); for (const engine of Object.values(voiceEnginesInstance || {})) engine.stop?.({ now: true }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (win && !win.isDestroyed()) restore(); });

@@ -20,6 +20,7 @@ const suites = [
   { name: 'character from a photo (stand-in Codex)', args: ['--person-smoke'], marker: 'PERSON_SMOKE' },
   { name: 'chat panel sizes', args: ['--chat-size-smoke'], marker: 'CHAT_SIZE_SMOKE' },
   { name: 'phone remote: pair, chat, revoke', args: ['--remote-smoke'], marker: 'REMOTE_SMOKE' },
+  { name: '開發夥伴: list sessions, attach, spoken reply, approvals by button / voice / phone, interrupt, leave (stand-in claude + codex)', args: ['--devsession-smoke'], marker: 'DEVSESSION_SMOKE' },
   { name: 'close keeps running in the background', args: ['--background-smoke'], marker: 'BACKGROUND_SMOKE' },
   { name: 'first-run guide', args: ['--onboarding-smoke'], marker: 'ONBOARDING_SMOKE' },
   { name: 'mod renderers (svg, png, vrm)', args: ['--mods-smoke'], marker: 'MODS_SMOKE' },

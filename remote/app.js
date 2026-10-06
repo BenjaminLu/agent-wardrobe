@@ -72,7 +72,7 @@ async function listen(){
       $('link').classList.add('on');const reader=res.body.getReader(),decoder=new TextDecoder();let buffer='';
       for(;;){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let i;
         while((i=buffer.indexOf('\n\n'))>=0){const block=buffer.slice(0,i);buffer=buffer.slice(i+2);const type=block.match(/^event: (.+)$/m)?.[1],data=block.match(/^data: (.+)$/m)?.[1];if(!type||!data)continue;
-          const value=JSON.parse(data);if(type==='state'){render(value);markWorn(value);}if(type==='task')onTask(value);if(type==='settings')fillSettings(value);if(type==='edit')onEdit(value);if(type==='assist')onAssist(value);if(type==='characters'&&!$('tab-characters').hidden)loadCharacters();if((type==='voices'||type==='state'&&value.mod.id!==voiceMod)&&!$('tab-settings').hidden)loadVoices();if(type==='state')voiceMod=value.mod.id;
+          const value=JSON.parse(data);if(type==='state'){render(value);markWorn(value);}if(type==='task')onTask(value);if(type==='dev')onDev(value);if(type==='settings')fillSettings(value);if(type==='edit')onEdit(value);if(type==='assist')onAssist(value);if(type==='characters'&&!$('tab-characters').hidden)loadCharacters();if((type==='voices'||type==='state'&&value.mod.id!==voiceMod)&&!$('tab-settings').hidden)loadVoices();if(type==='state')voiceMod=value.mod.id;
           if(type==='message'){line(value.text,value.role);if(value.role==='assistant')say(value.text);}}}
     }catch{}
     $('link').classList.remove('on');await new Promise(r=>setTimeout(r,3000));
@@ -84,6 +84,8 @@ $('chat').onsubmit=async event=>{
   event.preventDefault();const text=$('text').value.trim(),mode=$('mode').value;if(!text)return;$('text').value='';line(text,'user');
   const thinking=line(mode==='chat'||mode==='auto'?'思考中…':'交給 Mac 處理中…','note');
   try{
+    // 開發夥伴: everything goes to the attached session; its reply arrives as a 'dev' event
+    if(devState?.attached){const reply=await post('/api/chat',{text});thinking.remove();if(!reply.ok)line(reply.error,'note');return;}
     if(TASK_NAMES[mode]){await post('/api/task',{mode,text});thinking.remove();taskLine=line(`⏳ ${TASK_NAMES[mode]}開始了`,'task');return;}
     const reply=await post('/api/chat',{text,auto:mode==='auto'});thinking.remove();
     if(!reply.ok&&reply.error){line(reply.error,'note');return;}
@@ -124,6 +126,7 @@ function fillSettings(data){
   $('s-model').replaceChildren(...data.builtinModels.map(m=>option(m.id,m.name)));$('s-model').value=s.builtinModel;$('s-model-row').hidden=$('s-brain').value!=='builtin';
   $('s-reply').value=s.replyLanguage||'auto';$('s-voice').value=data.volume?s.voiceProvider:'off';
   $('s-note').textContent=data.remoteTasks?'這支手機可以叫 Mac 做事（瀏覽器、電腦、整理存檔）。':'要從手機叫 Mac 做事，請在 Mac 的「設定 → 手機遙控」打開「允許手機下達電腦任務」。';
+  renderDev();
   for(const value of ['browser','computer','files','auto'])$('mode').querySelector(`[value=${value}]`).disabled=!data.remoteTasks;if(data.computer&&!data.computer.available){const o=$('mode').querySelector('[value=computer]');o.disabled=true;o.title=data.computer.reason;if($('mode').value==='computer')$('mode').value='chat';}if(!data.remoteTasks&&$('mode').value!=='chat')$('mode').value='chat';
 }
 const change=async(pathname,body)=>{try{fillSettings(await post(pathname,body));}catch(error){alert(error.message);fillSettings(remoteSettings);}};
@@ -303,7 +306,7 @@ for(const button of document.querySelectorAll('#tabs button'))button.onclick=()=
 async function start(){
   $('pair').hidden=true;$('app').hidden=false;
   Avatars.setAssetLoader(async url=>{const [,mod,file]=url.match(/^mods\/([^/]+)\/([^/]+)$/);return api(`/api/mod-asset?mod=${encodeURIComponent(decodeURIComponent(mod))}&file=${encodeURIComponent(decodeURIComponent(file))}`);});
-  const data=await api('/api/state');render(data.state);fillSettings(await api('/api/settings'));
+  const data=await api('/api/state');render(data.state);fillSettings(await api('/api/settings'));loadDev().catch(()=>{});
   for(const m of data.history)line(m.content,m.role);if(!data.history.length)line(`嗨，我是 ${data.state.mod.name}！在手機上也可以找我聊天。`);
   listen();
 }
@@ -321,3 +324,51 @@ if(code&&!token)pair(code);else if(token)start().catch(error=>showPair(error.mes
 
 // stop the Mac reading a reply aloud
 $('stop-speech').onclick=()=>post('/api/stop-speech',{}).catch(e=>alert(e.message));
+
+// --- 開發夥伴: the Mac's companion attached to a Claude Code / Codex session. The phone can pick a session, talk to it,
+// answer its approval requests and stop or leave it (picking, talking and answering need 「允許手機下達電腦任務」).
+const DEV_ENGINE={claude:'Claude',codex:'Codex'};let devState=null;
+async function loadDev(){devState=await api('/api/dev/state');renderDev();}
+function devStatus(text){const a=devState?.attached;if(a)$('dev-label').textContent=`已接入：${a.project} · ${DEV_ENGINE[a.engine]}${text?` — ${text}`:''}`;}
+function renderDev(){
+  const a=devState?.attached;$('dev-bar').hidden=!a;$('dev-pick-row').hidden=Boolean(a)||!remoteSettings?.remoteTasks;if(a)$('dev-list').hidden=true;
+  if(a)$('dev-label').textContent=`已接入：${a.project} · ${DEV_ENGINE[a.engine]}`;
+  $('text').placeholder=a?`跟 ${a.project} 的工作階段說…`:'跟我說點什麼…';
+}
+$('dev-pick').onclick=async()=>{
+  if(!$('dev-list').hidden){$('dev-list').hidden=true;return;}
+  $('dev-list').hidden=false;$('dev-list').textContent='正在找最近的工作階段…';
+  try{const list=await api('/api/dev/sessions');
+    $('dev-list').replaceChildren(...(list.length?list.map(s=>{const b=document.createElement('button');b.type='button';b.dataset.id=s.id;
+      const head=document.createElement('b');head.textContent=`${s.engine==='claude'?'✳️':'◎'} ${s.project} · ${DEV_ENGINE[s.engine]}`;
+      const title=document.createElement('small');title.textContent=s.title||'（沒有標題）';const when=document.createElement('small');when.textContent=new Date(s.updatedAt).toLocaleString();b.append(head,title,when);
+      if(s.maybeOpen){const warn=document.createElement('small');warn.className='warn';warn.textContent='⚠ 可能還在終端機開著：先關掉那個終端機，避免對話分岔';b.append(warn);}
+      b.onclick=async()=>{$('dev-list').hidden=true;try{devState=await post('/api/dev/attach',{engine:s.engine,id:s.id});renderDev();}catch(error){line(error.message,'note');}};return b;})
+      :[Object.assign(document.createElement('p'),{className:'hint',textContent:'找不到 Claude Code 或 Codex 的工作階段。'})]));}
+  catch(error){$('dev-list').textContent=error.message;}
+};
+$('dev-stop').onclick=()=>post('/api/dev/interrupt',{}).catch(error=>line(error.message,'note'));
+$('dev-leave').onclick=()=>post('/api/dev/leave',{}).then(state=>{devState=state;renderDev();}).catch(error=>line(error.message,'note'));
+function devCard(a){
+  const el=line('','approval');el.dataset.request=a.requestId;el.replaceChildren();
+  const title=document.createElement('b');title.textContent=`🔐 ${a.question}`;el.append(title);
+  const detail=[a.command?`$ ${a.command}`:null,a.diff||null,!a.command&&!a.diff?(a.detail||(a.files||[]).join('\n')||null):null].filter(Boolean).join('\n');
+  if(detail){const pre=document.createElement('pre');pre.textContent=detail;el.append(pre);}
+  const row=document.createElement('div');row.className='actions';
+  for(const [label,allow,cls] of [['允許',true,'allow'],['拒絕',false,'deny']]){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;
+    b.onclick=()=>{for(const x of row.children)x.disabled=true;post('/api/dev/answer',{requestId:a.requestId,allow}).then(r=>{if(!r.ok){line(r.error,'note');for(const x of row.children)x.disabled=false;}}).catch(error=>{line(error.message,'note');for(const x of row.children)x.disabled=false;});};row.append(b);}
+  el.append(row);return el;
+}
+function onDev(event){
+  if(event.state){devState=event.state;renderDev();}
+  if(event.type==='attached')line(`已接入「${event.state.attached.project}」的 ${DEV_ENGINE[event.state.attached.engine]} 工作階段。`,'note');
+  if(event.type==='left')line(`已離開開發工作階段。${event.resumeCommand?`之後可以在終端機用 ${event.resumeCommand} 接著做。`:''}`,'note');
+  // a line typed on the Mac or another phone (the server does not send a phone its own line back)
+  if(event.type==='user')line(event.source==='phone'?`📱 ${event.text}`:event.text,'user');
+  if(event.type==='tool')devStatus(event.label);
+  if(event.type==='approval'){devStatus('等你決定：允許或拒絕');devCard(event.approval);say(event.approval.question);}
+  if(event.type==='resolved'){const card=document.querySelector(`.msg.approval[data-request="${CSS.escape(event.requestId)}"]`);if(card){card.querySelector('.actions')?.remove();const r=document.createElement('small');r.textContent=event.result==='allowed'?'✓ 已允許':event.result==='denied'?'✕ 已拒絕':'（這個請求已經不需要了）';card.append(r);card.dataset.result=event.result;}}
+  if(event.type==='reply'){line(event.text);say(event.spoken||event.text);}
+  if(event.type==='turn'){devStatus('');if(event.status==='failed')line(`這一輪沒有完成${event.error?`：${event.error}`:''}`,'note');if(event.status==='interrupted')line('已停下來。','note');}
+  if(event.type==='error')line(`開發夥伴：${event.message}`,'note');
+}

@@ -24,6 +24,7 @@ Characters are **Mods**. A Mod is drawn in SVG or layered PNG, or is a VRM, glTF
 | Codex / Claude / LM Studio brains | ✓ | ✓ | ✓ |
 | Claude computer / browser tasks (Claude Code in a terminal) | ✓ | — (needs a pty) | ✓ |
 | Codex / local-model tasks | ✓ | ✓ | ✓ |
+| 開發夥伴 (attach a Claude Code / Codex session) | ✓ | ✓ (no folder check for the terminal warning) | ✓ |
 | Native computer-use input (mouse and keyboard) | ✓ | see the computer-use notes | see the computer-use notes |
 | System voice | `say` | Windows SAPI voices (zh-TW / ja / en when installed) | `espeak-ng` (or `spd-say`) |
 | Edge, OpenAI, ElevenLabs, Kokoro voices | ✓ | ✓ | ✓ |
@@ -120,6 +121,17 @@ Codex and Claude use your existing subscription through their official CLIs. If 
 - The character picks an emotion for every reply. In auto mode it decides whether a request needs a browser, desktop or files task.
 - Tasks write their output to `~/Desktop/Agent Wardrobe/`. ⌘⇧X stops a task.
 - Replies can be in Traditional Chinese, Simplified Chinese, English or Japanese, or follow your language.
+
+### 開發夥伴: the character becomes one of your coding sessions
+
+🧑‍💻 in the toolbar (or **Settings → AI 大腦 → 開發夥伴**) lists your recent Claude Code and Codex sessions. Pick one and the character *is* that session: it continues in the project folder with the full conversation, through your installed and signed-in `claude` / `codex`.
+
+- Typing, the wake word, barge-in and follow-up listening all go to the session. Replies are spoken without code blocks or long paths; long ones end with 「完整內容在聊天框」.
+- Tool activity shows as a status line, and now and then a short spoken line (「我在跑測試」).
+- Permission requests appear as a card with 允許 / 拒絕 and are asked aloud; say 允許 / 好 / 可以 or 拒絕 / 不要 while one is waiting. Nothing is approved without you. The phone shows and answers them too (with 「允許手機下達電腦任務」 on).
+- 「停下來」 or ■ interrupts the running turn; 離開 goes back to the usual brain. The session stays resumable in a terminal (`claude --resume <id>`, `codex resume <id>`). After a restart the app offers to reattach; it never does so by itself.
+- The session keeps its own settings: Claude Code's permission mode (a session saved in bypassPermissions is resumed in the normal asking mode), Codex's sandbox and approval policy. If your Codex config hands approvals to its automatic reviewer, you can tick 「需要批准的動作一律問我」 in the picker.
+- Close the session in its terminal first: two programs writing the same session fork the conversation. The picker warns about sessions written in the last few minutes or used by a running `claude` / `codex`.
 
 ### Computer use
 
@@ -241,6 +253,7 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
 | `speech.cjs`, `wake-service.cjs` | Voice output, wake word and dictation |
 | `local-llm.cjs`, `cli-setup.cjs` | Built-in model; Codex / Claude setup |
 | `remote-server.cjs`, `remote/` | Phone remote |
+| `dev-sessions.cjs`, `dev-session.cjs`, `dev-companion.cjs`, `dev-speech.cjs`, `permission-mcp.cjs` | 開發夥伴: session discovery, Claude Code / Codex adapters, the permission prompt tool |
 
 ## Privacy
 

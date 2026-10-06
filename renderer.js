@@ -30,7 +30,7 @@ function renderState(state) {
   Avatars.update($('bula'),state);
   document.querySelector('.brand').firstChild.textContent=state.mod.name.toUpperCase();
   if(settings){
-    $('prompt').placeholder=t.placeholder.replaceAll('{name}',state.mod.name);
+    if(!dev?.attached)$('prompt').placeholder=t.placeholder.replaceAll('{name}',state.mod.name);
     $('prompt').setAttribute('aria-label',`Chat with ${state.mod.name}`);
     $('pet-wrap').title=hintFor(state.mod);
     if(changed&&!history.length){$('conversation').replaceChildren();message(t.greeting.replaceAll('{name}',state.mod.name));}
@@ -151,6 +151,7 @@ $('save').onclick = async () => {
 };
 $('chat-form').onsubmit = async event => {
   event.preventDefault(); const text = $('prompt').value.trim(); if (!text || busy||composing) return;clearTimeout(voiceTimer);
+  if(dev?.attached){devSubmit(text);return;}  // 開發夥伴: the attached session gets it (see the end of this file)
   if(activeTask){
     busy=true;$('send').disabled=true;
     try{await window.bula.taskSteer({id:activeTask,text});message(text,'user');history.push({role:'user',content:text});$('prompt').value='';status(settings.language.startsWith('zh')?'已送出補充指示':'Task update sent');}catch(error){message(error.message,'error');}finally{busy=false;$('send').disabled=false;}return;
@@ -249,7 +250,7 @@ window.bula.onTask(event=>{
 window.bula.onState(renderState);
 function blink() { Avatars.blink($('bula')); setTimeout(blink,2800+Math.random()*2500); }
 setTimeout(blink,2200);
-init().then(()=>{if(!settings.onboarded)startOnboarding();}).catch(e => { message(e.message,'error'); status('啟動未完成'); });
+init().then(()=>{initDev().catch(error=>console.error(error));if(!settings.onboarded)startOnboarding();}).catch(e => { message(e.message,'error'); status('啟動未完成'); });
 
 function armIdle(){clearTimeout(idleTimer);idleTimer=setTimeout(collapseIfIdle,15000);}
 function collapseIfIdle(){
@@ -630,3 +631,113 @@ $('show-onboarding').onclick=()=>{$('settings').hidden=true;document.body.classL
 // Stop reading aloud: the button by the character (shown while it speaks), or Esc
 $('stop-speech').onclick=event=>{event.stopPropagation();window.bula.stop();};
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&characterState?.speaking){event.preventDefault();event.stopImmediatePropagation();window.bula.stop();}},true);
+
+// --- 開發夥伴: the companion attached to one of the user's Claude Code / Codex sessions (dev-companion.cjs in main).
+// While attached, typed and spoken messages go to that session; its replies stream into the chat, tool activity shows as
+// a status line, and permission requests appear as cards answered with the buttons or by saying 允許 / 拒絕.
+let dev=null,devLive=null,devLastSegment=null,devToolLine=null;
+const devZh=()=>settings?.language?.startsWith('zh')!==false;
+const ENGINE_ICON={claude:'✳️',codex:'◎'},ENGINE_NAME={claude:'Claude',codex:'Codex'};
+function devAgo(ms){const zh=devZh(),m=Math.round((Date.now()-ms)/60000);if(m<1)return zh?'剛剛':'just now';if(m<60)return zh?`${m} 分鐘前`:`${m} min ago`;const h=Math.round(m/60);if(h<24)return zh?`${h} 小時前`:`${h} h ago`;const d=Math.round(h/24);return zh?`${d} 天前`:`${d} d ago`;}
+const devSize=bytes=>bytes==null?'':bytes>=1e6?`${(bytes/1e6).toFixed(bytes>=1e7?0:1)} MB`:`${Math.max(1,Math.round(bytes/1e3))} KB`;
+function renderDev(){
+  const zh=devZh(),a=dev?.attached;document.body.classList.toggle('dev-attached',Boolean(a));$('dev-bar').hidden=!a;
+  if(a){$('dev-label').textContent=`${zh?'已接入：':'Attached: '}${a.project} · ${ENGINE_NAME[a.engine]}`;$('dev-label').title=`${a.cwd}\n${a.title||''}${a.mode?`\n${zh?'權限模式':'Permission mode'}: ${a.mode}`:''}`;
+    $('dev-stop').disabled=!dev.busy&&!dev.pending?.length;$('prompt').placeholder=zh?`跟 ${a.project} 的工作階段說…（說「停下來」可打斷）`:`Talk to the ${a.project} session… (say “stop” to interrupt)`;}
+  else if(characterState)$('prompt').placeholder=t.placeholder.replaceAll('{name}',characterState.mod.name);
+  $('dev-open').classList.toggle('on',Boolean(a));
+}
+function devNote(text){const el=message(text,'assistant');el.classList.add('dev-note');return el;}
+async function initDev(){
+  dev=await window.bula.devState();renderDev();
+  $('dev-ask-codex').checked=Boolean(settings.devCodexAskMe);
+  // a session attached before the app was closed: offer to reconnect, never reconnect by itself
+  if(dev.offer&&!dev.attached){
+    const zh=devZh(),o=dev.offer,el=devNote(zh?`上次接入的是「${o.project}」的 ${ENGINE_NAME[o.engine]} 工作階段${o.title?`（${o.title}）`:''}。要重新接入嗎？`:`Last time I was attached to the ${ENGINE_NAME[o.engine]} session in “${o.project}”. Reattach?`);
+    el.classList.add('offer');const row=document.createElement('div');row.className='actions';
+    const yes=Object.assign(document.createElement('button'),{type:'button',className:'reattach',textContent:zh?'重新接入':'Reattach'});
+    const no=Object.assign(document.createElement('button'),{type:'button',className:'dismiss',textContent:zh?'不用了':'No thanks'});
+    yes.onclick=()=>{row.remove();devAttach(o.engine,o.id);};no.onclick=()=>{row.remove();window.bula.devDismiss().then(state=>{dev=state;renderDev();}).catch(()=>{});};
+    row.append(yes,no);el.append(row);showChat(false);
+  }
+}
+function openDevPicker(){
+  if(!$('settings').hidden){$('settings').hidden=true;document.body.classList.remove('settings');}
+  showChat(false);$('dev-picker').hidden=false;document.body.classList.add('dev-picking');loadDevSessions();
+}
+function closeDevPicker(){$('dev-picker').hidden=true;document.body.classList.remove('dev-picking');armIdle();}
+const devEmpty=text=>Object.assign(document.createElement('li'),{className:'empty',textContent:text});
+async function loadDevSessions(){
+  const zh=devZh(),list=$('dev-list');list.replaceChildren(devEmpty(zh?'正在找最近的工作階段…':'Looking for recent sessions…'));
+  let sessions;try{sessions=await window.bula.devSessions();}catch(error){list.replaceChildren(devEmpty(cleanError(error)));return;}
+  if(!sessions.length){list.replaceChildren(devEmpty(zh?'找不到 Claude Code 或 Codex 的工作階段。先在終端機用過它們，這裡就會列出來。':'No Claude Code or Codex sessions found yet.'));return;}
+  list.replaceChildren(...sessions.map(s=>{
+    const li=document.createElement('li'),b=document.createElement('button');b.type='button';b.dataset.engine=s.engine;b.dataset.id=s.id;
+    const icon=Object.assign(document.createElement('span'),{className:'engine',textContent:ENGINE_ICON[s.engine]||'•',title:ENGINE_NAME[s.engine]});
+    const project=Object.assign(document.createElement('span'),{className:'project',textContent:`${s.project} · ${ENGINE_NAME[s.engine]}`,title:s.cwd});
+    const title=Object.assign(document.createElement('span'),{className:'title',textContent:s.title||(zh?'（沒有標題）':'(untitled)'),title:s.title||''});
+    const meta=Object.assign(document.createElement('span'),{className:'meta',textContent:[devAgo(s.updatedAt),s.turns?(zh?`${s.turns} 輪`:`${s.turns} turns`):devSize(s.size)].filter(Boolean).join(' · ')});
+    b.append(icon,project,title,meta);
+    if(s.maybeOpen)b.append(Object.assign(document.createElement('span'),{className:'warn',textContent:zh?'⚠ 可能還在終端機開著：先關掉那個終端機，避免對話分岔':'⚠ May still be open in a terminal: close it first so the conversation does not fork'}));
+    b.onclick=()=>{closeDevPicker();devAttach(s.engine,s.id);};li.append(b);return li;}));
+}
+async function devAttach(engine,id){
+  const zh=devZh();status(zh?'正在接入工作階段…':'Attaching…');
+  try{dev=await window.bula.devAttach({engine,id,askUser:$('dev-ask-codex').checked});renderDev();}
+  catch(error){message(cleanError(error),'error');status(t.failed);}
+}
+async function devSubmit(text){
+  const zh=devZh();clearTimeout(voiceTimer);$('prompt').value='';message(text,'user');
+  try{const result=await window.bula.devInput(text);
+    if(!result.ok)message(result.error,'error');
+    else if(result.answered)status(result.answered==='allow'?(zh?'已允許':'Allowed'):(zh?'已拒絕':'Denied'));
+    else if(result.interrupted)status(zh?'正在停下來…':'Stopping…');
+    else status(`${ENGINE_NAME[dev.attached.engine]} · ${t.thinking}`);}
+  catch(error){message(cleanError(error),'error');}
+  armIdle();
+}
+function devCard(a){
+  const zh=devZh(),el=document.createElement('div');el.className='message approval';el.dataset.request=a.requestId;
+  el.append(Object.assign(document.createElement('b'),{textContent:`🔐 ${a.title}`}),Object.assign(document.createElement('div'),{className:'question',textContent:a.question}));
+  const detail=[a.command?`$ ${a.command}`:null,a.command&&a.cwd?`(${a.cwd})`:null,a.diff||null,!a.command&&!a.diff?(a.detail||(a.files||[]).join('\n')||null):null].filter(Boolean).join('\n');
+  if(detail)el.append(Object.assign(document.createElement('pre'),{textContent:detail}));
+  if(a.reason)el.append(Object.assign(document.createElement('small'),{textContent:a.reason}));
+  const row=document.createElement('div');row.className='actions';
+  const allow=Object.assign(document.createElement('button'),{type:'button',className:'allow',textContent:zh?'允許':'Allow'});
+  const deny=Object.assign(document.createElement('button'),{type:'button',className:'deny',textContent:zh?'拒絕':'Deny'});
+  const answer=ok=>{allow.disabled=deny.disabled=true;window.bula.devAnswer(a.requestId,ok).then(r=>{if(!r.ok){allow.disabled=deny.disabled=false;message(r.error,'error');}}).catch(error=>{allow.disabled=deny.disabled=false;message(cleanError(error),'error');});};
+  allow.onclick=()=>answer(true);deny.onclick=()=>answer(false);row.append(allow,deny);el.append(row);
+  el.append(Object.assign(document.createElement('div'),{className:'result',textContent:zh?'用按鈕，或直接說「允許」／「拒絕」':'Use the buttons, or say “allow” / “deny”'}));
+  $('conversation').append(el);$('conversation').scrollTop=$('conversation').scrollHeight;return el;
+}
+function devFinishLive(text){if(devLive){devLive.classList.remove('streaming');if(text!=null)devLive.textContent=text;devLastSegment=devLive;devLive=null;}}
+window.bula.onDev(event=>{
+  const zh=devZh();
+  if(event.state)dev=event.state;
+  if(event.type==='attached'){const a=dev.attached;devLive=devLastSegment=devToolLine=null;showChat(false);
+    devNote(zh?`已接入「${a.project}」的 ${ENGINE_NAME[a.engine]} 工作階段${a.title?`：${a.title}`:''}。現在打字或說話都會交給它（在 ${a.cwd}）。`:`Attached to the ${ENGINE_NAME[a.engine]} session in “${a.project}”. Typing or talking now goes to it.`);
+    if(a.maybeOpen)message(zh?'⚠ 這個工作階段可能還在終端機開著。請先關掉那個終端機，免得兩邊同時寫入、對話分岔。':'⚠ This session may still be open in a terminal. Close it first so the two do not fork the conversation.','error');
+    status(`${a.project} · ${ENGINE_NAME[a.engine]}`);}
+  if(event.type==='left'){devLive=devLastSegment=devToolLine=null;devNote(zh?`已離開${event.project?`「${event.project}」`:''}，回到原本的 AI 大腦。${event.resumeCommand?`之後可以在終端機用 ${event.resumeCommand} 接著做。`:''}`:`Left${event.project?` “${event.project}”`:''}; back to the usual brain.${event.resumeCommand?` Continue in a terminal with ${event.resumeCommand}.`:''}`);status(`${settings.provider} · ${t.ready}`);}
+  if(event.type==='user'){devToolLine=null;devLastSegment=null;devLive=null;if(event.source==='phone')message(`📱 ${event.text}`,'user');}
+  if(event.type==='delta'){if(!devLive){devLive=message('','assistant');devLive.classList.add('streaming');}devLive.textContent+=event.text;$('conversation').scrollTop=$('conversation').scrollHeight;}
+  if(event.type==='progress'){if(devLive)devFinishLive(event.text);else devLastSegment=message(event.text,'assistant');}
+  if(event.type==='tool'){status(event.label);if(!devToolLine?.isConnected){devToolLine=message('','assistant');devToolLine.classList.add('tool');}devToolLine.textContent=`🔧 ${event.label}`;$('conversation').append(devToolLine);$('conversation').scrollTop=$('conversation').scrollHeight;}
+  if(event.type==='approval'){devFinishLive();showChat(false);devCard(event.approval);status(zh?'等你決定：允許或拒絕':'Waiting for your decision');}
+  if(event.type==='resolved'){const card=document.querySelector(`.message.approval[data-request="${CSS.escape(event.requestId)}"]`);
+    if(card){card.querySelector('.actions')?.remove();card.querySelector('.result').textContent=event.result==='allowed'?(zh?'✓ 已允許':'✓ Allowed'):event.result==='denied'?(zh?'✕ 已拒絕':'✕ Denied'):(zh?'（這個請求已經不需要了）':'(No longer needed)');card.dataset.result=event.result;}}
+  if(event.type==='reply'){
+    if(devLive)devFinishLive(event.text);else if(!(devLastSegment?.isConnected&&devLastSegment.textContent.trim()===event.text.trim()))devLastSegment=message(event.text,'assistant');
+    devLastSegment?.classList.add('dev-reply');$('subtitle').textContent=event.spoken||event.text;if(document.body.classList.contains('streaming'))$('subtitle').hidden=false;}
+  if(event.type==='interrupting')status(zh?'正在停下來…':'Stopping…');
+  if(event.type==='turn'){devFinishLive();devToolLine=null;
+    if(event.status==='failed')message(`${zh?'這一輪沒有完成':'That turn did not finish'}${event.error?`：${event.error}`:''}`,'error');
+    status(event.status==='completed'?t.done:event.status==='interrupted'?(zh?'已停下來':'Stopped'):t.failed);armIdle();}
+  if(event.type==='notice')devNote(event.text);
+  if(event.type==='error')message(`${zh?'開發夥伴：':'Coding session: '}${event.message}`,'error');
+  renderDev();
+});
+$('dev-open').onclick=()=>dev?.attached?showChat(true):openDevPicker();
+$('dev-pick').onclick=openDevPicker;$('dev-close').onclick=closeDevPicker;$('dev-refresh').onclick=loadDevSessions;
+$('dev-stop').onclick=()=>window.bula.devInterrupt().catch(error=>message(cleanError(error),'error'));
+$('dev-leave').onclick=()=>window.bula.devLeave().then(state=>{dev=state;renderDev();}).catch(error=>message(cleanError(error),'error'));

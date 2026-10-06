@@ -53,3 +53,11 @@ header{display:flex;align-items:center;gap:8px;padding:10px 0}header b{font-size
 #rec blockquote{margin:6px 0;font-size:18px;line-height:1.6}#rec audio{width:100%;margin:8px 0}#rec-btn.on{background:#d92d20;color:#fff}
 .mic-on{color:#fff;background:#d92d20;border-radius:999px;padding:4px 10px;font-weight:600}
 .stop-speech{display:block;width:100%;margin:6px 0;border:0;border-radius:12px;padding:10px;background:#22375a;color:#fff;font-size:15px}.voice-speed{display:flex;align-items:center;gap:6px;font-size:13px;margin:4px 0}.voice-speed input{flex:1}
+
+/* 開發夥伴 on the phone: the attached-session bar, the session list and approval cards */
+#dev-bar{display:flex;align-items:center;gap:8px;background:#263e58;color:#fff;border-radius:12px;padding:8px 10px;margin-bottom:6px}#dev-label{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dev-bar button{padding:6px 10px;font-size:13px;background:#ffffff26}#dev-pick-row{margin-bottom:6px}#dev-pick{width:100%;background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:14px}
+#dev-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;max-height:50vh;overflow-y:auto}#dev-list button{text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:14px;padding:8px 10px}
+#dev-list small{display:block;color:var(--muted);font-size:12px}#dev-list .warn{color:#a0581f}
+.msg.approval{align-self:stretch;max-width:none;background:#fff8e6;border-color:#f1d9a6;color:#4d3a12}.msg.approval pre{white-space:pre-wrap;word-break:break-word;font-size:12px;margin:6px 0;max-height:30vh;overflow-y:auto}
+.msg.approval .actions{display:flex;gap:8px;margin-top:6px}.msg.approval .deny{background:#f3e3d7;color:#7a3d12}
