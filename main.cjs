@@ -137,7 +137,7 @@ function companionSize(quiet, scale = settings.scale || 1) {
 let secrets, voiceService;
 const kokoroDir = () => path.join(app.getPath('userData'), 'models', 'kokoro-multi-lang-v1_0');
 const settingsPath = () => path.join(app.getPath('userData'), 'bula-settings.json');
-const voice = createSpeech({ app, handle, getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, getSecrets: () => secrets, kokoroDir, getVoices: () => voiceService?.voices });
+const voice = createSpeech({ app, handle, getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, getSecrets: () => secrets, kokoroDir, getVoices: () => voiceService?.voices, onMute: () => { persist(); remoteEvent('settings', remoteSettings()); } });
 const { speak, stop: stopSpeech } = voice;
 const wakeService = createWake({ app, handle, ipcMain, systemPreferences, getWin: () => win, getRuntime: () => runtime, getSettings: () => settings, persist, speech: voice });
 // 開發夥伴: the companion attached to one of the user's own Claude Code / Codex sessions (dev-companion.cjs).
@@ -695,7 +695,7 @@ async function startRemote() {
   return remote.port;
 }
 // What a phone may read and change. Brains, reply language, voice and the character; never keys, paths or the task permission.
-const REMOTE_SETTING_KEYS = ['provider', 'localEngine', 'builtinModel', 'model', 'replyLanguage', 'voiceProvider', 'edgeVoice', 'kokoroVoice', 'openaiVoice'];
+const REMOTE_SETTING_KEYS = ['muted', 'provider', 'localEngine', 'builtinModel', 'model', 'replyLanguage', 'voiceProvider', 'edgeVoice', 'kokoroVoice', 'openaiVoice'];
 function remoteSettings() {
   const { mod, skin, persona } = runtime.snapshot();
   return { settings: Object.fromEntries(REMOTE_SETTING_KEYS.map(key => [key, settings[key]])), volume: settings.volume !== false, remoteTasks: Boolean(settings.remoteTasks), computer: computerSupport(),
@@ -742,6 +742,8 @@ function remoteRoutes() {
     'POST /api/select': ({ body }) => { selectMod({ modId: body.modId, skinId: body.skinId, personaId: body.personaId }); return remoteSettings(); },
     'POST /api/task': async ({ body }) => { requireRemoteTasks(); if (!['browser', 'computer', 'files'].includes(body.mode)) throw new Error('Unknown task mode'); return { task: await startTask({ mode: body.mode, text: String(body.text || '') }) }; },
     'POST /api/stop': () => { emergencyStop(); return { stopped: true }; },
+    // the quick mute for replies read aloud on the Mac (the chosen voice is kept)
+    'POST /api/mute': ({ body }) => { settings.muted = Boolean(body.muted); if (settings.muted) voice.stop(); persist(); win?.webContents.send('bula:muted', settings.muted); remoteEvent('settings', remoteSettings()); return { muted: settings.muted }; },
     // 開發夥伴 from the phone: reading the state and leaving or stopping are always allowed; picking a session, sending to
     // it (through /api/chat) and answering its approvals need 「允許手機下達電腦任務」
     'GET /api/dev/state': () => devCompanion.snapshot(),

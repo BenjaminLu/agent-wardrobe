@@ -16,3 +16,16 @@ design/**/concept*.png
 .DS_Store
 .claude/
 .scratch/
+
+# Recorded or cloned voices never go into the repository: they are people's voices, kept only in the app's own folder.
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+*.opus
+*.caf
+*.aif
+*.aiff
+.smoke-userdata*/

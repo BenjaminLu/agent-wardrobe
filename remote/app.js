@@ -124,7 +124,7 @@ function fillSettings(data){
   $('s-persona').replaceChildren(...mod.personas.map(p=>option(p.id,p.name)));$('s-persona').value=sel.personaId;
   $('s-brain').value=s.provider==='local'&&s.localEngine==='builtin'?'builtin':s.provider;
   $('s-model').replaceChildren(...data.builtinModels.map(m=>option(m.id,m.name)));$('s-model').value=s.builtinModel;$('s-model-row').hidden=$('s-brain').value!=='builtin';
-  $('s-reply').value=s.replyLanguage||'auto';$('s-voice').value=data.volume?s.voiceProvider:'off';
+  $('s-speak').checked=!s.muted;$('s-reply').value=s.replyLanguage||'auto';$('s-voice').value=data.volume?s.voiceProvider:'off';
   $('s-note').textContent=data.remoteTasks?'這支手機可以叫 Mac 做事（瀏覽器、電腦、整理存檔）。':'要從手機叫 Mac 做事，請在 Mac 的「設定 → 手機遙控」打開「允許手機下達電腦任務」。';
   renderDev();
   for(const value of ['browser','computer','files','auto'])$('mode').querySelector(`[value=${value}]`).disabled=!data.remoteTasks;if(data.computer&&!data.computer.available){const o=$('mode').querySelector('[value=computer]');o.disabled=true;o.title=data.computer.reason;if($('mode').value==='computer')$('mode').value='chat';}if(!data.remoteTasks&&$('mode').value!=='chat')$('mode').value='chat';
@@ -137,6 +137,7 @@ $('s-brain').onchange=()=>{const v=$('s-brain').value;change('/api/settings',{se
 $('s-model').onchange=()=>change('/api/settings',{settings:{builtinModel:$('s-model').value}});
 $('s-reply').onchange=()=>change('/api/settings',{settings:{replyLanguage:$('s-reply').value}});
 $('s-voice').onchange=()=>change('/api/settings',{settings:{voiceProvider:$('s-voice').value}});
+$('s-speak').onchange=()=>post('/api/mute',{muted:!$('s-speak').checked}).catch(error=>alert(error.message));
 
 // --- Characters: wear one, pick a skin, edit it with Codex, make one from a phone photo, or start from the open libraries.
 const modCache=new Map();

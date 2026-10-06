@@ -26,7 +26,7 @@ function createPlayer(getWin, { timeoutMs = 10 * 60 * 1000 } = {}) {
   return { play, stop, done: finish, get playing() { return waiting.size > 0; } };
 }
 
-function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets, kokoroDir, getVoices = () => null }) {
+function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets, kokoroDir, getVoices = () => null, onMute = () => {} }) {
   let speech = null, speechAbort = null, localVoice = null, kokoroDownload = null, sapi = null;
   const player = createPlayer(getWin);
   handle('bula:audio-done', (id, error) => { player.done(Number(id), error ? String(error).slice(0, 200) : null); return true; });
@@ -45,6 +45,8 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
     stopSpeech();
     const voice = { ...getSettings(), ...override };
     if (!voice.volume || voice.voiceProvider === 'off') return;
+    // the quick 🔇 button mutes replies but keeps the chosen voice; previews (volume:true asked for) still play
+    if (getSettings().muted && override?.volume !== true) return;
     // a profile: one asked for (preview, a draft from the sliders), or the one bound to the worn character when no provider was asked for
     const voices = getVoices(), profile = voices && (override?.voiceDraft || override?.voiceProfile || (!override?.voiceProvider && boundProfile(voice.characterVoices, getRuntime()?.state.modId, voices)));
     if (profile) return speakSentences(text, 'wav', (part, signal) => typeof profile === 'string' ? voices.speak(profile, part, { signal }) : voices.speakProfile(profile, part, { signal }));
@@ -167,6 +169,7 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
   handle('bula:open-openai', page => { if (!OPENAI_PAGES[page]) throw new Error('Unknown page'); return shell.openExternal(OPENAI_PAGES[page]); });
   handle('bula:speak', text => { speak(String(text)); return true; });
   handle('bula:stop', stopSpeech);
+  handle('bula:mute', on => { getSettings().muted = Boolean(on); if (on) stopSpeech(); onMute(Boolean(on)); getWin()?.webContents.send('bula:muted', Boolean(on)); return Boolean(on); });
   return { speak, stop: stopSpeech, isSpeaking: () => Boolean(speech || speechAbort), quit: () => sapi?.stop(), player };
 }
 module.exports = { createSpeech };

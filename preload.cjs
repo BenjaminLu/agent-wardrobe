@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('bula', {
   agentConsole:()=>ipcRenderer.invoke('bula:agent-console'),
   speak: text => ipcRenderer.invoke('bula:speak', text),
   stop: () => ipcRenderer.invoke('bula:stop'),
+  mute: on => ipcRenderer.invoke('bula:mute', on),
+  onMuted: callback => ipcRenderer.on('bula:muted', (_event, value) => callback(value)),
   compact: on => ipcRenderer.invoke('bula:compact',on),
   scale: value => ipcRenderer.invoke('bula:scale', value),
   chatSize: size => ipcRenderer.invoke('bula:chat-size', size),

@@ -57,6 +57,12 @@ async function run({win,runtime,voiceService,startRemote}){
   await js(`document.querySelector('#stop-speech').click();true`);
   await wait(()=>talking.at(-1)===false&&js(`document.querySelector('#stop-speech').hidden`),10000,'stopped');
   await new Promise(r=>setTimeout(r,800));assert.ok(calls.length-longBefore<6,`stopped before the end (${calls.length-longBefore} of 6 sentences)`);
+  // 🔇: replies are not read aloud (the bound voice stays), previews still play; 🔊 turns it back on
+  await js(`document.querySelector('#speak-toggle').click();true`);await wait(()=>js(`document.querySelector('#speak-toggle').classList.contains('muted')`),5000,'muted');
+  const mutedBefore=calls.length;await js(`window.bula.speak('靜音時不該念。')`);await new Promise(r=>setTimeout(r,600));assert.equal(calls.length,mutedBefore,'muted: nothing spoken');
+  assert.equal((await js(`window.bula.voices()`)).bound,id,'the bound voice is kept while muted');
+  await js(`document.querySelector('#speak-toggle').click();true`);await wait(()=>js(`!document.querySelector('#speak-toggle').classList.contains('muted')`),5000,'unmuted');
+  await js(`window.bula.speak('恢復了。')`);await wait(()=>calls.length>mutedBefore,10000,'speaks again');
   // another character without a voice falls back to the voice provider (macOS say here)
   await js(`window.bula.select({modId:'miso'})`);await wait(()=>runtime.state.modId==='miso');const n=calls.length;talking.length=0;
   await js(`window.bula.speak('嗯')`);await wait(()=>talking.includes(true)&&talking.at(-1)===false,15000,'fallback');assert.equal(calls.length,n,'Miso does not use Annie\'s voice');

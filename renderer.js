@@ -82,6 +82,7 @@ async function init() {
   const providers = await window.bula.providers();
   for (const name of ['codex','claude']) if (!providers[name]) $('provider').querySelector(`[value="${name}"]`).textContent += t.missing;
   localFields(); status(`${settings.provider === 'local' ? t.local : settings.provider} · ${t.ready}`);
+  showSpeakToggle(Boolean(settings.muted));
   document.body.dataset.ready='true';armIdle();
 }
 function localFields() { $('local-settings').hidden = $('provider').value !== 'local'; $('builtin-settings').hidden = $('provider').value !== 'builtin'; if ($('provider').value === 'builtin') showLlm(); showCli(); }
@@ -741,3 +742,9 @@ $('dev-open').onclick=()=>dev?.attached?showChat(true):openDevPicker();
 $('dev-pick').onclick=openDevPicker;$('dev-close').onclick=closeDevPicker;$('dev-refresh').onclick=loadDevSessions;
 $('dev-stop').onclick=()=>window.bula.devInterrupt().catch(error=>message(cleanError(error),'error'));
 $('dev-leave').onclick=()=>window.bula.devLeave().then(state=>{dev=state;renderDev();}).catch(error=>message(cleanError(error),'error'));
+
+// 🔊 / 🔇 next to Skin: mute replies read aloud without changing the chosen voice (previews still play)
+function showSpeakToggle(muted){const zh=settings?.language?.startsWith('zh')!==false,b=$('speak-toggle');b.textContent=muted?'🔇':'🔊';b.classList.toggle('muted',muted);
+  const label=muted?(zh?'已靜音，按一下恢復念出回覆':'Muted; click to read replies aloud'):(zh?'靜音（不念出回覆）':'Mute replies');b.title=label;b.setAttribute('aria-label',label);}
+$('speak-toggle').onclick=async event=>{event.stopPropagation();const zh=settings.language.startsWith('zh');const muted=await window.bula.mute(!settings.muted);settings.muted=muted;showSpeakToggle(muted);status(muted?(zh?'已靜音，回覆只顯示文字':'Muted'):(zh?'恢復念出回覆':'Reading replies aloud'));};
+window.bula.onMuted(muted=>{settings.muted=muted;showSpeakToggle(muted);});
