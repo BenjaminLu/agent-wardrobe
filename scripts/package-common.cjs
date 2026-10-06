@@ -8,7 +8,8 @@ const RUNTIME_PACKAGES=['sherpa-onnx-node','ws','pinyin-pro','opencc-js','qrcode
 // sherpa-onnx's prebuilt native libraries come as one optional package per platform.
 const sherpaPackage=(platform,arch)=>`sherpa-onnx-${platform==='win32'?'win':platform}-${arch}`;
 const HELPERS={darwin:{source:'native-input.swift',binary:'native-input'},win32:{source:'native-input.cs',binary:'native-input.exe'}};
-function copyApp(appRoot,{platform=process.platform,arch=process.arch}={}){
+// runtime:false leaves out native packages and helper binaries (the unit test checks the app's own files without building)
+function copyApp(appRoot,{platform=process.platform,arch=process.arch,runtime=true}={}){
   fs.mkdirSync(appRoot,{recursive:true});
   const files=fs.readdirSync(root).filter(name=>/\.(cjs|js|html|css)$/.test(name)||name==='package.json'||name==='THIRD_PARTY.md');
   for(const filename of files)fs.copyFileSync(path.join(root,filename),path.join(appRoot,filename));
@@ -16,20 +17,20 @@ function copyApp(appRoot,{platform=process.platform,arch=process.arch}={}){
   // App icon copies for the tray / menu bar and the phone (the executable's own icon is set per platform).
   fs.mkdirSync(path.join(appRoot,'build'),{recursive:true});for(const name of ['icon.png','icon-256.png'])fs.copyFileSync(path.join(root,'build',name),path.join(appRoot,'build',name));
   // Local voice runtime (native addon + its prebuilt libraries); the voice model itself downloads on first use.
-  for(const pkg of [...RUNTIME_PACKAGES,sherpaPackage(platform,arch)]){
+  for(const pkg of runtime?[...RUNTIME_PACKAGES,sherpaPackage(platform,arch)]:[]){
     if(!fs.existsSync(path.join(root,'node_modules',pkg)))throw new Error(`node_modules/${pkg} is missing; run npm ci on ${platform}-${arch}`);
     fs.cpSync(path.join(root,'node_modules',pkg),path.join(appRoot,'node_modules',pkg),{recursive:true,verbatimSymlinks:true});
   }
   fs.copyFileSync(path.join(root,'agent-pty.py'),path.join(appRoot,'agent-pty.py'));
   // Computer-use input helper: Swift on macOS, C# on Windows (both built by npm run build:native); Linux runs the system's xdotool.
   const helper=HELPERS[platform];
-  if(helper){
+  if(helper&&runtime){
     fs.copyFileSync(path.join(root,helper.source),path.join(appRoot,helper.source));
     if(!fs.existsSync(path.join(root,'bin',helper.binary)))throw new Error('Run npm run build:native before packaging');
     fs.cpSync(path.join(root,'bin'),path.join(appRoot,'bin'),{recursive:true});
   }
   // The smoke suites ship too (they only run with --smoke-test), so a release can be checked as built.
-  fs.mkdirSync(path.join(appRoot,'scripts'),{recursive:true});for(const name of fs.readdirSync(path.join(root,'scripts')).filter(n=>/-smoke\.cjs$/.test(n)))fs.copyFileSync(path.join(root,'scripts',name),path.join(appRoot,'scripts',name));
+  fs.mkdirSync(path.join(appRoot,'scripts'),{recursive:true});for(const name of fs.readdirSync(path.join(root,'scripts')).filter(n=>/-smoke\.cjs$|^fake-bin\.cjs$/.test(n)))fs.copyFileSync(path.join(root,'scripts',name),path.join(appRoot,'scripts',name));
   const missing=missingRequires(appRoot);if(missing.length)throw new Error(`Packaged app would fail to load: ${missing.join(', ')}`);
 }
 // Every relative require() in the packaged app must resolve inside it (test fixtures are only loaded by --smoke-test runs).
