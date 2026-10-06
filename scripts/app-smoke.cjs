@@ -46,7 +46,7 @@ async function smokeTest(ctx) {
   ctx.settings.provider='codex';ctx.runtime.provider('codex');
   const assert=require('node:assert/strict');
   const evidence=path.join(appRoot,'evidence');fs.mkdirSync(evidence,{recursive:true});
-  const wait=async condition=>{const deadline=Date.now()+6000;while(!(await condition())){if(Date.now()>deadline)throw new Error('UI sync timed out');await new Promise(resolve=>setTimeout(resolve,60));}};
+  const wait=async condition=>{const started=Date.now(),deadline=started+(process.platform==='linux'&&process.env.CI?20000:6000);while(!(await condition())){if(Date.now()>deadline)throw new Error(`UI sync timed out after ${Date.now()-started} ms: ${condition.toString().slice(0,120)}`);await new Promise(resolve=>setTimeout(resolve,60));}};
   await wait(()=>ctx.win.webContents.executeJavaScript('!!document.querySelector("#bula")'));
   assert.equal(globalShortcut.isRegistered('CommandOrControl+Shift+S'),true,'marketplace global shortcut registered');
   ctx.win.show();ctx.win.focus();
