@@ -2,6 +2,7 @@
 // (assisted-window.cjs); the app catches the download, unpacks it (archive.cjs), and the user's AI reads the terms.
 // This file: the sites the window may load, the terms question for the AI, and how its answer becomes our `license`.
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const {t}=require('./locales.cjs');
 
 const q=s=>encodeURIComponent(String(s||'').trim());
 // hosts: pages that load in the window ('*.x' = any subdomain); auth: sign-in pages that may open as a popup.
@@ -9,13 +10,13 @@ const q=s=>encodeURIComponent(String(s||'').trim());
 const SITES={
   booth:{name:'Booth',hosts:['booth.pm','*.booth.pm','*.pximg.net'],auth:['accounts.pixiv.net','oauth.secure.pixiv.net','www.pixiv.net'],search:s=>`https://booth.pm/ja/search/${q(['VRM',s].filter(Boolean).join(' '))}?max_price=0`},
   nizima:{name:'nizima',hosts:['nizima.com','*.nizima.com'],auth:['accounts.live2d.com'],search:s=>`https://nizima.com/Search?keyword=${q(s)}&price_max=0`},                    // (unverified)
-  nico3d:{name:'ニコニ立体',hosts:['3d.nicovideo.jp','*.nimg.jp','*.nicovideo.jp'],auth:['account.nicovideo.jp'],search:s=>s?`https://3d.nicovideo.jp/search?word_type=keyword&word=${q(s)}`:'https://3d.nicovideo.jp/alicia/'},
+  nico3d:{get name(){return t('assisted.site.nico3d');},hosts:['3d.nicovideo.jp','*.nimg.jp','*.nicovideo.jp'],auth:['account.nicovideo.jp'],search:s=>s?`https://3d.nicovideo.jp/search?word_type=keyword&word=${q(s)}`:'https://3d.nicovideo.jp/alicia/'},
   gumroad:{name:'Gumroad',hosts:['gumroad.com','*.gumroad.com'],auth:['gumroad.com'],search:s=>`https://gumroad.com/discover?query=${q(s||'vrm')}&max_price=0`},
-  aplaybox:{name:'模之屋',hosts:['www.aplaybox.com','aplaybox.com','*.aplaybox.com'],auth:[],search:s=>s?`https://www.aplaybox.com/search?keywords=${q(s)}`:'https://www.aplaybox.com/'},  // (unverified)
+  aplaybox:{get name(){return t('assisted.site.aplaybox');},hosts:['www.aplaybox.com','aplaybox.com','*.aplaybox.com'],auth:[],search:s=>s?`https://www.aplaybox.com/search?keywords=${q(s)}`:'https://www.aplaybox.com/'},  // (unverified)
   bowlroll:{name:'BowlRoll',hosts:['bowlroll.net','*.bowlroll.net'],auth:[],search:s=>`https://bowlroll.net/search?q=${q(s||'MMD')}`},                                       // (unverified)
   unitychan:{name:'Unity-chan',hosts:['unity-chan.com','*.unity-chan.com'],auth:[],search:()=>'https://unity-chan.com/download/'},
-  zunko:{name:'東北ずん子',hosts:['zunko.jp','*.zunko.jp'],auth:[],search:()=>'https://zunko.jp/con_illust.html'},
-  live2d:{name:'Live2D 範例',hosts:['www.live2d.com','cubism.live2d.com'],auth:[],search:()=>'https://www.live2d.com/en/learn/sample/'},
+  zunko:{get name(){return t('assisted.site.zunko');},hosts:['zunko.jp','*.zunko.jp'],auth:[],search:()=>'https://zunko.jp/con_illust.html'},
+  live2d:{get name(){return t('assisted.site.live2d');},hosts:['www.live2d.com','cubism.live2d.com'],auth:[],search:()=>'https://www.live2d.com/en/learn/sample/'},
   picrew:{name:'Picrew',hosts:['picrew.me','*.picrew.me'],auth:[],search:s=>s?`https://picrew.me/search?keyword=${q(s)}`:'https://picrew.me/'},                               // (unverified)
   vroid:{name:'VRoid Hub',hosts:['hub.vroid.com','*.pximg.net'],auth:['accounts.pixiv.net','oauth.secure.pixiv.net'],search:s=>s?`https://hub.vroid.com/search/${q(s)}`:'https://hub.vroid.com/'}  // (unverified)
 };
@@ -45,20 +46,20 @@ const TERMS_SCHEMA={type:'object',additionalProperties:false,required:['summary_
 const clip=(s,n)=>String(s??'').replace(/[\0-\x08\x0b-\x1f]/g,'').trim().slice(0,n);
 function normalizeTerms(a={}){
   const pick=(v,list)=>list.includes(v)?v:'unknown';
-  return {summary_zh:clip(a.summary_zh,600)||'AI 沒有寫出摘要。',commercial:pick(a.commercial,['yes','personal-only','no','unknown']),modification:pick(a.modification,ENUM),redistribution:pick(a.redistribution,ENUM),
+  return {summary_zh:clip(a.summary_zh,600)||t('assisted.terms.noSummary'),commercial:pick(a.commercial,['yes','personal-only','no','unknown']),modification:pick(a.modification,ENUM),redistribution:pick(a.redistribution,ENUM),
     credit_required:a.credit_required===true,credit_text:clip(a.credit_text,200),streaming_ok:pick(a.streaming_ok,ENUM),notes:clip(a.notes,400)};
 }
-const COMMERCIAL={yes:'可商用','personal-only':'僅限個人使用',no:'不可商用',unknown:'商用不明'};
-const YES_NO=(v,yes,no,cond)=>({yes,no,conditional:cond}[v]||null);
+const COMMERCIAL={yes:'commercialYes','personal-only':'commercialPersonal',no:'commercialNo',unknown:'commercialUnknown'};
+const YES_NO=(v,yes,no,cond)=>{const key={yes,no,conditional:cond}[v];return key?t(`assisted.license.${key}`):null;};
 // Our license shape: 'rules' when the owner's terms allow commercial use, 'personal' otherwise. Always advisory.
-function termsLicense(answer,{source='官方網站'}={}){
+function termsLicense(answer,{source=t('assisted.site.official')}={}){
   const a=normalizeTerms(answer),commercial=a.commercial==='yes';
-  const parts=[COMMERCIAL[a.commercial],YES_NO(a.modification,'可改造','不可改造','有條件改造'),YES_NO(a.streaming_ok,'可直播',null,'直播有條件'),a.credit_required?'需標註':null].filter(Boolean);
-  return {id:'assisted',label:`${source}條款（AI 摘要）：${parts.join('・')}`,commercial,credit:a.credit_required,shareAlike:false,tier:commercial?'rules':'personal',
+  const parts=[t(`assisted.license.${COMMERCIAL[a.commercial]}`),YES_NO(a.modification,'modifyYes','modifyNo','modifyConditional'),YES_NO(a.streaming_ok,'streamYes',null,'streamConditional'),a.credit_required?t('assisted.license.creditRequired'):null].filter(Boolean);
+  return {id:'assisted',label:t('assisted.license.label',{source,terms:parts.join(t('assisted.license.separator'))}),commercial,credit:a.credit_required,shareAlike:false,tier:commercial?'rules':'personal',
     modification:a.modification==='yes',advisory:true};
 }
 // No AI available, or it failed: nothing is claimed about the terms.
-const UNREAD_LICENSE=source=>({id:'assisted',label:`${source}條款（未經 AI 確認，請自行閱讀）`,commercial:false,credit:true,shareAlike:false,tier:'personal',modification:false,advisory:true});
+const UNREAD_LICENSE=source=>({id:'assisted',label:t('assisted.license.unread',{source}),commercial:false,credit:true,shareAlike:false,tier:'personal',modification:false,advisory:true});
 
 // The page, the archive's readme / 利用規約 files and the VRM metadata are data written by somebody else, never instructions.
 function termsPrompt({title='',url='',page='',files='',meta=''}){
@@ -91,14 +92,14 @@ Reply with JSON only, matching the given schema.`;
 async function askTerms(input,{run=require('./person-draw.cjs').runCodex,timeoutMs=4*60*1000}={}){
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assisted-terms-'));fs.chmodSync(dir,0o700);
   try{return normalizeTerms(await run({prompt:termsPrompt(input),images:[],dir,schema:TERMS_SCHEMA,timeoutMs,
-    words:{slow:'AI 看條款看太久了，請再試一次。',none:'AI 沒有回答條款',bad:'AI 回傳的條款格式不對，請再試一次。'}}));}
+    words:{slow:t('assisted.error.aiSlow'),none:t('assisted.error.aiNone'),bad:t('assisted.error.aiBad')}}));}
   finally{fs.rmSync(dir,{recursive:true,force:true});}
 }
 // What goes into the character's mod.json
 function termsCredit({title,source,page,license}){return `Based on "${title}" from ${source} (${license.label}), ${page}`;}
 function termsRecord({title,source,page,license,answer}){
   const credit=termsCredit({title,source,page,license});
-  const summary=answer?`AI terms summary (advisory; the author's own terms prevail — 以原作者條款為準): ${answer.summary_zh}${answer.notes?` ${answer.notes}`:''}${answer.credit_text?` Credit: ${answer.credit_text}`:''}`:'Terms not checked by AI; read the author\'s terms yourself (以原作者條款為準).';
-  return {credit,license:`${credit}. ${summary}`.slice(0,4000),description:`${source}：${title}（${license.label}）${answer?`｜AI 摘要：${answer.summary_zh}`:''}（以原作者條款為準）`.slice(0,1200)};
+  const summary=answer?t('assisted.record.summary',{summary:`${answer.summary_zh}${answer.notes?` ${answer.notes}`:''}${answer.credit_text?` ${t('assisted.record.credit',{text:answer.credit_text})}`:''}`}):t('assisted.record.unchecked');
+  return {credit,license:`${credit}. ${summary}`.slice(0,4000),description:t('assisted.record.description',{source,title,license:license.label,summary:answer?t('assisted.record.descriptionSummary',{summary:answer.summary_zh}):''}).slice(0,1200)};
 }
 module.exports={SITES,ALIASES,siteId,siteFor,isAuth,TERMS_SCHEMA,normalizeTerms,termsLicense,UNREAD_LICENSE,termsPrompt,askTerms,termsCredit,termsRecord};

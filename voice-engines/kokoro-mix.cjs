@@ -3,32 +3,33 @@
 // speaker count, so a mix is a copy of voices.bin with speaker 0's style replaced by the weighted blend, spoken as sid 0.
 // Pitch is shifted afterwards on the PCM in pure JS (WSOLA time-stretch, then resampling back to the original length).
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
-const kokoro=require('../kokoro.cjs');
+const kokoro=require('../kokoro.cjs');const L=require('../locales.cjs');const {t}=L;
 
 const ROWS=510,DIM=256,PER=ROWS*DIM;
+// a preset's name is read in the interface language (a getter, so a copy sent to a page carries the current one)
 const PRESETS=[
-  {id:'moe',name:'萌系少女',mix:[['zf_xiaoyi',.6],['zf_xiaobei',.4]],pitch:3,speed:1.05},
-  {id:'genki',name:'元氣妹妹',mix:[['zf_xiaobei',.7],['zf_xiaoxiao',.3]],pitch:4,speed:1.15},
-  {id:'onee',name:'溫柔姊姊',mix:[['zf_xiaoxiao',.7],['zf_xiaoni',.3]],pitch:-1,speed:.92},
-  {id:'tsundere',name:'傲嬌',mix:[['zf_xiaoni',.6],['zf_xiaoyi',.4]],pitch:2,speed:1.08},
-  {id:'shonen',name:'少年',mix:[['zm_yunxi',.7],['zf_xiaobei',.3]],pitch:2,speed:1.05}
-].map(p=>({...p,mix:p.mix.map(([voice,weight])=>({voice,weight}))}));
-const LICENSE={label:'Kokoro-82M 混音（Apache-2.0）',commercial:true,credit:null,tier:'open'};
+  {id:'moe',mix:[['zf_xiaoyi',.6],['zf_xiaobei',.4]],pitch:3,speed:1.05},
+  {id:'genki',mix:[['zf_xiaobei',.7],['zf_xiaoxiao',.3]],pitch:4,speed:1.15},
+  {id:'onee',mix:[['zf_xiaoxiao',.7],['zf_xiaoni',.3]],pitch:-1,speed:.92},
+  {id:'tsundere',mix:[['zf_xiaoni',.6],['zf_xiaoyi',.4]],pitch:2,speed:1.08},
+  {id:'shonen',mix:[['zm_yunxi',.7],['zf_xiaobei',.3]],pitch:2,speed:1.05}
+].map(p=>({id:p.id,get name(){return t(`voiceEngines.kokoroMix.preset.${p.id}`);},mix:p.mix.map(([voice,weight])=>({voice,weight})),pitch:p.pitch,speed:p.speed}));
+const license=()=>({label:t('voiceEngines.kokoroMix.license'),commercial:true,credit:null,tier:'open'});
 
 function validate(params){
   const mix=params?.mix;
-  if(!Array.isArray(mix)||!mix.length||mix.length>4)throw new Error('混音要選 1 到 4 個聲音。');
-  for(const m of mix){if(!kokoro.VOICES.some(v=>v.name===m?.voice))throw new Error(`不認得的 Kokoro 聲音：${String(m?.voice).slice(0,40)}`);if(!(Number.isFinite(m.weight)&&m.weight>=0&&m.weight<=1))throw new Error('混音比例要在 0 到 100% 之間。');}
-  if(!(mix.reduce((n,m)=>n+m.weight,0)>0))throw new Error('混音比例加起來不能是 0。');
-  if(params.pitch!=null&&!(Number.isFinite(params.pitch)&&params.pitch>=-8&&params.pitch<=8))throw new Error('音高要在 -8 到 +8 半音之間。');
-  if(params.speed!=null&&!(Number.isFinite(params.speed)&&params.speed>=.6&&params.speed<=1.6))throw new Error('語速要在 0.6× 到 1.6× 之間。');
+  if(!Array.isArray(mix)||!mix.length||mix.length>4)throw L.error('voiceEngines.kokoroMix.count');
+  for(const m of mix){if(!kokoro.VOICES.some(v=>v.name===m?.voice))throw L.error('voiceEngines.kokoroMix.unknownVoice',{voice:String(m?.voice).slice(0,40)});if(!(Number.isFinite(m.weight)&&m.weight>=0&&m.weight<=1))throw L.error('voiceEngines.kokoroMix.weight');}
+  if(!(mix.reduce((n,m)=>n+m.weight,0)>0))throw L.error('voiceEngines.kokoroMix.zero');
+  if(params.pitch!=null&&!(Number.isFinite(params.pitch)&&params.pitch>=-8&&params.pitch<=8))throw L.error('voiceEngines.kokoroMix.pitch');
+  if(params.speed!=null&&!(Number.isFinite(params.speed)&&params.speed>=.6&&params.speed<=1.6))throw L.error('voiceEngines.kokoroMix.speed');
 }
 // Weighted average of the speakers' style tables, weights normalised to 1.
 function blend(voices,mix){
   const f=voices instanceof Float32Array?voices:new Float32Array(voices.buffer,voices.byteOffset,voices.length>>2);
-  const speakers=f.length/PER;if(!Number.isInteger(speakers))throw new Error('voices.bin 的大小不是 Kokoro 的格式。');
+  const speakers=f.length/PER;if(!Number.isInteger(speakers))throw L.error('voiceEngines.kokoroMix.format');
   const total=mix.reduce((n,m)=>n+m.weight,0),out=new Float32Array(PER);
-  for(const {sid,weight} of mix){if(sid>=speakers)throw new Error('voices.bin 裡沒有這個聲音。');const w=weight/total,base=sid*PER;for(let i=0;i<PER;i++)out[i]+=w*f[base+i];}
+  for(const {sid,weight} of mix){if(sid>=speakers)throw L.error('voiceEngines.kokoroMix.noSpeaker');const w=weight/total,base=sid*PER;for(let i=0;i<PER;i++)out[i]+=w*f[base+i];}
   return out;
 }
 // The derived voices file: the original with speaker 0 replaced.
@@ -61,7 +62,7 @@ function createKokoroMix({modelDir,cacheDir,sherpa,install}){
   let loaded=null;  // one derived model at a time: {hash, tts}
   const dir=()=>typeof modelDir==='function'?modelDir():modelDir;
   function ttsFor(params){
-    if(!kokoro.installed(dir()))throw new Error('萌系混音需要本機 Kokoro 語音模型。到 AI 設定 → 語音 → 本機 AI 語音 → 下載。');
+    if(!kokoro.installed(dir()))throw L.error('voiceEngines.kokoroMix.needModel');
     const mix=params.mix.map(m=>({sid:kokoro.VOICES.find(v=>v.name===m.voice).sid,weight:m.weight}));
     const hash=crypto.createHash('sha256').update(JSON.stringify(mix)).digest('hex').slice(0,16);
     if(loaded?.hash===hash)return loaded.tts;
@@ -75,11 +76,11 @@ function createKokoroMix({modelDir,cacheDir,sherpa,install}){
     loaded={hash,tts};return tts;
   }
   return {
-    id:'kokoro-mix',label:'萌系混音（Kokoro 本機）',presets:PRESETS,
-    available:async()=>kokoro.installed(dir())?{ok:true}:{ok:false,reason:'要先下載本機 Kokoro 語音模型（約 400 MB）。',install:true},
+    id:'kokoro-mix',get label(){return t('voiceEngines.kokoroMix.label');},presets:PRESETS,
+    available:async()=>kokoro.installed(dir())?{ok:true}:{ok:false,reason:t('voiceEngines.kokoroMix.download'),install:true},
     install:install?onProgress=>install(onProgress):undefined,
     validate,
-    profile:async()=>({license:LICENSE}),
+    profile:async()=>({license:license()}),
     async speak({text,profile,signal}){
       validate(profile.params);const tts=ttsFor(profile.params);
       const audio=await tts.generateAsync({text:String(text).slice(0,2000),sid:0,speed:profile.params.speed||1,enableExternalBuffer:false});
@@ -89,4 +90,4 @@ function createKokoroMix({modelDir,cacheDir,sherpa,install}){
     get loadedHash(){return loaded?.hash||null;}
   };
 }
-module.exports={createKokoroMix,blend,derive,pitchShift,stretch,validate,PRESETS,LICENSE,PER};
+module.exports={createKokoroMix,blend,derive,pitchShift,stretch,validate,PRESETS,get LICENSE(){return license();},PER};

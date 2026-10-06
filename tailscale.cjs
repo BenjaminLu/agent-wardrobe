@@ -1,5 +1,5 @@
 // Tailscale publishes the phone remote inside the user's own tailnet with HTTPS (tailscale serve); nothing is exposed to the internet.
-const {HERE}=require('./platform.cjs');
+const L=require('./locales.cjs');
 const fs=require('node:fs');const {execFile}=require('node:child_process');
 
 const path=require('node:path');
@@ -24,9 +24,9 @@ async function status({exists,runner,platform}={}){
 }
 // Proxy https://<this Mac>.<tailnet>.ts.net:8443 to the local remote server. Needs MagicDNS and HTTPS certificates in the tailnet.
 async function serve(localPort,{exists,runner,platform}={}){
-  const bin=binary(exists,platform);if(!bin)throw new Error(`${HERE} 還沒安裝 Tailscale。`);
+  const bin=binary(exists,platform);if(!bin)throw L.error('tailscale.notInstalled');
   try{await run(bin,['serve','--bg',`--https=${REMOTE_PORT}`,`http://127.0.0.1:${localPort}`],runner);}
-  catch(error){throw new Error(/access denied|permission|operator/i.test(error.message)?`Tailscale 不讓這個使用者設定 serve：在終端機執行一次 sudo tailscale set --operator=$USER 後再試。（${error.message}）`:/HTTPS|cert/i.test(error.message)?`Tailscale 還沒開啟 HTTPS 憑證：到 Tailscale 管理後台的 DNS 頁面開啟 MagicDNS 與 HTTPS Certificates 後再試。（${error.message}）`:`Tailscale serve 失敗：${error.message}`);}
+  catch(error){throw L.error(/access denied|permission|operator/i.test(error.message)?'tailscale.operator':/HTTPS|cert/i.test(error.message)?'tailscale.https':'tailscale.serveFailed',{reason:error.message});}
 }
 async function stop({exists,runner,platform}={}){const bin=binary(exists,platform);if(bin)await run(bin,['serve',`--https=${REMOTE_PORT}`,'off'],runner).catch(()=>{});}
 module.exports={status,serve,stop,binary,REMOTE_PORT,CANDIDATES};

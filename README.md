@@ -244,6 +244,7 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
 | --- | --- |
 | `main.cjs` | Windows, settings and IPC |
 | `platform.cjs`, `platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
+| `i18n.js`, `locales.cjs`, `locales/*.json` | Interface languages (zh-Hant source, zh-Hans, en, ja): `t()` in pages and the main process, `data-i18n*` attributes in HTML; `scripts/i18n-lint.cjs` keeps hard-coded text out |
 | `renderer.js` | Companion UI |
 | `avatars.js` | Character rendering: SVG / PNG / VRM / glTF / Live2D / MMD |
 | `mods.cjs`, `mod-assets.cjs` | Mod validation |

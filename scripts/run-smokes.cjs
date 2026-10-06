@@ -22,6 +22,7 @@ const suites = [
   { name: 'phone remote: pair, chat, revoke', args: ['--remote-smoke'], marker: 'REMOTE_SMOKE' },
   { name: '開發夥伴: list sessions, attach, spoken reply, approvals by button / voice / phone, interrupt, leave (stand-in claude + codex)', args: ['--devsession-smoke'], marker: 'DEVSESSION_SMOKE' },
   { name: 'close keeps running in the background', args: ['--background-smoke'], marker: 'BACKGROUND_SMOKE' },
+  { name: 'interface languages: settings, marketplace, phone switch live to en / ja / zh-Hans / zh-Hant', args: ['--i18n-smoke'], marker: 'I18N_SMOKE' },
   { name: 'first-run guide', args: ['--onboarding-smoke'], marker: 'ONBOARDING_SMOKE' },
   { name: 'mod renderers (svg, png, vrm)', args: ['--mods-smoke'], marker: 'MODS_SMOKE' },
   { name: 'auto routing and reply language', args: ['--auto-smoke'], marker: 'AUTO_SMOKE' },
@@ -52,7 +53,9 @@ for (const suite of suites) {
   if (!suite.reuse) fs.rmSync(userData, { recursive: true, force: true });
   const started = Date.now();
   suite.prepare?.();
-  const run = spawnSync(electron, ['.', '--smoke-test', ...suite.args], { cwd: root, env: { ...process.env, ...suite.env }, encoding: 'utf8', timeout: (suite.minutes || (suite.online || suite.needs ? 10 : 4)) * 60 * 1000 });  // a stuck suite fails in minutes, not after CI's own limit
+  // suites read zh-Hant labels, so they pin the interface language; the i18n suite switches it itself
+  const language = suite.args.includes('--i18n-smoke') ? [] : ['--ui-language=zh-Hant'];
+  const run = spawnSync(electron, ['.', '--smoke-test', ...language, ...suite.args], { cwd: root, env: { ...process.env, ...suite.env }, encoding: 'utf8', timeout: (suite.minutes || (suite.online || suite.needs ? 10 : 4)) * 60 * 1000 });  // a stuck suite fails in minutes, not after CI's own limit
   const output = `${run.stdout}\n${run.stderr}`;
   const ok = run.status === 0 && output.includes(suite.marker) && !output.includes('POC_SMOKE_FAILED');
   console.log(`${ok ? 'pass' : 'FAIL'}  ${suite.name} (${Math.round((Date.now() - started) / 1000)} s)`);

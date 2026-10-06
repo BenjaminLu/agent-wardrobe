@@ -23,7 +23,7 @@ async function run({win,runtime,devCompanion,startRemote,getSettings}){
   const alive=pid=>{try{process.kill(pid,0);return true;}catch{return false;}};
   let phone;
   try{
-    win.show();await js(`settings.language='zh-TW';true`);  // the page's copy too (smoke machines may run in English)
+    win.show();  // the page's labels are pinned to zh-Hant by --ui-language (scripts/run-smokes.cjs)
     // --- the picker: both tools, newest first, the terminal warning, subagent / exec files left out
     await js(`document.querySelector('#dev-open').click();true`);
     await wait(()=>js(`document.querySelectorAll('#dev-list button[data-id]').length===4`),'session list');

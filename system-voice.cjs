@@ -4,7 +4,7 @@
 //  Linux   espeak-ng writing a WAV (played in the app like every other voice), or spd-say speaking directly
 // Voices follow the text: kana → Japanese, CJK → Chinese (Taiwan first), otherwise the system language or English.
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');const {spawn,spawnSync}=require('node:child_process');
-const {which}=require('./platform.cjs');
+const {which}=require('./platform.cjs');const L=require('./locales.cjs');
 
 const langOf=text=>/[぀-ヿ]/.test(text)?'ja':/[㐀-鿿]/.test(text)?'zh':'en';
 const MAC_VOICES={ja:'Kyoko',zh:'Eddy (Chinese (Taiwan))'};
@@ -41,15 +41,15 @@ function createSapi({spawnImpl=spawn,temp=os.tmpdir()}={}){
       proc.stdout.on('data',chunk=>{buffer+=chunk;let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i).trim();buffer=buffer.slice(i+1);
         if(line.startsWith('@voices ')){let list=[];try{list=JSON.parse(Buffer.from(line.slice(8),'base64').toString('utf8'));}catch{}resolve(Array.isArray(list)?list:[list]);continue;}
         const m=line.match(/^@(done|error) (\d+) ?(.*)$/);if(!m)continue;const job=pending.get(Number(m[2]));if(!job)continue;pending.delete(Number(m[2]));
-        m[1]==='done'?job.resolve():job.reject(new Error(`Windows 語音失敗：${m[3].slice(0,160)}`));}});
-      const gone=code=>{if(child===proc){child=null;ready=null;}const error=new Error(`Windows 語音沒有啟動（${code}）${err.trim()?`：${err.trim().split('\n').slice(-1)[0].slice(0,160)}`:''}`);reject(error);for(const job of pending.values())job.reject(error);pending.clear();};
+        m[1]==='done'?job.resolve():job.reject(L.error('systemVoice.sapiFailed',{reason:m[3].slice(0,160)}));}});
+      const gone=code=>{if(child===proc){child=null;ready=null;}const error=err.trim()?L.error('systemVoice.sapiNotStartedReason',{code,reason:err.trim().split('\n').slice(-1)[0].slice(0,160)}):L.error('systemVoice.sapiNotStarted',{code});reject(error);for(const job of pending.values())job.reject(error);pending.clear();};
       proc.on('error',error=>gone(error.message));proc.on('exit',gone);
     });
     ready.catch(()=>{});return ready;
   }
   async function synthesize(text,{lang=langOf(text),locale='en-US',rate=0,signal}={}){
     const voices=await start();const voice=pickSapi(voices,lang,locale);
-    if(!voice)throw new Error('Windows 沒有安裝任何語音：到「設定 → 時間與語言 → 語音」新增語音，或改用 Edge / Kokoro 語音。');
+    if(!voice)throw L.error('systemVoice.noSapiVoices');
     const id=next++,out=path.join(temp,`agent-wardrobe-sapi-${process.pid}-${id}-${crypto.randomBytes(4).toString('hex')}.wav`);
     // a sentence that is already being written is let finish (SAPI cannot be interrupted mid-file), then dropped
     try{
@@ -67,8 +67,8 @@ function espeak({find=which}={}){
   return {bin,synthesize:(text,{lang=langOf(text),signal}={})=>new Promise((resolve,reject)=>{
     const child=spawn(bin,['-v',ESPEAK[lang]||'en-us','-s','170','--stdout'],{stdio:['pipe','pipe','pipe'],signal});const chunks=[];let err='';
     child.stdout.on('data',d=>chunks.push(d));child.stderr.on('data',d=>{err=(err+d).slice(-500);});child.stdin.on('error',()=>{});
-    child.on('error',reject);child.on('close',code=>code===0&&chunks.length?resolve(Buffer.concat(chunks)):reject(new Error(`espeak-ng 失敗：${err.trim().slice(0,160)||code}`)));
+    child.on('error',reject);child.on('close',code=>code===0&&chunks.length?resolve(Buffer.concat(chunks)):reject(L.error('systemVoice.espeakFailed',{reason:err.trim().slice(0,160)||code})));
     child.stdin.end(String(text).slice(0,2000));})};
 }
-const LINUX_MISSING='這台 Linux 沒有系統語音：請安裝 espeak-ng（例如 sudo apt install espeak-ng），或改用 Edge／Kokoro 語音。';
-module.exports={langOf,pickSapi,createSapi,espeak,MAC_VOICES,CULTURES,ESPEAK,SAPI_SCRIPT,LINUX_MISSING};
+// LINUX_MISSING: the notice for a Linux without espeak-ng / spd-say, in the interface language at the moment it is read
+module.exports={langOf,pickSapi,createSapi,espeak,MAC_VOICES,CULTURES,ESPEAK,SAPI_SCRIPT,get LINUX_MISSING(){return L.t('systemVoice.linuxMissing');}};

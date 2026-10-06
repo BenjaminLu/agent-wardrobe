@@ -3,13 +3,17 @@ const fit=new FitAddon.FitAddon();terminal.loadAddon(fit);terminal.open(document
 function resize(){fit.fit();window.agentConsole.resize(terminal.cols,terminal.rows);}
 new ResizeObserver(resize).observe(document.getElementById('terminal'));
 terminal.onData(text=>window.agentConsole.input(text));
+// the state line keeps its key so a language change re-renders it
+let stateKey='console.state.preparing';
+function showState(key){stateKey=key;document.getElementById('state').textContent=t(key);}
+showState(stateKey);i18n.onChange(()=>showState(stateKey));
 window.agentConsole.onEvent(event=>{
-  if(event.type==='started'){terminal.reset();document.getElementById('state').textContent=event.mode==='computer'?'電腦操作工作階段':'瀏覽器操作工作階段';}
+  if(event.type==='started'){terminal.reset();showState(event.mode==='computer'?'console.state.computer':'console.state.browser');}
   if(event.type==='output')terminal.write(Uint8Array.from(atob(event.data),c=>c.charCodeAt(0)));
-  if(event.type==='error'){terminal.writeln('\r\n'+event.message);document.getElementById('state').textContent='啟動失敗';}
-  if(event.type==='closed')document.getElementById('state').textContent='已停止';
+  if(event.type==='error'){terminal.writeln('\r\n'+event.message);showState('console.state.failed');}
+  if(event.type==='closed')showState('console.state.stopped');
 });
-window.agentConsole.ready().then(data=>{terminal.write(data.output);document.getElementById('state').textContent=data.active?'工作階段開啟':'已停止';resize();terminal.focus();});
+window.agentConsole.ready().then(data=>{terminal.write(data.output);showState(data.active?'console.state.active':'console.state.stopped');resize();terminal.focus();});
 document.getElementById('interrupt').onclick=()=>window.agentConsole.input('\x03');
 document.getElementById('stop').onclick=()=>window.agentConsole.stop();
-document.getElementById('emergency').onclick=()=>{document.getElementById('state').textContent='正在緊急停止…';window.agentConsole.emergencyStop();};
+document.getElementById('emergency').onclick=()=>{showState('console.state.stopping');window.agentConsole.emergencyStop();};

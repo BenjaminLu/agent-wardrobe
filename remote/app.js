@@ -1,12 +1,27 @@
 // Phone remote for the desktop character: pair once, then chat, hand it work on the Mac, read what it saved, and change its settings.
 const $=id=>document.getElementById(id);
 const KEY='bula-remote-token';
-let token=(()=>{try{return localStorage.getItem(KEY);}catch{return null;}})(),pet=null,speakReplies=false,remoteSettings=null;
-const api=async(pathname,options={})=>{const res=await fetch(pathname,{...options,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}),...options.headers}});
-  const data=res.headers.get('Content-Type')?.includes('json')?await res.json():await res.arrayBuffer();if(res.status===401&&pathname!=='/api/pair'){forget();throw new Error(data.error);}if(!res.ok)throw new Error(data.error||res.status);return data;};
+let token=(()=>{try{return localStorage.getItem(KEY);}catch{return null;}})(),pet=null,speakReplies=false,remoteSettings=null,lastState=null;
+// --- Interface language: the computer's (its uiLanguage) unless this phone picked its own in Settings. The dictionary is fetched
+// from the computer before anything is shown; a change on the computer arrives as an 'i18n' event.
+const LANG_KEY='bula-remote-language';
+let langPick=(()=>{try{return localStorage.getItem(LANG_KEY)||'mac';}catch{return 'mac';}})(),langLoaded=false;
+async function loadLanguage(){
+  const pick=i18n.LANGS.includes(langPick)?langPick:'';
+  const data=await (await fetch(`/api/i18n${pick?`?lang=${encodeURIComponent(pick)}`:''}`)).json();
+  if(data.lang!==i18n.lang||!langLoaded){langLoaded=true;i18n.set(data.lang,data.dict,data.platform);}
+}
+// An error from the computer: keyed ones are shown in this phone's language, others as sent
+function errorText(data,status){if(data?.key){const text=t(data.key,data.vars);if(text!==data.key)return text;}return data?.error||String(status);}
+const api=async(pathname,options={})=>{const res=await fetch(pathname,{...options,headers:{'Content-Type':'application/json','X-UI-Language':i18n.lang,...(token?{Authorization:`Bearer ${token}`}:{}),...options.headers}});
+  const data=res.headers.get('Content-Type')?.includes('json')?await res.json():await res.arrayBuffer();if(res.status===401&&pathname!=='/api/pair'){forget();throw new Error(errorText(data,res.status));}if(!res.ok)throw new Error(errorText(data,res.status));return data;};
+// Text that stays translated: the key (and vars) are kept on the element, so a language change re-translates it in place.
+function tx(el,key,vars){el.setAttribute('data-i18n',key);if(vars)el.setAttribute('data-i18n-vars',JSON.stringify(vars));else el.removeAttribute('data-i18n-vars');el.textContent=t(key,vars);return el;}
+// Text from elsewhere (an error, a name): shown as it is
+function plain(el,text){el.removeAttribute('data-i18n');el.removeAttribute('data-i18n-vars');el.textContent=text;return el;}
 const post=(pathname,body)=>api(pathname,{method:'POST',body:JSON.stringify(body)});
 function forget(){token=null;try{localStorage.removeItem(KEY);}catch{}showPair();}
-function showPair(message=''){$('app').hidden=true;$('pair').hidden=false;$('pair-error').textContent=message;}
+function showPair(message=''){$('app').hidden=true;$('pair').hidden=false;plain($('pair-error'),message);}
 // Web addresses in messages and saved files open in a new tab. Only http(s); built as DOM nodes, never as HTML.
 const LINK=/\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"'`，。、；！？）」』】]+/g;
 function linkify(el,text){
@@ -43,22 +58,23 @@ async function say(text){
   sayAudio=null;
 }
 function render(state){
-  $('stop-speech').hidden=!state.speaking;
-  $('name').textContent=state.mod.name;document.title=`${state.mod.name} 遙控`;
+  lastState=state;$('stop-speech').hidden=!state.speaking;
+  $('name').textContent=state.mod.name;document.title=t('remote.titleWithName',{name:state.mod.name});
   if(!pet||pet.dataset.mod!==`${state.mod.id}/${state.skin.id}`){$('pet').replaceChildren();pet=Avatars.mount($('pet'),state.mod,state.skin,'remote-pet');if(pet)pet.dataset.mod=`${state.mod.id}/${state.skin.id}`;}
   if(pet)Avatars.update(pet,state);
 }
 
 // --- Tasks on the Mac: progress and the result arrive as events; the stop button cancels.
-const TASK_NAMES={browser:'瀏覽器任務',computer:'電腦任務',files:'整理存檔'};
+const TASK_MODES=['browser','computer','files'];
+const taskName=mode=>TASK_MODES.includes(mode)?t(`remote.mode.${mode}`):t('remote.task.generic');
 let taskLine=null;const finishedTasks=new Set();  // late 'working' events after a result are ignored
 function onTask(event){
-  const name=TASK_NAMES[event.mode]||'任務';
+  const name=taskName(event.mode);
   if(finishedTasks.has(event.id))return;
-  if(['working','progress','approval'].includes(event.type)){$('task-bar').hidden=false;$('task-state').textContent=event.type==='approval'?`${name}：在 Mac 上等你確認`:`${name}進行中…`;}
+  if(['working','progress','approval'].includes(event.type)){$('task-bar').hidden=false;tx($('task-state'),event.type==='approval'?'remote.task.waiting':'remote.task.running',{name});}
   if(event.type==='progress'&&event.text){taskLine??=line('','task');linkify(taskLine,`⏳ ${event.text}`);}
   if(['result','error','cancelled'].includes(event.type)){
-    finishedTasks.add(event.id);$('task-bar').hidden=true;const text=event.type==='result'?`✅ ${name}完成\n${event.text||''}`:event.type==='cancelled'?`■ ${name}已停止`:`⚠️ ${name}沒有完成${event.text?`：${event.text}`:''}`;
+    finishedTasks.add(event.id);$('task-bar').hidden=true;const text=event.type==='result'?`${t('remote.task.done',{name})}\n${event.text||''}`:event.type==='cancelled'?t('remote.task.stopped',{name}):event.text?t('remote.task.failedWhy',{name,error:event.text}):t('remote.task.failed',{name});
     linkify(taskLine||=line('','task'),text);if(event.type==='error')taskLine?.classList.add('error');taskLine=null;
     if(event.type==='result'){say(event.text||'');loadFiles();}
   }
@@ -69,10 +85,11 @@ $('task-stop').onclick=()=>post('/api/stop',{}).catch(error=>line(error.message,
 async function listen(){
   for(;;){
     try{const res=await fetch('/api/events',{headers:{Authorization:`Bearer ${token}`}});if(res.status===401)return forget();
-      $('link').classList.add('on');const reader=res.body.getReader(),decoder=new TextDecoder();let buffer='';
+      $('link').classList.add('on');if(langPick==='mac')loadLanguage().catch(()=>{});const reader=res.body.getReader(),decoder=new TextDecoder();let buffer='';
       for(;;){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let i;
         while((i=buffer.indexOf('\n\n'))>=0){const block=buffer.slice(0,i);buffer=buffer.slice(i+2);const type=block.match(/^event: (.+)$/m)?.[1],data=block.match(/^data: (.+)$/m)?.[1];if(!type||!data)continue;
           const value=JSON.parse(data);if(type==='state'){render(value);markWorn(value);}if(type==='task')onTask(value);if(type==='dev')onDev(value);if(type==='settings')fillSettings(value);if(type==='edit')onEdit(value);if(type==='assist')onAssist(value);if(type==='characters'&&!$('tab-characters').hidden)loadCharacters();if((type==='voices'||type==='state'&&value.mod.id!==voiceMod)&&!$('tab-settings').hidden)loadVoices();if(type==='state')voiceMod=value.mod.id;
+          if(type==='i18n'&&langPick==='mac')loadLanguage().catch(()=>{});
           if(type==='message'){line(value.text,value.role);if(value.role==='assistant')say(value.text);}}}
     }catch{}
     $('link').classList.remove('on');await new Promise(r=>setTimeout(r,3000));
@@ -82,14 +99,14 @@ async function listen(){
 // --- Chat: plain chat, auto (the character may hand work to a task), or a task directly.
 $('chat').onsubmit=async event=>{
   event.preventDefault();const text=$('text').value.trim(),mode=$('mode').value;if(!text)return;$('text').value='';line(text,'user');
-  const thinking=line(mode==='chat'||mode==='auto'?'思考中…':'交給 Mac 處理中…','note');
+  const thinking=line(t(mode==='chat'||mode==='auto'?'remote.chat.thinking':'remote.chat.handing'),'note');
   try{
     // 開發夥伴: everything goes to the attached session; its reply arrives as a 'dev' event
     if(devState?.attached){const reply=await post('/api/chat',{text});thinking.remove();if(!reply.ok)line(reply.error,'note');return;}
-    if(TASK_NAMES[mode]){await post('/api/task',{mode,text});thinking.remove();taskLine=line(`⏳ ${TASK_NAMES[mode]}開始了`,'task');return;}
+    if(TASK_MODES.includes(mode)){await post('/api/task',{mode,text});thinking.remove();taskLine=line(t('remote.task.started',{name:taskName(mode)}),'task');return;}
     const reply=await post('/api/chat',{text,auto:mode==='auto'});thinking.remove();
     if(!reply.ok&&reply.error){line(reply.error,'note');return;}
-    if(reply.task){line(reply.text||'好，我去處理。');taskLine=line(`⏳ ${TASK_NAMES[reply.mode]||'任務'}開始了`,'task');return;}
+    if(reply.task){line(reply.text||t('remote.chat.onIt'));taskLine=line(t('remote.task.started',{name:taskName(reply.mode)}),'task');return;}
     line(reply.text);say(reply.text);
   }catch(error){thinking.remove();line(error.message,'note');}
 };
@@ -97,10 +114,10 @@ $('chat').onsubmit=async event=>{
 // --- Files the character saved on the Mac (reports and tables), readable here.
 async function loadFiles(){
   try{const groups=await api('/api/outputs');
-    $('files').replaceChildren(...(groups.length?groups.map(group=>{const box=document.createElement('div');box.className='file-group';const title=document.createElement('b');title.textContent=group.title;
-      const when=document.createElement('small');when.textContent=new Date(group.updatedAt).toLocaleString();box.append(title,when);
+    $('files').replaceChildren(...(groups.length?groups.map(group=>{const box=document.createElement('div');box.className='file-group';box.translate=false;const title=document.createElement('b');title.textContent=group.title;
+      const when=document.createElement('small');when.textContent=new Date(group.updatedAt).toLocaleString(i18n.lang);box.append(title,when);
       for(const name of group.files){const button=document.createElement('button');button.type='button';button.textContent=`📄 ${name}`;button.onclick=()=>openFile(group.id,name);box.append(button);}
-      return box;}):[Object.assign(document.createElement('p'),{className:'hint',textContent:'還沒有存下任何檔案。請角色「整理成報告存起來」試試。'})]));}
+      return box;}):[tx(Object.assign(document.createElement('p'),{className:'hint'}),'remote.files.empty')]));}
   catch(error){$('files').textContent=error.message;}
 }
 function csvRows(text){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];
@@ -125,7 +142,7 @@ function fillSettings(data){
   $('s-brain').value=s.provider==='local'&&s.localEngine==='builtin'?'builtin':s.provider;
   $('s-model').replaceChildren(...data.builtinModels.map(m=>option(m.id,m.name)));$('s-model').value=s.builtinModel;$('s-model-row').hidden=$('s-brain').value!=='builtin';
   $('s-speak').checked=!s.muted;$('s-reply').value=s.replyLanguage||'auto';$('s-voice').value=data.volume?s.voiceProvider:'off';
-  $('s-note').textContent=data.remoteTasks?'這支手機可以叫 Mac 做事（瀏覽器、電腦、整理存檔）。':'要從手機叫 Mac 做事，請在 Mac 的「設定 → 手機遙控」打開「允許手機下達電腦任務」。';
+  tx($('s-note'),data.remoteTasks?'remote.settings.tasksOn':'remote.settings.tasksOff');
   renderDev();
   for(const value of ['browser','computer','files','auto'])$('mode').querySelector(`[value=${value}]`).disabled=!data.remoteTasks;if(data.computer&&!data.computer.available){const o=$('mode').querySelector('[value=computer]');o.disabled=true;o.title=data.computer.reason;if($('mode').value==='computer')$('mode').value='chat';}if(!data.remoteTasks&&$('mode').value!=='chat')$('mode').value='chat';
 }
@@ -150,119 +167,131 @@ async function loadCharacters(){
     $('char-list').replaceChildren(...data.characters.map(c=>{const card=document.createElement('div');card.className='char';card.dataset.id=c.id;
       const mini=document.createElement('div');mini.className='mini';
       // 3D and Live2D previews would need one WebGL context each; they are shown once worn
-      if(['vrm','gltf','mmd'].includes(c.renderer))mini.textContent='3D 角色';else if(c.renderer==='live2d')mini.textContent='Live2D 角色';else loadMod(c.id).then(mod=>{const el=Avatars.mount(mini,mod,mod.skins[0],`mini-${c.id}`);Avatars.update(el,{activity:'idle',emotion:'neutral',displayState:'idle'});}).catch(()=>{mini.textContent='—';});
-      const name=document.createElement('b');name.textContent=c.name+(c.private?' 🔒':'');const desc=document.createElement('small');desc.textContent=c.description||'';
-      const skins=document.createElement('div');skins.className='skins';for(const s of c.skins){const b=document.createElement('button');b.type='button';b.dataset.skin=s.id;b.textContent=s.name;b.onclick=()=>post('/api/select',{modId:c.id,skinId:s.id}).catch(e=>alert(e.message));skins.append(b);}
-      const edit=document.createElement('button');edit.type='button';edit.className='edit';edit.textContent=c.private?'✏️ 修改造型':'✏️ 做我的版本';
-      edit.onclick=()=>{const skin=card.querySelector('.skins button.on')?.dataset.skin;openEditor(()=>post('/api/edit/start',{modId:c.id,skinId:skin}),c.private?`修改：${c.name}`:`我的版本：${c.name}`);};
+      if(['vrm','gltf','mmd'].includes(c.renderer))tx(mini,'remote.characters.kind3d');else if(c.renderer==='live2d')tx(mini,'remote.characters.kindLive2d');else loadMod(c.id).then(mod=>{const el=Avatars.mount(mini,mod,mod.skins[0],`mini-${c.id}`);Avatars.update(el,{activity:'idle',emotion:'neutral',displayState:'idle'});}).catch(()=>{mini.textContent='—';});
+      const name=document.createElement('b');name.translate=false;name.textContent=c.name+(c.private?' 🔒':'');const desc=document.createElement('small');desc.translate=false;desc.textContent=c.description||'';
+      const skins=document.createElement('div');skins.className='skins';skins.translate=false;for(const s of c.skins){const b=document.createElement('button');b.type='button';b.dataset.skin=s.id;b.textContent=s.name;b.onclick=()=>post('/api/select',{modId:c.id,skinId:s.id}).catch(e=>alert(e.message));skins.append(b);}
+      const edit=document.createElement('button');edit.type='button';edit.className='edit';tx(edit,c.private?'remote.characters.editMine':'remote.characters.makeMine');
+      edit.onclick=()=>{const skin=card.querySelector('.skins button.on')?.dataset.skin;openEditor(()=>post('/api/edit/start',{modId:c.id,skinId:skin}),[c.private?'remote.editor.editTitle':'remote.editor.myVersionTitle',{name:c.name}]);};
       mini.onclick=()=>post('/api/select',{modId:c.id,skinId:c.skins[0].id}).catch(e=>alert(e.message));
       card.append(mini,name,desc,skins,edit);
       // SVG characters can get a new skin from a photo of clothes
-      if(c.renderer==='svg'){const dress=document.createElement('button');dress.type='button';dress.className='edit';dress.textContent='📷 拍照換造型';
+      if(c.renderer==='svg'){const dress=document.createElement('button');dress.type='button';dress.className='edit';tx(dress,'remote.characters.outfit');
         dress.onclick=()=>{outfitFor={modId:c.id,skinId:card.querySelector('.skins button.on')?.dataset.skin||c.skins[0].id,name:c.name};$('outfit-photo').click();};card.append(dress);}
       return card;}));
     markWorn({mod:{id:worn.modId},skin:{id:worn.skinId}});}
   catch(error){$('char-list').textContent=error.message;}
 }
 // The editor shows a drawing with every look, asks Codex for changes, and saves. Codex work arrives as 'edit' events.
-const LOOKS=[['一般','neutral'],['開心','happy'],['得意','smug'],['驚訝','surprised'],['難過','sad']];
-const STEP={draw:'Codex 畫第一版',revise:'Codex 對照修改',thinking:'Codex 構思中',fix:'修正不合規格的地方'};
+const LOOKS=['neutral','happy','smug','surprised','sad'];
+const STEPS=['draw','revise','thinking','fix'];
 function showDrawing(result){
   $('ed-pet').replaceChildren();const el=Avatars.mount($('ed-pet'),result.mod,result.mod.skins[0],'ed-main');Avatars.update(el,{activity:'idle',emotion:'neutral',displayState:'idle'});
-  $('ed-looks').replaceChildren(...LOOKS.map(([label,emotion],i)=>{const f=document.createElement('figure'),cell=document.createElement('div');cell.className='cell';const cap=document.createElement('figcaption');cap.textContent=label;f.append(cell,cap);
+  $('ed-looks').replaceChildren(...LOOKS.map((emotion,i)=>{const f=document.createElement('figure'),cell=document.createElement('div');cell.className='cell';const cap=tx(document.createElement('figcaption'),`remote.editor.look.${emotion}`);f.append(cell,cap);
     const e=Avatars.mount(cell,result.mod,result.mod.skins[0],`ed-look-${i}`);Avatars.update(e,{activity:'idle',emotion,displayState:'idle'});return f;}));
   $('ed-redraw').hidden=true;$('ed-revise-form').hidden=false;$('ed-save-form').hidden=false;if(result.name)$('ed-name').value=result.name;
-  $('ed-status').textContent=result.summary?`${result.summary}。不滿意就寫下想怎麼改，或取名字後儲存。`:'';
+  if(result.summary)tx($('ed-status'),'remote.editor.summary',{summary:result.summary});else plain($('ed-status'),'');
 }
 function onStart(start){
   if(start.redraw){const img=document.createElement('img');img.src=start.image;$('ed-pet').replaceChildren(img);$('ed-looks').replaceChildren();$('ed-redraw').hidden=false;$('ed-revise-form').hidden=true;$('ed-save-form').hidden=true;$('ed-name').value=start.name;
-    $('ed-status').textContent='這個角色不是用可編輯的 SVG 畫的。先請 Codex 照著重畫一份（約 3–5 分鐘），之後就能一直修改。';}
+    tx($('ed-status'),'remote.editor.needsRedraw');}
   else showDrawing(start);
 }
+// label: a key ('remote.…'), [key, vars], or text shown as it is
+function show(el,label){if(Array.isArray(label))tx(el,label[0],label[1]);else if(/^remote\./.test(label))tx(el,label);else plain(el,label);}
 async function openEditor(start,title){
-  $('editor').hidden=false;$('ed-title').textContent=title;$('ed-name').placeholder='角色名字';$('ed-pet').replaceChildren();$('ed-looks').replaceChildren();$('ed-status').textContent='準備中…';
+  $('editor').hidden=false;show($('ed-title'),title);edPlaceholder('remote.editor.namePlaceholder');$('ed-pet').replaceChildren();$('ed-looks').replaceChildren();tx($('ed-status'),'remote.editor.preparing');
   $('ed-redraw').hidden=$('ed-revise-form').hidden=$('ed-save-form').hidden=true;
-  try{const result=await start();if(result)onStart(result);}catch(error){$('ed-status').textContent=error.message;}
+  try{const result=await start();if(result)onStart(result);}catch(error){plain($('ed-status'),error.message);}
 }
+function edPlaceholder(key){$('ed-name').setAttribute('data-i18n-placeholder',key);$('ed-name').placeholder=t(key);}
 function onEdit(event){
   if($('editor').hidden)return;
-  if(event.state==='progress')$('ed-status').textContent=event.step==='done'?'完成！':`${STEP[event.step]||event.step}${event.detail&&event.step!=='fix'?`（${event.detail}）`:''}…`;
+  if(event.state==='progress'){
+    if(event.step==='done')tx($('ed-status'),'remote.editor.done');
+    else{const step=STEPS.includes(event.step)?t(`remote.editor.step.${event.step}`):event.step;tx($('ed-status'),event.detail&&event.step!=='fix'?'remote.editor.progressDetail':'remote.editor.progress',{step,detail:event.detail});}
+  }
   if(event.state==='done')showDrawing(event.result);
-  if(event.state==='error'){$('ed-status').textContent=event.error;for(const b of document.querySelectorAll('#editor button'))b.disabled=false;}
+  if(event.state==='error'){plain($('ed-status'),event.error);for(const b of document.querySelectorAll('#editor button'))b.disabled=false;}
 }
-const job=async(pathname,body,label)=>{for(const b of document.querySelectorAll('#editor button:not(#ed-close)'))b.disabled=true;$('ed-status').textContent=label;
-  try{await post(pathname,body);}catch(error){$('ed-status').textContent=error.message;}finally{for(const b of document.querySelectorAll('#editor button'))b.disabled=false;}};
-$('ed-redraw').onclick=()=>job('/api/edit/redraw',{},'Codex 正在重畫…（約 3–5 分鐘，可以先去做別的事）');
-$('ed-revise-form').onsubmit=event=>{event.preventDefault();const text=$('ed-revise').value.trim();if(!text)return;$('ed-revise').value='';job('/api/edit/revise',{text},`請 Codex 修改：${text}（約 1–3 分鐘）`);};
-$('ed-save-form').onsubmit=async event=>{event.preventDefault();try{await post('/api/edit/save',{name:$('ed-name').value.trim()});$('editor').hidden=true;loadCharacters();}catch(error){$('ed-status').textContent=error.message;}};
+const job=async(pathname,body,label)=>{for(const b of document.querySelectorAll('#editor button:not(#ed-close)'))b.disabled=true;show($('ed-status'),label);
+  try{await post(pathname,body);}catch(error){plain($('ed-status'),error.message);}finally{for(const b of document.querySelectorAll('#editor button'))b.disabled=false;}};
+$('ed-redraw').onclick=()=>job('/api/edit/redraw',{},'remote.editor.redrawing');
+$('ed-revise-form').onsubmit=event=>{event.preventDefault();const text=$('ed-revise').value.trim();if(!text)return;$('ed-revise').value='';job('/api/edit/revise',{text},['remote.editor.revising',{text}]);};
+$('ed-save-form').onsubmit=async event=>{event.preventDefault();try{await post('/api/edit/save',{name:$('ed-name').value.trim()});$('editor').hidden=true;loadCharacters();}catch(error){plain($('ed-status'),error.message);}};
 $('ed-close').onclick=()=>{$('editor').hidden=true;post('/api/edit/cancel',{}).catch(()=>{});};
 // a photo from the phone's camera, shrunk to 1024 px here
 function shrinkPhoto(input,done){const file=input.files[0];if(!file)return;input.value='';const img=new Image();
   img.onload=()=>{const scale=Math.min(1,1024/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*scale);c.height=Math.round(img.naturalHeight*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);done(c.toDataURL('image/jpeg',.88));};
   img.src=URL.createObjectURL(file);}
-$('char-photo').onchange=()=>shrinkPhoto($('char-photo'),photo=>openEditor(async()=>{const preview=document.createElement('img');preview.src=photo;$('ed-pet').replaceChildren(preview);await job('/api/edit/photo',{photo},'交給 Codex 畫…（約 4–6 分鐘，會自己對照照片修改兩輪）');return null;},'用照片做角色'));
+$('char-photo').onchange=()=>shrinkPhoto($('char-photo'),photo=>openEditor(async()=>{const preview=document.createElement('img');preview.src=photo;$('ed-pet').replaceChildren(preview);await job('/api/edit/photo',{photo},'remote.editor.drawingPhoto');return null;},'remote.editor.photoTitle'));
 // a photo of clothes: Codex dresses the picked character in them and the result is saved as a new skin
 let outfitFor=null;
 $('outfit-photo').onchange=()=>shrinkPhoto($('outfit-photo'),photo=>{const target=outfitFor;if(!target)return;
-  openEditor(async()=>{await post('/api/edit/start',{modId:target.modId,skinId:target.skinId,outfit:true});const preview=document.createElement('img');preview.src=photo;$('ed-pet').replaceChildren(preview);$('ed-name').value='';$('ed-name').placeholder='這套造型的名字';
-    await job('/api/edit/outfit',{photo},`Codex 正在幫 ${target.name} 換上照片裡的衣服…（約 2–4 分鐘）`);return null;},`拍照換造型：${target.name}`);});
+  openEditor(async()=>{await post('/api/edit/start',{modId:target.modId,skinId:target.skinId,outfit:true});const preview=document.createElement('img');preview.src=photo;$('ed-pet').replaceChildren(preview);$('ed-name').value='';edPlaceholder('remote.editor.outfitNamePlaceholder');
+    await job('/api/edit/outfit',{photo},['remote.editor.dressing',{name:target.name}]);return null;},['remote.editor.outfitTitle',{name:target.name}]);});
 // open libraries, through the Mac (thumbnails and downloads stay on the Mac's allow-list)
 async function searchStore(event){
   event?.preventDefault();const q=$('lib-q').value.trim();const sources=[...document.querySelectorAll('.lib-sources input:checked')].map(i=>i.value).join(',');
-  $('lib-status').textContent=q?'搜尋中…':'載入精選角色…';$('lib-results').replaceChildren();
+  tx($('lib-status'),q?'remote.store.searching':'remote.store.loadingFeatured');$('lib-results').replaceChildren();
   try{const {items,needs}=await api(`/api/library/search?q=${encodeURIComponent(q)}&sources=${sources}`);
-    $('lib-status').textContent=(items.length?`${q?'找到':'精選'} ${items.length} 個角色`:'沒有找到，換個關鍵字試試')+(needs.includes('VROID_LOGIN')?'（在 Mac 的 Mod 市集連結 VRoid Hub 後會有更多）':'');
+    const status=$('lib-status');plain(status,'');
+    // the count and the VRoid hint are two translated parts, each kept so a language change re-translates them
+    status.append(tx(document.createElement('span'),items.length?(q?'remote.store.found':'remote.store.featured'):'remote.store.none',{count:items.length}));
+    if(needs.includes('VROID_LOGIN'))status.append(tx(document.createElement('span'),'remote.store.vroidMore'));
     $('lib-results').replaceChildren(...items.map(item=>{const card=document.createElement('div');card.className=`lib tier-${item.license.tier}`;const thumb=document.createElement('div');thumb.className='thumb';thumb.textContent='…';
-      if(item.kind==='assisted')thumb.textContent='🌐';else api(`/api/library/thumb?key=${encodeURIComponent(item.key)}`).then(r=>{if(r.url){thumb.textContent='';thumb.style.backgroundImage=`url("${r.url}")`;}else thumb.textContent='沒有預覽圖';}).catch(()=>{thumb.textContent='沒有預覽圖';});
-      const title=document.createElement('b');title.textContent=item.title;const meta=document.createElement('span');const lic=document.createElement('span');lic.className='lic';lic.textContent=item.license.label;meta.append(lic,` ${item.source}`);
+      if(item.kind==='assisted')thumb.textContent='🌐';else api(`/api/library/thumb?key=${encodeURIComponent(item.key)}`).then(r=>{if(r.url){thumb.textContent='';thumb.style.backgroundImage=`url("${r.url}")`;}else tx(thumb,'remote.store.noThumb');}).catch(()=>{tx(thumb,'remote.store.noThumb');});
+      const title=document.createElement('b');title.translate=false;title.textContent=item.title;const meta=document.createElement('span');meta.translate=false;const lic=document.createElement('span');lic.className='lic';lic.textContent=item.license.label;meta.append(lic,` ${item.source}`);
       const go=document.createElement('button');go.type='button';
-      if(item.kind==='assisted'){go.textContent='在 Mac 上 AI 輔助下載';go.onclick=async()=>{go.disabled=true;try{await post('/api/assist/open',{site:item.site,page:item.page});go.textContent='已在 Mac 上打開 ✓';$('assist-status').textContent='請到 Mac 前登入、下載，AI 會幫你看條款。';}catch(error){go.disabled=false;$('lib-status').textContent=error.message;}};card.append(thumb,title,meta,go);return card;}
-      go.textContent=item.kind==='image'?'請 Codex 畫成角色':'加入並換上';
-      go.onclick=async()=>{go.disabled=true;go.textContent='處理中…';try{const r=await post('/api/library/import',{key:item.key});if(r.opened==='phone-editor')openEditor(async()=>r.edit,`畫成角色：${item.title}`);else{go.textContent='已加入並換上 ✓';loadCharacters();}}catch(error){go.disabled=false;go.textContent='重試';$('lib-status').textContent=error.message;}};
+      if(item.kind==='assisted'){tx(go,'remote.store.assistOpen');go.onclick=async()=>{go.disabled=true;try{await post('/api/assist/open',{site:item.site,page:item.page});tx(go,'remote.store.assistOpened');tx($('assist-status'),'remote.store.assistGo');}catch(error){go.disabled=false;plain($('lib-status'),error.message);}};card.append(thumb,title,meta,go);return card;}
+      tx(go,item.kind==='image'?'remote.store.drawIt':'remote.store.addWear');
+      go.onclick=async()=>{go.disabled=true;tx(go,'remote.store.working');try{const r=await post('/api/library/import',{key:item.key});if(r.opened==='phone-editor')openEditor(async()=>r.edit,['remote.editor.redrawTitle',{name:item.title}]);else{tx(go,'remote.store.added');loadCharacters();}}catch(error){go.disabled=false;tx(go,'remote.store.retry');plain($('lib-status'),error.message);}};
       card.append(thumb,title,meta,go);return card;}));}
-  catch(error){$('lib-status').textContent=error.message;}
+  catch(error){plain($('lib-status'),error.message);}
 }
 $('lib-form').onsubmit=searchStore;
 // AI-assisted download runs on the Mac (sign-in and the site's own pages stay there); the phone opens it and shows its status
-for(const button of document.querySelectorAll('.assist button'))button.onclick=async()=>{$('assist-status').textContent='請 Mac 打開下載視窗…';
-  try{const r=await post('/api/assist/open',{site:button.dataset.site,q:$('lib-q').value.trim()});$('assist-status').textContent=`已在 Mac 上打開 ${button.textContent}：請到 Mac 前登入、下載，AI 會幫你看條款。`;}
-  catch(error){$('assist-status').textContent=error.message;}};
-function onAssist(value){if(!value)return;const job=value.job;$('assist-status').textContent=`Mac 下載視窗：${job?.error||value.status||'已打開'}`;}
+for(const button of document.querySelectorAll('.assist button'))button.onclick=async()=>{tx($('assist-status'),'remote.store.opening');
+  try{await post('/api/assist/open',{site:button.dataset.site,q:$('lib-q').value.trim()});tx($('assist-status'),'remote.store.openedSite',{site:button.textContent});}
+  catch(error){plain($('assist-status'),error.message);}};
+function onAssist(value){if(!value)return;const job=value.job;tx($('assist-status'),'remote.store.assistStatus',{status:job?.error||value.status||t('remote.store.assistStatusOpen')});}
 // --- Voices: the Mac's voice profiles; bind one to the worn character, preview it here or on the Mac.
 let voiceMod=null;
 async function loadVoices(){
   try{const data=await api('/api/voices'),bound=data.profiles.find(p=>p.id===data.bound);
-    $('v-note').textContent=bound?`🔊 ${data.modName} 現在用專屬聲音「${bound.name}」，上面的預設語音不影響她。`:data.profiles.length?`🔊 ${data.modName} 現在用預設語音。從下面選一個就會改用專屬聲音。`:'還沒有專屬聲音。在 Mac 的「設定 → 語音・聲音」可以做新的聲音，或用下面的錄音。';
+    if(bound)tx($('v-note'),'remote.voices.bound',{mod:data.modName,voice:bound.name});else tx($('v-note'),data.profiles.length?'remote.voices.default':'remote.voices.none',{mod:data.modName});
     $('v-list').replaceChildren(...data.profiles.map(p=>{const box=document.createElement('div');box.className=`voice${p.id===data.bound?' on':''}`;box.dataset.id=p.id;
-      const title=document.createElement('b');title.textContent=`${p.cloned?'🔒 ':''}${p.name}`;const lic=document.createElement('small');lic.textContent=[p.license.credit&&`標示：${p.license.credit}`,p.license.label].filter(Boolean).join(' · ');
-      const row=document.createElement('div');row.className='row';const btn=(text,fn,cls)=>{const b=document.createElement('button');b.type='button';b.textContent=text;if(cls)b.className=cls;b.onclick=async()=>{const label=b.textContent;if(/試聽/.test(label)){b.disabled=true;b.textContent='⏳ 準備聲音…';}try{await fn(b);}catch(error){alert(error.message);}finally{b.disabled=false;b.textContent=label;}};return b;};
-      row.append(btn(p.id===data.bound?'✓ 使用中（按一下改回預設）':'用這個聲音',async()=>{await post('/api/voices/bind',{id:p.id===data.bound?null:p.id});loadVoices();},'bind'),
-        btn('▶ 手機試聽',async b=>{const r=await post('/api/voices/preview',{id:p.id,where:'phone'});const bytes=Uint8Array.from(atob(r.audio),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:r.mime}));const audio=new Audio(url);b.textContent='🔊 播放中…';await new Promise(done=>{audio.onended=audio.onerror=done;audio.play().catch(done);});URL.revokeObjectURL(url);}),
-        btn('▶ Mac 試聽',()=>post('/api/voices/preview',{id:p.id,where:'mac'})));
+      const title=document.createElement('b');title.translate=false;title.textContent=`${p.cloned?'🔒 ':''}${p.name}`;const lic=document.createElement('small');lic.textContent=[p.license.credit&&t('remote.voices.credit',{credit:p.license.credit}),p.license.label].filter(Boolean).join(' · ');
+      const row=document.createElement('div');row.className='row';// a preview button shows its progress and then its own label again
+const btn=(key,fn,cls,preview)=>{const b=tx(document.createElement('button'),key);b.type='button';if(cls)b.className=cls;b.onclick=async()=>{if(preview){b.disabled=true;tx(b,'remote.voices.preparing');}try{await fn(b);}catch(error){alert(error.message);}finally{b.disabled=false;tx(b,key);}};return b;};
+      row.append(btn(p.id===data.bound?'remote.voices.inUse':'remote.voices.use',async()=>{await post('/api/voices/bind',{id:p.id===data.bound?null:p.id});loadVoices();},'bind'),
+        btn('remote.voices.previewPhone',async b=>{const r=await post('/api/voices/preview',{id:p.id,where:'phone'});const bytes=Uint8Array.from(atob(r.audio),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:r.mime}));const audio=new Audio(url);tx(b,'remote.voices.playing');await new Promise(done=>{audio.onended=audio.onerror=done;audio.play().catch(done);});URL.revokeObjectURL(url);},null,true),
+        btn('remote.voices.previewMac',()=>post('/api/voices/preview',{id:p.id,where:'mac'}),null,true));
       // speaking speed, saved with the voice on the Mac
       const speed=document.createElement('label');speed.className='voice-speed';const v=document.createElement('span');const r=document.createElement('input');r.type='range';r.min='0.7';r.max='1.5';r.step='0.05';r.value=String(p.params?.speed||1);
       v.textContent=`${Number(r.value).toFixed(2)}×`;r.oninput=()=>{v.textContent=`${Number(r.value).toFixed(2)}×`;};r.onchange=()=>post('/api/voices/speed',{id:p.id,speed:Number(r.value)}).catch(e=>alert(e.message));
-      speed.append('語速 ',v,r);
+      speed.append(tx(document.createElement('span'),'remote.voices.speed'),' ',v,r);
       box.append(title,lic,speed,row);return box;}));}
-  catch(error){$('v-note').textContent=error.message;}
+  catch(error){plain($('v-note'),error.message);}
 }
 // --- 錄音做聲音: consent first, then one ~10 s reading recorded here (MediaRecorder; the page is HTTPS through Tailscale),
 // turned into a 24 kHz WAV on the phone and sent to the Mac, which makes a CosyVoice or ElevenLabs voice from it.
 // The microphone only runs between the two presses; nothing is recorded on its own.
 let recInfo=null,recPrompt=0,recMedia=null,recWav=null;
 function recReset(){recStop(true);recWav=null;$('rec-consent').hidden=false;$('rec-record').hidden=true;$('rec-person').value='';$('rec-agreed').checked=false;$('rec-next').disabled=true;
-  $('rec-play').hidden=true;$('rec-send').disabled=true;$('rec-status').textContent='';$('rec-time').textContent='';}
+  $('rec-play').hidden=true;$('rec-send').disabled=true;plain($('rec-status'),'');plain($('rec-time'),'');}
 $('rec-open').onclick=async()=>{recReset();$('rec').hidden=false;
-  try{recInfo=await api('/api/voices/record');const lang=/^ja/.test(navigator.language)?'ja':/^en/.test(navigator.language)?'en':'zh';recInfo.lang=lang;recShowPrompt();recEngineNote();}
-  catch(error){$('rec-status').textContent=error.message;}};
+  try{recInfo=await api('/api/voices/record');recInfo.lang=recLang();recShowPrompt();recEngineNote();}
+  catch(error){plain($('rec-status'),error.message);}};
+// the reading script's language follows this phone's interface language
+const recLang=()=>/^zh/.test(i18n.lang)?'zh':i18n.lang;
 $('rec-close').onclick=()=>{recReset();$('rec').hidden=true;};
 const recConsentOk=()=>$('rec-person').value.trim()&&$('rec-agreed').checked;
 $('rec-person').oninput=$('rec-agreed').onchange=()=>{$('rec-next').disabled=!recConsentOk();};
-$('rec-next').onclick=()=>{if(!recConsentOk())return;$('rec-consent').hidden=true;$('rec-record').hidden=false;$('rec-name').value=`${$('rec-person').value.trim()}的聲音`;};
+$('rec-next').onclick=()=>{if(!recConsentOk())return;$('rec-consent').hidden=true;$('rec-record').hidden=false;$('rec-name').value=t('remote.rec.defaultName',{person:$('rec-person').value.trim()});};
 function recShowPrompt(){const list=recInfo?.prompts?.[recInfo.lang]||[];$('rec-prompt').textContent=list[recPrompt%Math.max(1,list.length)]||'';}
-function recEngineNote(){const e=recInfo?.engines?.[$('rec-engine').value];$('rec-engine-note').textContent=e?.ok?'':`${e?.reason||''}${e?.install?'（請在 Mac 的「設定 → 聲音 → 錄音複製」安裝）':''}`;}
+function recEngineNote(){const e=recInfo?.engines?.[$('rec-engine').value];plain($('rec-engine-note'),e?.ok?'':e?.install?t('remote.rec.engineMissing',{reason:e?.reason||''}):e?.reason||'');}
 $('rec-engine').onchange=recEngineNote;$('rec-another').onclick=()=>{recPrompt++;recShowPrompt();};
-function recStop(discard){if(!recMedia)return;const m=recMedia;recMedia=null;clearInterval(m.timer);if(discard)m.recorder.onstop=null;if(m.recorder.state!=='inactive')m.recorder.stop();m.stream.getTracks().forEach(t=>t.stop());$('rec-on').hidden=true;$('rec-btn').textContent='● 開始錄音';$('rec-btn').classList.remove('on');document.body.dataset.recording='false';}
+function recStop(discard){if(!recMedia)return;const m=recMedia;recMedia=null;clearInterval(m.timer);if(discard)m.recorder.onstop=null;if(m.recorder.state!=='inactive')m.recorder.stop();m.stream.getTracks().forEach(t=>t.stop());$('rec-on').hidden=true;tx($('rec-btn'),'remote.rec.start');$('rec-btn').classList.remove('on');document.body.dataset.recording='false';}
 // 16-bit mono WAV at 24 kHz from whatever the browser recorded (webm/opus or mp4/aac)
 async function recToWav(blob){
   const ctx=new AudioContext(),decoded=await ctx.decodeAudioData(await blob.arrayBuffer());ctx.close();
@@ -275,25 +304,25 @@ async function recToWav(blob){
 }
 $('rec-btn').onclick=async()=>{
   if(recMedia){recStop(false);return;}
-  if(!recConsentOk()){$('rec-status').textContent='請先完成同意步驟。';return;}
+  if(!recConsentOk()){tx($('rec-status'),'remote.rec.needConsent');return;}
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
     const recorder=new MediaRecorder(stream),chunks=[],started=Date.now();
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-    recorder.onstop=async()=>{try{recWav=await recToWav(new Blob(chunks,{type:recorder.mimeType}));const url=URL.createObjectURL(new Blob([recWav],{type:'audio/wav'}));$('rec-play').src=url;$('rec-play').hidden=false;$('rec-send').disabled=false;$('rec-status').textContent='聽聽看，沒問題就按「做成聲音」。';}catch(error){$('rec-status').textContent=`讀不了這段錄音：${error.message}`;}};
-    recMedia={recorder,stream,timer:setInterval(()=>{const s=(Date.now()-started)/1000;$('rec-time').textContent=`${s.toFixed(0)} 秒`;if(s>=30)recStop(false);},250)};
-    recorder.start(250);$('rec-on').hidden=false;$('rec-btn').textContent='■ 停止';$('rec-btn').classList.add('on');document.body.dataset.recording='true';$('rec-status').textContent='';
-  }catch(error){$('rec-status').textContent=`麥克風無法啟動：${error.message}`;}
+    recorder.onstop=async()=>{try{recWav=await recToWav(new Blob(chunks,{type:recorder.mimeType}));const url=URL.createObjectURL(new Blob([recWav],{type:'audio/wav'}));$('rec-play').src=url;$('rec-play').hidden=false;$('rec-send').disabled=false;tx($('rec-status'),'remote.rec.listen');}catch(error){tx($('rec-status'),'remote.rec.unreadable',{error:error.message});}};
+    recMedia={recorder,stream,timer:setInterval(()=>{const s=(Date.now()-started)/1000;tx($('rec-time'),'remote.rec.seconds',{n:s.toFixed(0)});if(s>=30)recStop(false);},250)};
+    recorder.start(250);$('rec-on').hidden=false;tx($('rec-btn'),'remote.rec.stop');$('rec-btn').classList.add('on');document.body.dataset.recording='true';plain($('rec-status'),'');
+  }catch(error){tx($('rec-status'),'remote.rec.micFailed',{error:error.message});}
 };
 $('rec-send').onclick=async()=>{
-  if(!recWav||!recConsentOk())return;$('rec-send').disabled=true;$('rec-status').textContent='Mac 正在做聲音…';
+  if(!recWav||!recConsentOk())return;$('rec-send').disabled=true;tx($('rec-status'),'remote.rec.making');
   let binary='';for(let i=0;i<recWav.length;i+=32768)binary+=String.fromCharCode(...recWav.subarray(i,i+32768));
   try{
     const r=await post('/api/voices/record',{audio:btoa(binary),engine:$('rec-engine').value,name:$('rec-name').value,transcript:$('rec-prompt').textContent,lang:recInfo?.lang,consent:{person:$('rec-person').value.trim(),agreed:$('rec-agreed').checked},bind:$('rec-bind').checked});
-    if(!r.ok){$('rec-status').textContent=`錄音品質：${r.quality.issues.filter(i=>i.level==='error').map(i=>i.message).join(' ')} 請再錄一次。`;$('rec-send').disabled=false;return;}
-    recWav=null;$('rec-play').hidden=true;$('rec-status').textContent=`已做好「${r.profile.name}」${r.bound?`，${r.bound.name} 現在用這個聲音說話`:''}。原始錄音沒有留在 Mac 上，只留下參考片段。`;
+    if(!r.ok){tx($('rec-status'),'remote.rec.quality',{issues:r.quality.issues.filter(i=>i.level==='error').map(i=>i.key?t(i.key,i.vars):i.message).join(' ')});$('rec-send').disabled=false;return;}
+    recWav=null;$('rec-play').hidden=true;if(r.bound)tx($('rec-status'),'remote.rec.doneBound',{name:r.profile.name,character:r.bound.name});else tx($('rec-status'),'remote.rec.done',{name:r.profile.name});
     document.body.dataset.recSaved=r.profile.id;loadVoices();
-  }catch(error){$('rec-status').textContent=error.message;$('rec-send').disabled=false;}
+  }catch(error){plain($('rec-status'),error.message);$('rec-send').disabled=false;}
 };
 for(const button of document.querySelectorAll('#tabs button'))button.onclick=()=>{
   for(const b of document.querySelectorAll('#tabs button'))b.classList.toggle('on',b===button);
@@ -308,20 +337,35 @@ async function start(){
   $('pair').hidden=true;$('app').hidden=false;
   Avatars.setAssetLoader(async url=>{const [,mod,file]=url.match(/^mods\/([^/]+)\/([^/]+)$/);return api(`/api/mod-asset?mod=${encodeURIComponent(decodeURIComponent(mod))}&file=${encodeURIComponent(decodeURIComponent(file))}`);});
   const data=await api('/api/state');render(data.state);fillSettings(await api('/api/settings'));loadDev().catch(()=>{});
-  for(const m of data.history)line(m.content,m.role);if(!data.history.length)line(`嗨，我是 ${data.state.mod.name}！在手機上也可以找我聊天。`);
+  for(const m of data.history)line(m.content,m.role);if(!data.history.length)line(t('remote.chat.hello',{name:data.state.mod.name}));
   listen();
 }
 $('pair-form').onsubmit=async event=>{event.preventDefault();await pair($('pair-code').value.trim());};
 async function pair(code){
-  try{const name=/iPhone/.test(navigator.userAgent)?'iPhone':/iPad/.test(navigator.userAgent)?'iPad':/Android/.test(navigator.userAgent)?'Android':'手機';
+  try{const name=/iPhone/.test(navigator.userAgent)?'iPhone':/iPad/.test(navigator.userAgent)?'iPad':/Android/.test(navigator.userAgent)?'Android':t('remote.pair.deviceName');
     const data=await post('/api/pair',{code,name});token=data.token;try{localStorage.setItem(KEY,token);}catch{}
     history.replaceState(null,'','/remote/');await start();}
   catch(error){showPair(error.message);}
 }
-$('voice').onclick=()=>{speakReplies=!speakReplies;if(!speakReplies)stopSaying();else{sayEl.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';sayEl.play().catch(()=>{});}$('voice').textContent=speakReplies?'🔊':'🔇';$('voice').setAttribute('aria-pressed',String(speakReplies));if(speakReplies)say('好，我會念出來。');};
+$('voice').onclick=()=>{speakReplies=!speakReplies;if(!speakReplies)stopSaying();else{sayEl.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';sayEl.play().catch(()=>{});}$('voice').textContent=speakReplies?'🔊':'🔇';$('voice').setAttribute('aria-pressed',String(speakReplies));if(speakReplies)say(t('remote.voice.willRead'));};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 const code=new URLSearchParams(location.search).get('pair');
-if(code&&!token)pair(code);else if(token)start().catch(error=>showPair(error.message));else showPair();
+// the dictionary first (the pairing screen needs it too); without it the page still works
+loadLanguage().catch(error=>console.error('i18n:',error)).finally(()=>{
+  $('s-lang').value=langPick;
+  if(code&&!token)pair(code);else if(token)start().catch(error=>showPair(error.message));else showPair();
+});
+// this phone's own interface language, or the computer's
+$('s-lang').onchange=()=>{langPick=$('s-lang').value;try{if(langPick==='mac')localStorage.removeItem(LANG_KEY);else localStorage.setItem(LANG_KEY,langPick);}catch{}loadLanguage().catch(error=>alert(error.message));};
+// a new language: what is drawn from data is drawn again (data-i18n text is re-applied by i18n itself)
+i18n.onChange(()=>{
+  if(lastState)render(lastState);
+  if(remoteSettings)fillSettings(remoteSettings);
+  renderDev();
+  if(!$('tab-files').hidden&&$('viewer').hidden)loadFiles();
+  if(!$('tab-settings').hidden)loadVoices();
+  if(recInfo&&!recMedia){recInfo.lang=recLang();recShowPrompt();recEngineNote();}
+});
 
 // stop the Mac reading a reply aloud
 $('stop-speech').onclick=()=>post('/api/stop-speech',{}).catch(e=>alert(e.message));
@@ -330,22 +374,24 @@ $('stop-speech').onclick=()=>post('/api/stop-speech',{}).catch(e=>alert(e.messag
 // answer its approval requests and stop or leave it (picking, talking and answering need 「允許手機下達電腦任務」).
 const DEV_ENGINE={claude:'Claude',codex:'Codex'};let devState=null;
 async function loadDev(){devState=await api('/api/dev/state');renderDev();}
-function devStatus(text){const a=devState?.attached;if(a)$('dev-label').textContent=`已接入：${a.project} · ${DEV_ENGINE[a.engine]}${text?` — ${text}`:''}`;}
+// text: a key or '' (the label keeps it, so a language change re-translates it)
+function devStatus(key){const a=devState?.attached;if(a)tx($('dev-label'),key?'remote.dev.attachedStatus':'remote.dev.attached',{project:a.project,engine:DEV_ENGINE[a.engine],status:key&&t(key)});}
+function devTool(label){const a=devState?.attached;if(a)plain($('dev-label'),t('remote.dev.attachedStatus',{project:a.project,engine:DEV_ENGINE[a.engine],status:label}));}
 function renderDev(){
   const a=devState?.attached;$('dev-bar').hidden=!a;$('dev-pick-row').hidden=Boolean(a)||!remoteSettings?.remoteTasks;if(a)$('dev-list').hidden=true;
-  if(a)$('dev-label').textContent=`已接入：${a.project} · ${DEV_ENGINE[a.engine]}`;
-  $('text').placeholder=a?`跟 ${a.project} 的工作階段說…`:'跟我說點什麼…';
+  if(a)devStatus('');
+  $('text').placeholder=a?t('remote.dev.placeholder',{project:a.project}):t('remote.chat.placeholder');
 }
 $('dev-pick').onclick=async()=>{
   if(!$('dev-list').hidden){$('dev-list').hidden=true;return;}
-  $('dev-list').hidden=false;$('dev-list').textContent='正在找最近的工作階段…';
+  $('dev-list').hidden=false;$('dev-list').textContent=t('remote.dev.finding');
   try{const list=await api('/api/dev/sessions');
     $('dev-list').replaceChildren(...(list.length?list.map(s=>{const b=document.createElement('button');b.type='button';b.dataset.id=s.id;
       const head=document.createElement('b');head.textContent=`${s.engine==='claude'?'✳️':'◎'} ${s.project} · ${DEV_ENGINE[s.engine]}`;
-      const title=document.createElement('small');title.textContent=s.title||'（沒有標題）';const when=document.createElement('small');when.textContent=new Date(s.updatedAt).toLocaleString();b.append(head,title,when);
-      if(s.maybeOpen){const warn=document.createElement('small');warn.className='warn';warn.textContent='⚠ 可能還在終端機開著：先關掉那個終端機，避免對話分岔';b.append(warn);}
+      const title=document.createElement('small');title.translate=Boolean(!s.title);title.textContent=s.title||t('remote.dev.untitled');const when=document.createElement('small');when.textContent=new Date(s.updatedAt).toLocaleString(i18n.lang);b.append(head,title,when);
+      if(s.maybeOpen){const warn=document.createElement('small');warn.className='warn';warn.textContent=t('remote.dev.maybeOpen');b.append(warn);}
       b.onclick=async()=>{$('dev-list').hidden=true;try{devState=await post('/api/dev/attach',{engine:s.engine,id:s.id});renderDev();}catch(error){line(error.message,'note');}};return b;})
-      :[Object.assign(document.createElement('p'),{className:'hint',textContent:'找不到 Claude Code 或 Codex 的工作階段。'})]));}
+      :[Object.assign(document.createElement('p'),{className:'hint',textContent:t('remote.dev.noSessions')})]));}
   catch(error){$('dev-list').textContent=error.message;}
 };
 $('dev-stop').onclick=()=>post('/api/dev/interrupt',{}).catch(error=>line(error.message,'note'));
@@ -356,20 +402,20 @@ function devCard(a){
   const detail=[a.command?`$ ${a.command}`:null,a.diff||null,!a.command&&!a.diff?(a.detail||(a.files||[]).join('\n')||null):null].filter(Boolean).join('\n');
   if(detail){const pre=document.createElement('pre');pre.textContent=detail;el.append(pre);}
   const row=document.createElement('div');row.className='actions';
-  for(const [label,allow,cls] of [['允許',true,'allow'],['拒絕',false,'deny']]){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;
+  for(const [key,allow,cls] of [['remote.dev.allow',true,'allow'],['remote.dev.deny',false,'deny']]){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=t(key);
     b.onclick=()=>{for(const x of row.children)x.disabled=true;post('/api/dev/answer',{requestId:a.requestId,allow}).then(r=>{if(!r.ok){line(r.error,'note');for(const x of row.children)x.disabled=false;}}).catch(error=>{line(error.message,'note');for(const x of row.children)x.disabled=false;});};row.append(b);}
   el.append(row);return el;
 }
 function onDev(event){
   if(event.state){devState=event.state;renderDev();}
-  if(event.type==='attached')line(`已接入「${event.state.attached.project}」的 ${DEV_ENGINE[event.state.attached.engine]} 工作階段。`,'note');
-  if(event.type==='left')line(`已離開開發工作階段。${event.resumeCommand?`之後可以在終端機用 ${event.resumeCommand} 接著做。`:''}`,'note');
+  if(event.type==='attached')line(t('remote.dev.joined',{project:event.state.attached.project,engine:DEV_ENGINE[event.state.attached.engine]}),'note');
+  if(event.type==='left')line(event.resumeCommand?t('remote.dev.leftResume',{command:event.resumeCommand}):t('remote.dev.left'),'note');
   // a line typed on the Mac or another phone (the server does not send a phone its own line back)
   if(event.type==='user')line(event.source==='phone'?`📱 ${event.text}`:event.text,'user');
-  if(event.type==='tool')devStatus(event.label);
-  if(event.type==='approval'){devStatus('等你決定：允許或拒絕');devCard(event.approval);say(event.approval.question);}
-  if(event.type==='resolved'){const card=document.querySelector(`.msg.approval[data-request="${CSS.escape(event.requestId)}"]`);if(card){card.querySelector('.actions')?.remove();const r=document.createElement('small');r.textContent=event.result==='allowed'?'✓ 已允許':event.result==='denied'?'✕ 已拒絕':'（這個請求已經不需要了）';card.append(r);card.dataset.result=event.result;}}
+  if(event.type==='tool')devTool(event.label);
+  if(event.type==='approval'){devStatus('remote.dev.waiting');devCard(event.approval);say(event.approval.question);}
+  if(event.type==='resolved'){const card=document.querySelector(`.msg.approval[data-request="${CSS.escape(event.requestId)}"]`);if(card){card.querySelector('.actions')?.remove();const r=document.createElement('small');r.textContent=t(event.result==='allowed'?'remote.dev.allowed':event.result==='denied'?'remote.dev.denied':'remote.dev.gone');card.append(r);card.dataset.result=event.result;}}
   if(event.type==='reply'){line(event.text);say(event.spoken||event.text);}
-  if(event.type==='turn'){devStatus('');if(event.status==='failed')line(`這一輪沒有完成${event.error?`：${event.error}`:''}`,'note');if(event.status==='interrupted')line('已停下來。','note');}
-  if(event.type==='error')line(`開發夥伴：${event.message}`,'note');
+  if(event.type==='turn'){devStatus('');if(event.status==='failed')line(event.error?t('remote.dev.turnFailedWhy',{error:event.error}):t('remote.dev.turnFailed'),'note');if(event.status==='interrupted')line(t('remote.dev.stopped'),'note');}
+  if(event.type==='error')line(t('remote.dev.error',{message:event.message}),'note');
 }

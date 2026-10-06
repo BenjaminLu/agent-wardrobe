@@ -1,12 +1,14 @@
 // Lane Dash: a three-lane runner. In AI mode the game describes the next row in one sentence per lane,
 // Laya answers "which lane is empty?" with probabilities, and the runner stays or steers one lane.
 const $=id=>document.getElementById(id);
-const zh=new URLSearchParams(location.search).get('lang')!=='en';
-const T=zh?{}:{score:'Score',best:'Best',coins:'Coins',crashes:'Crashes',ai:'▶ Let it play',me:'⌨ I play',stop:'■ Stop'};
-for(const el of document.querySelectorAll('[data-t]'))if(T[el.dataset.t])el.textContent=T[el.dataset.t];
 let engineInfo={selected:'laya'};const ENGINE=()=>engineInfo.selected==='jev'?'Jev':'Laya';
-const say={loading:()=>zh?`${ENGINE()} 載入中…`:`Loading ${ENGINE()}…`,ready:device=>zh?`${ENGINE()} 就緒 · ${device}`:`${ENGINE()} ready · ${device}`,keys:zh?'用 ← → 換車道':'Use ← → to change lanes',stay:(lane,p)=>zh?`留在${NAMES[lane]}：P(空)=${p}`:`stay ${LANES[lane]}: P(empty)=${p}`,move:(lane,p,to)=>zh?`${NAMES[lane]} P(空)=${p}，往${NAMES[to]}`:`${LANES[lane]} P(empty)=${p}, steer to ${LANES[to]}`};
-const LANES=['left','middle','right'],NAMES=['左道','中道','右道'],QUESTIONS={lane:{type:'choice',instructions:'Which lane is empty?',criteria:LANES}};
+const LANES=['left','middle','right'],QUESTIONS={lane:{type:'choice',instructions:'Which lane is empty?',criteria:LANES}};
+const laneName=i=>t(`game.lane.${LANES[i]}`);
+const say={loading:()=>t('game.status.loading',{engine:ENGINE()}),ready:device=>t('game.status.ready',{engine:ENGINE(),device}),keys:()=>t('game.keys'),stay:(lane,p)=>t('game.why.stay',{lane:laneName(lane),p}),move:(lane,p,to)=>t('game.why.move',{lane:laneName(lane),p,to:laneName(to)})};
+// Text that depends on the interface language is kept as a function, so a language change can redraw it.
+let whyText=()=>'',statusText=()=>'',lastBrain={probabilities:{},choice:null};
+const setWhy=fn=>{whyText=fn;$('why').textContent=fn();};
+const setStatus=fn=>{statusText=fn;$('laya-status').textContent=fn();};
 const STAY=0.25;
 const canvas=$('road'),ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height,PLAYER_Y=H-70,LANE_W=W/3;
 let minInterval=33,mode=null,rows=[],lane=1,x=LANE_W*1.5,speed=0,score=0,best=0,coins=0,crashes=0,pausedUntil=0,last=0,shake=0,nextGap=0,decisions=[],stats={n:0,since:performance.now()};
@@ -43,13 +45,14 @@ function draw(now){
   // the runner: a little blue blob
   ctx.fillStyle='#3d8be8';ctx.beginPath();ctx.ellipse(x,PLAYER_Y,24,28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#eaf6ff';ctx.beginPath();ctx.ellipse(x,PLAYER_Y+10,15,13,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#10243a';ctx.beginPath();ctx.arc(x-8,PLAYER_Y-8,3.5,0,Math.PI*2);ctx.arc(x+8,PLAYER_Y-8,3.5,0,Math.PI*2);ctx.fill();
-  if(!mode){ctx.fillStyle='#0d1b2acc';ctx.fillRect(0,H/2-30,W,60);ctx.fillStyle='#e8f1f8';ctx.font='bold 18px -apple-system';ctx.textAlign='center';ctx.fillText(zh?'按「讓角色玩」開始':'Press “Let it play”',W/2,H/2+6);}
+  if(!mode){ctx.fillStyle='#0d1b2acc';ctx.fillRect(0,H/2-30,W,60);ctx.fillStyle='#e8f1f8';ctx.font='bold 18px -apple-system';ctx.textAlign='center';ctx.fillText(t('game.pressStart'),W/2,H/2+6);}
   ctx.restore();
 }
 
 function showBrain(probabilities,choice){
+  lastBrain={probabilities,choice};
   $('bars').replaceChildren(...LANES.map((name,i)=>{const p=probabilities[name]||0,bar=document.createElement('div');bar.className='bar'+(name===choice?' pick':'');
-    const fill=document.createElement('i');fill.style.width=`${Math.round(p*100)}%`;const label=document.createElement('span');const a=document.createElement('b');a.textContent=zh?NAMES[i]:name;const b=document.createElement('em');b.textContent=p.toFixed(2);label.append(a,b);bar.append(fill,label);return bar;}));
+    const fill=document.createElement('i');fill.style.width=`${Math.round(p*100)}%`;const label=document.createElement('span');const a=document.createElement('b');a.textContent=laneName(i);const b=document.createElement('em');b.textContent=p.toFixed(2);label.append(a,b);bar.append(fill,label);return bar;}));
 }
 // The next row ahead, one sentence per lane, exactly as Laya's own lane-runner demo phrases it.
 function observe(){const row=rows.filter(r=>r.d>0).sort((a,b)=>a.d-b.d)[0];if(!row)return null;return {row,state:LANES.map((name,i)=>`The ${name} lane is ${row.blocked[i]?'blocked by a barrier':'empty'}.`).join(' ')};}
@@ -61,8 +64,8 @@ async function think(){
         const result=await window.game.decide(obs.state,QUESTIONS);if(mode!=='ai')break;
         if(result.skip){await new Promise(r=>setTimeout(r,result.wait||1000));continue;}
         const answer=result.answers.lane,p=answer.probabilities[LANES[lane]]||0;showBrain(answer.probabilities,answer.choice);
-        if(p>=STAY)$('why').textContent=say.stay(lane,p.toFixed(2));
-        else{const to=LANES.indexOf(answer.choice),d=Math.sign(to-lane);if(d){lane+=d;if(obs.row.d<140)window.game.event('dodge');}$('why').textContent=say.move(lane-d,p.toFixed(2),to);}
+        if(p>=STAY){const at=lane,pp=p.toFixed(2);setWhy(()=>say.stay(at,pp));}
+        else{const to=LANES.indexOf(answer.choice),d=Math.sign(to-lane);if(d){lane+=d;if(obs.row.d<140)window.game.event('dodge');}const from=lane-d,pp=p.toFixed(2);setWhy(()=>say.move(from,pp,to));}
         decisions.push(result.ms);if(decisions.length>60)decisions.shift();stats.n++;
         const now=performance.now(),rate=stats.n/((now-stats.since)/1000),median=[...decisions].sort((a,b)=>a-b)[decisions.length>>1];
         $('rate').textContent=`${rate.toFixed(0)}/s · ${median.toFixed(0)} ms`;
@@ -73,24 +76,29 @@ async function think(){
 }
 async function start(next){
   $('note').textContent='';
-  if(next==='ai'){$('laya-status').textContent=say.loading();$('ai').disabled=true;try{({minInterval}=await window.game.start());}catch(error){$('note').textContent=error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/,'');$('ai').disabled=false;$('laya-status').textContent='';return;}}
+  if(next==='ai'){setStatus(say.loading);$('ai').disabled=true;try{({minInterval}=await window.game.start());}catch(error){$('note').textContent=error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/,'');$('ai').disabled=false;setStatus(()=>'');return;}}
   reset();mode=next;stats={n:0,since:performance.now()};decisions=[];$('ai').disabled=$('me').disabled=true;$('stop').disabled=false;
-  if(next==='me')$('why').textContent=say.keys;else{window.game.event('start');think();}
+  if(next==='me')setWhy(say.keys);else{window.game.event('start');think();}
 }
 function stop(){mode=null;$('ai').disabled=$('me').disabled=false;$('stop').disabled=true;showEngine();}
-window.game.onStatus(status=>{$('laya-status').textContent=status.state==='ready'?say.ready(status.device):say.loading();});
+window.game.onStatus(status=>{setStatus(status.state==='ready'?()=>say.ready(status.device):say.loading);});
 // The engine is picked in the companion's AI settings; this window shows it and whether it is ready.
 const cleanError=error=>error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/,'');
+function engineLabels(){
+  $('engine-name').textContent=t(engineInfo.selected==='jev'?'game.engine.jev':'game.engine.laya');
+  $('engine-hint').textContent=t('game.engine.hint');$('brain-label').textContent=t('game.brainLabel',{engine:ENGINE()});
+}
 async function showEngine(){
   engineInfo=await window.game.engines();const jev=engineInfo.selected==='jev';
-  $('engine-name').textContent=jev?(zh?'決策模型：Jev（TypeSafe API・按用量付費）':'Decision model: Jev (TypeSafe API, pay per use)'):(zh?'決策模型：Laya（本機・免費）':'Decision model: Laya (local, free)');
-  $('engine-hint').textContent=zh?'在人物 ⚙ 設定切換':'Change it in the companion ⚙ settings';$('brain-label').textContent=zh?`${ENGINE()} 的判斷`:`${ENGINE()}'s call`;
+  engineLabels();
   const missing=jev?!engineInfo.jev.hasKey:!engineInfo.laya.installed;if(!mode)$('ai').disabled=missing;
-  $('note').textContent=missing?(jev?(zh?'還沒有 Jev API key：請到人物的 ⚙ 設定 → 遊戲決策模型輸入。':'No Jev API key yet: add it in the companion ⚙ settings → Game decision model.'):(zh?'Laya 還沒安裝：在專案資料夾執行 npm run laya:setup':'Laya is not installed: run npm run laya:setup in the project folder')):'';
+  $('note').textContent=missing?t(jev?'game.note.noJevKey':'game.note.noLaya'):'';
 }
 addEventListener('focus',()=>{if(!mode)showEngine();});
 $('ai').onclick=()=>start('ai');$('me').onclick=()=>start('me');$('stop').onclick=stop;
 addEventListener('keydown',event=>{if(mode!=='me')return;if(event.key==='ArrowLeft')lane=Math.max(0,lane-1);if(event.key==='ArrowRight')lane=Math.min(2,lane+1);});
 // test hook: the smoke test reads the scoreboard
 window.laneDash={stats:()=>({engine:engineInfo.selected,mode,score,best,coins,crashes,decisions:stats.n,medianMs:decisions.length?[...decisions].sort((a,b)=>a-b)[decisions.length>>1]:null})};
+// a language change: redraw the text this script wrote (the canvas redraws itself every frame)
+i18n.onChange(()=>{showBrain(lastBrain.probabilities,lastBrain.choice);$('why').textContent=whyText();$('laya-status').textContent=statusText();engineLabels();if(!mode)showEngine();});
 showBrain({},null);showEngine();requestAnimationFrame(t=>{last=t;step(t);});

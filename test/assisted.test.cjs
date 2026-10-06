@@ -2,6 +2,7 @@ const test=require('node:test');const assert=require('node:assert/strict');const
 const {spawnSync}=require('node:child_process');
 const archive=require('../archive.cjs');const assisted=require('../assisted.cjs');const mods=require('../mods.cjs');
 const {makeZip,sjis}=require('./fixtures/zip.cjs');
+require('../locales.cjs').setLanguage('zh-Hant');  // the license / record texts below are checked in the source language
 const temp=t=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assisted-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;};
 const write=(file,data)=>{fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,data);};
 const SAMPLE_VRM=path.join(__dirname,'..','mods','vrm-sample','sample.vrm');

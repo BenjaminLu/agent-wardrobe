@@ -4,7 +4,8 @@ const {renameRetry}=require('../platform.cjs');
 // source at a pinned commit, and model files from a pinned Hugging Face revision (ModelScope as a fallback).
 // Model files are hash-checked against the LFS sha256 Hugging Face publishes; downloads resume after an interruption.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const {spawn,execFileSync}=require('node:child_process');
-const {HERE,which,killTree,tarCommand,venvPython}=require('../platform.cjs');
+const {which,killTree,tarCommand,venvPython}=require('../platform.cjs');
+const L=require('../locales.cjs');const {t}=L;
 
 // uv 0.12.23 per platform (GitHub release assets and their SHA-256). Tarballs hold uv-<target>/uv; the Windows zips hold uv.exe at the top.
 const uvAsset=(target,sha256)=>({version:'0.12.23',url:`https://github.com/astral-sh/uv/releases/download/0.12.23/uv-${target}.${target.includes('windows')?'zip':'tar.gz'}`,sha256});
@@ -12,7 +13,7 @@ const UVS={'darwin-arm64':uvAsset('aarch64-apple-darwin','50487ae565ccd96e499056
   'win32-x64':uvAsset('x86_64-pc-windows-msvc','75d05de6762778c31ee183398de7dd15093fad0ed90b1f236d8205ea5ec00c90'),'win32-arm64':uvAsset('aarch64-pc-windows-msvc','13294e232ececbe709c06b74e6ced06f2a225ea5591476685362f22be56a50d5'),
   'linux-x64':uvAsset('x86_64-unknown-linux-gnu','9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6'),'linux-arm64':uvAsset('aarch64-unknown-linux-gnu','6524bd338177ed50d035d39354e12545e993bbeba2ecbddf0480c5b3a81d313f')};
 const UV=UVS[`${process.platform}-${process.arch}`]||null;
-const aborted=()=>Object.assign(new Error('已取消。'),{name:'AbortError'});
+const aborted=()=>L.error('voiceEngines.cancelled',null,{name:'AbortError'});
 
 // Runs a command; stdout/stderr lines go to onLine. Aborting kills the whole process group.
 function run(cmd,args,{cwd,env,signal,onLine=()=>{},timeout=0}={}){
@@ -27,7 +28,7 @@ function run(cmd,args,{cwd,env,signal,onLine=()=>{},timeout=0}={}){
     const timer=timeout?setTimeout(kill,timeout):null;
     child.on('error',error=>{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);reject(error);});
     child.on('close',code=>{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);
-      if(signal?.aborted)reject(aborted());else if(code===0)resolve(tail);else reject(Object.assign(new Error(`${path.basename(cmd)} 失敗（${code}）：${tail.trim().split('\n').slice(-3).join(' ').slice(0,400)}`),{code,tail}));});
+      if(signal?.aborted)reject(aborted());else if(code===0)resolve(tail);else reject(L.error('voiceEngines.install.commandFailed',{command:path.basename(cmd),code,log:tail.trim().split('\n').slice(-3).join(' ').slice(0,400)},{code,tail}));});
   });
 }
 
@@ -39,13 +40,13 @@ async function fetchToFile(url,target,{fetchImpl=fetch,signal,size=0,onBytes=()=
   const partial=`${target}.part`;let have=fs.existsSync(partial)?fs.statSync(partial).size:0;
   if(size&&have>size){fs.rmSync(partial);have=0;}
   const response=await fetchImpl(url,{signal,redirect:'follow',headers:have?{Range:`bytes=${have}-`}:{}});
-  if(!response.ok&&response.status!==206)throw Object.assign(new Error(`下載失敗（${response.status}）：${path.basename(target)}`),{status:response.status});
+  if(!response.ok&&response.status!==206)throw L.error('voiceEngines.install.downloadFailed',{status:response.status,file:path.basename(target)},{status:response.status});
   if(have&&response.status!==206)have=0;  // the server ignored Range: start again
   onBytes(have);
   const out=fs.createWriteStream(partial,{flags:have?'a':'w',mode:0o600});
   try{for await(const chunk of response.body){if(signal?.aborted)throw aborted();if(!out.write(chunk))await new Promise(r=>out.once('drain',r));onBytes(chunk.length);}}
   finally{await new Promise(r=>out.end(r));}
-  if(size&&fs.statSync(partial).size!==size)throw new Error(`${path.basename(target)} 下載不完整，請再試一次。`);
+  if(size&&fs.statSync(partial).size!==size)throw L.error('voiceEngines.install.incomplete',{file:path.basename(target)});
   renameRetry(partial,target);
 }
 
@@ -57,9 +58,9 @@ function findUv(){
 async function ensureUv(dir,{fetchImpl=fetch,signal,uv=UV}={}){
   const found=findUv();if(found)return found;
   const bin=path.join(dir,'uv',process.platform==='win32'?'uv.exe':'uv');if(fs.existsSync(bin))return bin;
-  if(!uv)throw new Error(`${HERE} 需要先安裝 uv（https://docs.astral.sh/uv/），才能裝本機聲音引擎。`);
+  if(!uv)throw L.error('voiceEngines.install.needUv');
   const archive=path.join(dir,uv.url.endsWith('.zip')?'uv.zip':'uv.tar.gz');await fetchToFile(uv.url,archive,{fetchImpl,signal});
-  if(await sha256(archive)!==uv.sha256){fs.rmSync(archive,{force:true});throw new Error('uv 檔案驗證失敗，請再試一次。');}
+  if(await sha256(archive)!==uv.sha256){fs.rmSync(archive,{force:true});throw L.error('voiceEngines.install.uvHash');}
   fs.mkdirSync(path.dirname(bin),{recursive:true});
   if(uv.url.endsWith('.zip'))await require('../archive.cjs').unzipLarge(archive,path.dirname(bin));  // Windows: uv.exe at the top of the zip
   else execFileSync(tarCommand(),['-xzf',archive,'-C',path.dirname(bin),'--strip-components=1']);
@@ -79,7 +80,7 @@ async function fetchSource({url,dest,fetchImpl=fetch,signal}){
 // Files are fetched from Hugging Face first, then from the mirrors (e.g. ModelScope) when a source fails.
 async function fetchModel({repo,revision,dir,include=()=>true,mirrors=[],fetchImpl=fetch,signal,onProgress=()=>{},listUrl}){
   const response=await fetchImpl(listUrl||`https://huggingface.co/api/models/${repo}/revision/${revision}?blobs=true`,{signal});
-  if(!response.ok)throw new Error(`讀不到模型清單（${response.status}）。請檢查網路。`);
+  if(!response.ok)throw L.error('voiceEngines.install.modelList',{status:response.status});
   const files=(await response.json()).siblings.map(f=>({name:f.rfilename,size:f.size||f.lfs?.size||0,sha256:f.lfs?.sha256||null}))
     .filter(f=>include(f.name)&&!/(^|\/)\.\.(\/|$)|^\/|\\/.test(f.name));
   const total=files.reduce((n,f)=>n+f.size,0)||1;let done=0;const tick=n=>{done+=n;onProgress(Math.min(1,done/total),done,total);};
@@ -94,7 +95,7 @@ async function fetchModel({repo,revision,dir,include=()=>true,mirrors=[],fetchIm
       catch(error){if(signal?.aborted)throw aborted();lastError=error;done=before;}
     }
     if(lastError)throw lastError;
-    if(file.sha256&&await sha256(target)!==file.sha256){fs.rmSync(target,{force:true});throw new Error(`${file.name} 檔案驗證失敗，請重新下載。`);}
+    if(file.sha256&&await sha256(target)!==file.sha256){fs.rmSync(target,{force:true});throw L.error('voiceEngines.install.hash',{file:file.name});}
   }
   return {files:files.length,bytes:total};
 }
@@ -131,33 +132,33 @@ function createPythonEnv({dir,python='3.10',packages=[],buildConstraints=[],sour
     fs.mkdirSync(dir,{recursive:true});
     // weights: tools and packages are a small share of the bytes, the models most of it
     const report=(stage,from,to,f,detail)=>onProgress({stage,progress:from+(to-from)*Math.max(0,Math.min(1,f)),detail});
-    report('uv',0,.02,0,'準備安裝工具');const uv=uvPath||await ensureUv(dir,{fetchImpl,signal});
+    report('uv',0,.02,0,t('voiceEngines.install.tools'));const uv=uvPath||await ensureUv(dir,{fetchImpl,signal});
     if(source&&!fs.existsSync(path.join(srcDir,'.source-'+source.commit))){
-      report('source',.02,.04,0,'下載引擎程式碼');await fetchSource({url:source.url,dest:srcDir,fetchImpl,signal});
+      report('source',.02,.04,0,t('voiceEngines.install.source'));await fetchSource({url:source.url,dest:srcDir,fetchImpl,signal});
       for(const sub of source.submodules||[])await fetchSource({url:sub.url,dest:path.join(srcDir,sub.path),fetchImpl,signal});
       fs.writeFileSync(path.join(srcDir,'.source-'+source.commit),'');
     }
-    if(!fs.existsSync(pythonBin)){report('python',.04,.06,0,`建立 Python ${python} 環境`);await run(uv,['venv','-q','--python',python,venv],{signal});}
-    report('packages',.06,.25,0,'安裝 Python 套件（第一次需要幾分鐘）');
+    if(!fs.existsSync(pythonBin)){report('python',.04,.06,0,t('voiceEngines.install.python',{version:python}));await run(uv,['venv','-q','--python',python,venv],{signal});}
+    report('packages',.06,.25,0,t('voiceEngines.install.packagesFirst'));
     // old sdists (openai-whisper) still import pkg_resources while building, so the build may need an older setuptools
     const constraints=path.join(dir,'build-constraints.txt');fs.writeFileSync(constraints,buildConstraints.join('\n')+'\n');
     // uv splits a --build-constraints path at spaces ("Application Support"), so it runs inside dir with a relative name
     let lines=0;
     // torch / torchaudio first from the chosen PyTorch index; the pins below then match those builds (2.3.1+cu121 satisfies ==2.3.1)
     const torch=packages.filter(p=>/^(torch|torchaudio)==/.test(p));
-    if(torchFrom&&torch.length)await run(uv,['pip','install','--python',pythonBin,'--index-url',torchFrom,...torch],{cwd:dir,signal,onLine:()=>report('packages',.06,.25,Math.min(.5,++lines/400),'安裝 PyTorch')});
-    await run(uv,['pip','install','--python',pythonBin,'--build-constraints',path.basename(constraints),...packages],{cwd:dir,signal,onLine:()=>report('packages',.06,.25,Math.min(.95,++lines/400),'安裝 Python 套件')});
+    if(torchFrom&&torch.length)await run(uv,['pip','install','--python',pythonBin,'--index-url',torchFrom,...torch],{cwd:dir,signal,onLine:()=>report('packages',.06,.25,Math.min(.5,++lines/400),t('voiceEngines.install.torch'))});
+    await run(uv,['pip','install','--python',pythonBin,'--build-constraints',path.basename(constraints),...packages],{cwd:dir,signal,onLine:()=>report('packages',.06,.25,Math.min(.95,++lines/400),t('voiceEngines.install.packages'))});
     const totals=models.map(()=>0);
     for(const [i,model] of models.entries()){
-      await fetchModel({...model,dir:path.join(modelsDir,model.name),fetchImpl,signal,onProgress:(p,done,total)=>{totals[i]=p;report('models',.25,1,totals.reduce((a,b)=>a+b,0)/models.length,`下載模型 ${model.name}：${(done/1e9).toFixed(2)} / ${(total/1e9).toFixed(2)} GB`);}});
+      await fetchModel({...model,dir:path.join(modelsDir,model.name),fetchImpl,signal,onProgress:(p,done,total)=>{totals[i]=p;report('models',.25,1,totals.reduce((a,b)=>a+b,0)/models.length,t('voiceEngines.install.model',{name:model.name,done:(done/1e9).toFixed(2),total:(total/1e9).toFixed(2)}));}});
     }
     // single files with a known size and sha256 (e.g. text-normalisation grammars from ModelScope)
     for(const file of files){const target=path.join(dir,file.path);if(fs.existsSync(target)&&fs.statSync(target).size===file.size)continue;
-      report('files',.98,1,0,`下載 ${path.basename(file.path)}`);
+      report('files',.98,1,0,t('voiceEngines.install.file',{file:path.basename(file.path)}));
       for(let attempt=1;;attempt++){try{await fetchToFile(file.url,target,{fetchImpl,signal,size:file.size});break;}catch(error){if(signal?.aborted||attempt>=3)throw error;await new Promise(r=>setTimeout(r,1500*attempt));}}  // ModelScope's CDN sometimes answers 403 once
-      if(await sha256(target)!==file.sha256){fs.rmSync(target,{force:true});throw new Error(`${path.basename(file.path)} 檔案驗證失敗，請重新下載。`);}}
+      if(await sha256(target)!==file.sha256){fs.rmSync(target,{force:true});throw L.error('voiceEngines.install.hash',{file:path.basename(file.path)});}}
     for(const name of fs.readdirSync(dir))if(name.startsWith('.complete-'))fs.rmSync(path.join(dir,name),{force:true});  // an older spec's marker
-    fs.writeFileSync(marker,new Date().toISOString());report('done',1,1,1,'安裝完成');
+    fs.writeFileSync(marker,new Date().toISOString());report('done',1,1,1,t('voiceEngines.install.done'));
     return {python:pythonBin,size:folderSize(dir)};
   }
   return {dir,python:pythonBin,srcDir,modelsDir,installed,install,spec,size:()=>folderSize(dir)};

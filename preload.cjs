@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('bula', {
   select: value => ipcRenderer.invoke('bula:select', value),
   onState: callback => ipcRenderer.on('bula:state', (_event, state) => callback(state)),
   saveSettings: data => ipcRenderer.invoke('bula:save-settings', data),
+  // the interface language ('auto' or zh-Hant / zh-Hans / en / ja); applies at once in every window
+  uiLanguage: value => ipcRenderer.invoke('bula:ui-language', value),
   models: () => ipcRenderer.invoke('bula:models'),
   chat: (history, options) => ipcRenderer.invoke('bula:chat', history, options),
   openOutput:id=>ipcRenderer.invoke('bula:open-output',id),
@@ -125,3 +127,5 @@ contextBridge.exposeInMainWorld('bula', {
   onStreaming: callback => ipcRenderer.on('bula:streaming', (_event, on) => callback(on)),
   onNotice: callback => ipcRenderer.on('bula:notice', (_event, text) => callback(text))
 });
+// the interface language for i18n.js: the dictionary once, synchronously, before the page renders; then every change
+contextBridge.exposeInMainWorld('i18nBridge',{get:()=>ipcRenderer.sendSync('i18n:get'),onChange:callback=>ipcRenderer.on('i18n:changed',(_event,value)=>callback(value))});

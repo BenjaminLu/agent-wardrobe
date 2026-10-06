@@ -3,6 +3,10 @@
 // The page exposes no API, so before its scripts run we catch its own objects as they are constructed (each class sets a
 // property no other object uses), read positions every frame, and press the same keys a person would.
 const {contextBridge,ipcRenderer}=require('electron');
+// The HUD speaks the interface language (the sandboxed preload cannot load i18n.js: a small lookup with {name} filling does).
+let bundle={lang:'en',dict:{}};try{bundle=ipcRenderer.sendSync('i18n:get')||bundle;}catch{}
+ipcRenderer.on('i18n:changed',(_event,next)=>{if(next)bundle=next;});
+const t=(key,vars={})=>String(bundle.dict?.[key]??key).replace(/\{(\w+)\}/g,(whole,name)=>vars[name]!=null?String(vars[name]):whole);
 
 contextBridge.executeInMainWorld({func:()=>{
   const seen=window.__pikaAgent={players:[],ball:null,game:null};
@@ -29,10 +33,10 @@ const NET_X=216,HALF=32;
 // Four ways to play; after three points lost in a row the character pauses and switches to the most promising one.
 const STRATEGIES=[
   // A uses the built-in computer player's own numbers; the others lean toward the net or toward defence.
-  {id:'A',zh:'標準打法',en:'standard',offset:0,jumpBelow:104,maxVx:5,wait:108,spike:[KEYS.right]},
-  {id:'B',zh:'貼網壓迫',en:'press the net',offset:-4,jumpBelow:124,maxVx:6,wait:150,spike:[KEYS.right,KEYS.down]},
-  {id:'C',zh:'後場防守',en:'deep defence',offset:-8,jumpBelow:94,maxVx:4,wait:84,spike:[KEYS.right,KEYS.up]},
-  {id:'D',zh:'提早起跳',en:'jump early',offset:0,jumpBelow:134,maxVx:7,wait:120,spike:[KEYS.right]}
+  {id:'A',offset:0,jumpBelow:104,maxVx:5,wait:108,spike:[KEYS.right]},
+  {id:'B',offset:-4,jumpBelow:124,maxVx:6,wait:150,spike:[KEYS.right,KEYS.down]},
+  {id:'C',offset:-8,jumpBelow:94,maxVx:4,wait:84,spike:[KEYS.right,KEYS.up]},
+  {id:'D',offset:0,jumpBelow:134,maxVx:7,wait:120,spike:[KEYS.right]}
 ].map(s=>({...s,won:0,lost:0}));
 let strategy=STRATEGIES[0];
 const QUESTIONS={
@@ -79,13 +83,12 @@ function describe(s){
   return `${move} ${above?'The ball is high right above Pikachu and falling, time to jump.':'The ball is not above Pikachu yet, wait.'}`;
 }
 
-let running=false,lastScores=null,lostInRow=0,plays={jumps:0,spikes:0,ballOurSide:0,ticks:0,air:[],points:[]},airTrack=null,jumpUntil=0,stats={n:0,since:0,ms:[]},hud,note='';
+let running=false,lastScores=null,lostInRow=0,plays={jumps:0,spikes:0,ballOurSide:0,ticks:0,air:[],points:[]},airTrack=null,jumpUntil=0,stats={n:0,since:0,ms:[]},hud,note=()=>'';
 function showHud(text){
   if(!hud){hud=document.createElement('div');hud.id='agent-hud';Object.assign(hud.style,{position:'fixed',left:'8px',bottom:'8px',zIndex:9999,background:'#0d1b2add',color:'#e8f1f8',font:'12px -apple-system,sans-serif',padding:'6px 10px',borderRadius:'8px',pointerEvents:'none',whiteSpace:'pre',maxWidth:'70vw'});document.body.append(hud);}
   hud.textContent=text;
 }
-const zh=()=>/\/zh\//.test(location.pathname);
-const label=st=>`${st.id}「${zh()?st.zh:st.en}」 ${st.won}:${st.lost}`;
+const label=st=>t('game.pikachu.label',{id:st.id,name:t(`game.pikachu.strategy.${st.id}`),won:st.won,lost:st.lost});
 // Untried first, then the best record so far (with a small prior so one lucky point does not decide).
 function nextStrategy(){
   const others=STRATEGIES.filter(st=>st!==strategy),untried=others.filter(st=>st.won+st.lost===0);
@@ -94,8 +97,8 @@ function nextStrategy(){
 async function rethink(){
   const from=strategy;strategy=nextStrategy();release();setPaused(true);lostInRow=0;
   ipcRenderer.invoke('game:event','rethink');
-  note=zh()?`連丟三分，暫停換打法：${label(from)} → ${label(strategy)}`:`Lost three in a row; switching: ${label(from)} → ${label(strategy)}`;
-  showHud(note);await sleep(2500);setPaused(false);
+  const was={...from},now={...strategy};note=()=>t('game.pikachu.rethink',{from:label(was),to:label(now)});
+  showHud(note());await sleep(2500);setPaused(false);
 }
 function onScore(s){
   if(!lastScores){lastScores=s.scores;return;}
@@ -152,7 +155,7 @@ async function play(){
         ipcRenderer.invoke('game:decide',`The open space on the other side is ${open}.`,SPIKE_QUESTION).then(r=>{if(!r.skip)spikePlan={choice:r.answers.spike.choice,open};}).catch(()=>{});}
       stats.n++;stats.ms.push(result.ms);if(stats.ms.length>60)stats.ms.shift();
       const rate=stats.n/((performance.now()-stats.since)/1000),median=[...stats.ms].sort((a,b)=>a-b)[stats.ms.length>>1];
-      showHud(`${engine==='jev'?'Jev':'Laya'} · ${rate.toFixed(0)}/s · ${median.toFixed(0)} ms · ${zh()?'打法':'plan'} ${label(strategy)}\n${state}\n→ ${go.choice} · ${jump.choice}${spikePlan?` · ${zh()?'吊':'aim'} ${PLAN[spikePlan.choice]}（${zh()?'空檔':'open'} ${spikePlan.open}）${lastShot?` → x≈${Math.round(lastShot.x)}`:''}`:''}  ·  ${s.scores[0]} : ${s.scores[1]}${note?`\n${note}`:''}`);
+      showHud(`${engine==='jev'?'Jev':'Laya'} · ${rate.toFixed(0)}/s · ${median.toFixed(0)} ms · ${t('game.pikachu.plan',{plan:label(strategy)})}\n${state}\n→ ${go.choice} · ${jump.choice}${spikePlan?` · ${t('game.pikachu.aim',{plan:PLAN[spikePlan.choice],open:spikePlan.open})}${lastShot?` → x≈${Math.round(lastShot.x)}`:''}`:''}  ·  ${s.scores[0]} : ${s.scores[1]}${note()?`\n${note()}`:''}`);
     }catch(error){showHud(String(error.message).replace(/^Error invoking remote method '[^']+': (Error: )?/,''));running=false;release();break;}
     await sleep(Math.max(0,minInterval-(performance.now()-started)));
   }

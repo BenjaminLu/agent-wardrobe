@@ -1,4 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');
+require('../locales.cjs').setLanguage('zh-Hant');
 const {createLibrary,license,translate,vroidLicense}=require('../asset-library.cjs');const {fetchFixture}=require('./fixtures/library/make.cjs');
 test('only licences that allow reuse and changes are accepted, with credit noted',()=>{
   assert.deepEqual(license('CC0'),{id:'cc0',label:'CC0',commercial:true,credit:false,shareAlike:false,tier:'open'});

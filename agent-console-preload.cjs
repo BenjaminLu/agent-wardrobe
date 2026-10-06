@@ -7,3 +7,5 @@ contextBridge.exposeInMainWorld('agentConsole',{
   emergencyStop:()=>ipcRenderer.send('agent-console:emergency'),
   onEvent:callback=>ipcRenderer.on('agent-console:event',(_event,data)=>callback(data))
 });
+// the interface language for i18n.js: the dictionary once, synchronously, before the page renders; then every change
+contextBridge.exposeInMainWorld('i18nBridge',{get:()=>ipcRenderer.sendSync('i18n:get'),onChange:callback=>ipcRenderer.on('i18n:changed',(_event,value)=>callback(value))});

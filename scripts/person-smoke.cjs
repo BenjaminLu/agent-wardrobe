@@ -27,6 +27,13 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',tex
   await p(`document.querySelector('#revise').value='頭髮再短一點';document.querySelector('#revise-form').requestSubmit();true`);
   await wait(()=>p(`document.querySelector('#summary').textContent==='短髮版'`));
   assert.ok(fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse).at(-1).revise,'the request reaches Codex');
+  // a new interface language redraws the open window (status line and look captions too); then back to zh-Hant
+  for(const [lang,title,look] of [['en','Character from a photo','Neutral'],['ja','写真からキャラクターを作る','ふつう'],['zh-Hant','用照片做角色','一般']]){
+    await js(`window.bula.uiLanguage(${JSON.stringify(lang)})`);
+    await wait(()=>p(`document.querySelector('h1').textContent===${JSON.stringify(title)}&&document.querySelector('#expressions figcaption').textContent===${JSON.stringify(look)}`),5000);
+    assert.equal(await p(`document.querySelector('#status').textContent`),await p(`t('person.status.drawn')`),`${lang}: the status line is redrawn`);
+    if(process.env.PERSON_SHOTS)fs.writeFileSync(path.join(process.env.PERSON_SHOTS,`person-${lang}.png`),(await pw.webContents.capturePage()).toPNG());
+  }
   await p(`document.querySelector('#name').value='小明';document.querySelector('#save').click();true`);
   await wait(()=>runtime.state.modId.startsWith('me-'));
   const id=runtime.state.modId,modDir=path.join(app.getPath('userData'),'my-mods',id);
@@ -36,7 +43,7 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',tex
   // the marketplace lists it as private with an edit button, which reopens it for editing
   await openWardrobe();await wait(()=>getMarket()&&!getMarket().isDestroyed());const mk=code=>getMarket().webContents.executeJavaScript(code);
   await wait(()=>mk(`Boolean(document.querySelector('[data-mod-id=${id}] .edit-person'))`).catch(()=>false));
-  assert.equal(await mk(`document.querySelector('[data-mod-id=${id}] .badge').textContent`),'Private');
+  assert.equal(await mk(`document.querySelector('[data-mod-id=${id}] .badge').textContent`),await mk(`t('marketplace.card.private')`));
   fs.writeFileSync(path.join(__dirname,'..','evidence','person-marketplace.png'),(await getMarket().webContents.capturePage()).toPNG());
   // reopen the saved character from the marketplace and keep editing it (no photo this time: Codex sees only its render)
   await mk(`document.querySelector('[data-mod-id=${id}] .edit-person').click();true`);await wait(()=>personService.getWindow()&&personService.getWindow()!==pw&&!personService.getWindow().isDestroyed());

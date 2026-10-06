@@ -1,7 +1,7 @@
 // Watch mode: the user plays any game; the character looks at that window every few seconds and comments.
 // Before watching it looks the game up (Wikipedia: summary and gameplay only, never the story), keeps short notes of how far
 // the player has got, and is told never to reveal anything beyond what has been on screen.
-const fs=require('node:fs');const path=require('node:path');
+const fs=require('node:fs');const path=require('node:path');const L=require('./locales.cjs');
 
 // Sections that describe the story are dropped before the model ever sees them.
 const SPOILER=/plot|story|synopsis|ending|characters|劇情|剧情|故事|情節|情节|結局|结局|角色|登場人物|登场人物|設定|世界觀|世界观/i;
@@ -81,7 +81,7 @@ function createWatch({desktopCapturer,app,handle,getWin,getSettings,getRuntime,g
       const response=await fetchImpl(`${model.base}/chat/completions`,{method:'POST',signal:AbortSignal.timeout(45000),headers:{'Content-Type':'application/json',...model.headers},body:JSON.stringify({model:model.model,temperature:.8,max_tokens:model.structured?300:1500,
         messages:[{role:'system',content:system},{role:'user',content:[{type:'text',text:'Current screen:'},{type:'image_url',image_url:{url:`data:image/jpeg;base64,${jpeg}`}}]}],
         ...(model.structured?{response_format:{type:'json_schema',json_schema:{name:'comment',schema:SCHEMA}}}:{})})});
-      if(!response.ok)throw new Error(`看畫面的模型回應 ${response.status}：${(await response.text()).slice(0,160)}`);
+      if(!response.ok)throw L.error('game.watch.modelStatus',{status:response.status,body:(await response.text()).slice(0,160)});
       const content=(await response.json()).choices?.[0]?.message?.content||'';
       const reply=JSON.parse(content.replace(/<think>[\s\S]*?<\/think>/g,'').replace(/^[^{]*/,'').replace(/[^}]*$/,''));
       if(reply.progress&&reply.progress!==s.progress.at(-1))s.progress.push(String(reply.progress).slice(0,60));
@@ -98,7 +98,7 @@ function createWatch({desktopCapturer,app,handle,getWin,getSettings,getRuntime,g
   handle('bula:watch-sources',async()=>(await desktopCapturer.getSources({types:['screen','window'],thumbnailSize:{width:0,height:0},fetchWindowIcons:false}))
     .filter(s=>s.id.startsWith('screen:')||(!/Agent Wardrobe|Electron/i.test(s.name)&&s.name.trim())).map(s=>({id:s.id,name:s.name,screen:s.id.startsWith('screen:')})));
   handle('bula:watch-start',async({sourceId,game,interval=6})=>{
-    if(typeof sourceId!=='string'||typeof game!=='string'||!game.trim())throw new Error('請選擇遊戲視窗並填寫遊戲名稱。');
+    if(typeof sourceId!=='string'||typeof game!=='string'||!game.trim())throw L.error('game.watch.pickWindow');
     stop();send('bula:watch',{state:'research',game});
     const info=await brief(game.trim().slice(0,80));
     session={sourceId,game:game.trim().slice(0,80),brief:info,progress:[],recent:[],last:null,quietUntil:0,busy:false,cooldown:20000};

@@ -2,17 +2,18 @@
 // move, click (button, count), drag, scroll, type, key, position, frontmost, preflight. Coordinates arrive in logical (DIP)
 // primary-display points; macOS posts them as-is, Windows (bin/native-input.exe, SendInput) and X11 (xdotool) get device pixels.
 const fs=require('node:fs');const path=require('node:path');const {execFile,execFileSync}=require('node:child_process');
+const L=require('./locales.cjs');
 const ROOT=__dirname;
 const helperPath=(platform=process.platform)=>path.join(ROOT,'bin',platform==='win32'?'native-input.exe':'native-input');
 function onPath(name,env=process.env){for(const dir of String(env.PATH||'').split(path.delimiter).filter(Boolean)){try{fs.accessSync(path.join(dir,name),fs.constants.X_OK);return true;}catch{}}return false;}
 // What the UI and the task runner check before offering or starting a computer task.
 function support({platform=process.platform,env=process.env,has=name=>onPath(name,env),helper=file=>fs.existsSync(file)}={}){
   if(platform==='darwin')return {available:true,backend:'macos',permissions:true};
-  if(platform==='win32')return helper(helperPath('win32'))?{available:true,backend:'windows'}:{available:false,backend:'windows',reason:'Native input helper missing; run npm run build:native.'};
-  if(platform!=='linux')return {available:false,backend:null,reason:`Computer use is not supported on ${platform}.`};
-  if(env.XDG_SESSION_TYPE==='wayland'||(env.WAYLAND_DISPLAY&&!env.DISPLAY))return {available:false,backend:'wayland',reason:'Computer use needs an X11 session: Wayland does not let apps move the pointer or send keys to other windows. Log in with "Ubuntu on Xorg" (or your desktop\'s X11 session) to use it.'};
-  if(!env.DISPLAY)return {available:false,backend:'x11',reason:'Computer use needs a graphical X11 session (DISPLAY is not set).'};
-  if(!has('xdotool'))return {available:false,backend:'x11',reason:'Computer use on Linux needs xdotool: install it (sudo apt install xdotool, or your distribution\'s package) and restart Agent Wardrobe.'};
+  if(platform==='win32')return helper(helperPath('win32'))?{available:true,backend:'windows'}:{available:false,backend:'windows',reason:L.t('tasks.computer.helperMissing')};
+  if(platform!=='linux')return {available:false,backend:null,reason:L.t('tasks.computer.unsupported',{platform})};
+  if(env.XDG_SESSION_TYPE==='wayland'||(env.WAYLAND_DISPLAY&&!env.DISPLAY))return {available:false,backend:'wayland',reason:L.t('tasks.computer.wayland')};
+  if(!env.DISPLAY)return {available:false,backend:'x11',reason:L.t('tasks.computer.noDisplay')};
+  if(!has('xdotool'))return {available:false,backend:'x11',reason:L.t('tasks.computer.xdotool')};
   return {available:true,backend:'x11'};
 }
 // Logical → device pixels. Electron reports the primary display in DIPs from (0,0); SendInput (per-monitor DPI aware) and X11 work in pixels.
@@ -82,7 +83,7 @@ class NativeInput {
   // Returns the helper's JSON line as text, like bin/native-input on macOS.
   async run(input,{scale=1}={}){
     if(this.platform==='darwin'){
-      const helper=helperPath('darwin');if(!fs.existsSync(helper))throw new Error('Native input helper missing; run npm run build:native.');
+      const helper=helperPath('darwin');if(!fs.existsSync(helper))throw L.error('tasks.computer.helperMissing');
       return this.exec(helper,[JSON.stringify(input)],{maxBuffer:4096});
     }
     const status=support({platform:this.platform});if(!status.available)throw new Error(status.reason);

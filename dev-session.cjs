@@ -12,6 +12,7 @@
 //   turn {status:'completed'|'interrupted'|'failed', error}
 //   notice {text} / error {message} / closed {code}
 // calls: start(), send(text), interrupt(), approve(id), deny(id, message), close()
+const L = require('./locales.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -144,8 +145,8 @@ class ClaudeAdapter extends EventEmitter {
     this.engine = 'claude'; this.child = null; this.busy = false; this.state = {}; this.stderr = ''; this.closed = false; this.requests = 0;
   }
   async start() {
-    const claude = this.findBinary('claude'); if (!claude) throw new Error('找不到 Claude Code（claude）。');
-    if (!fs.existsSync(this.cwd)) throw new Error(`專案資料夾不見了：${this.cwd}`);
+    const claude = this.findBinary('claude'); if (!claude) throw L.error('devSession.claudeMissing');
+    if (!fs.existsSync(this.cwd)) throw L.error('devSession.projectMissing', { path: this.cwd });
     this.dir = fs.mkdtempSync(path.join(this.tmp, 'wardrobe-dev-')); fs.chmodSync(this.dir, 0o700);
     this.bridge = new PermissionBridge({ dir: this.dir });
     const bridgeFile = await this.bridge.listen();
@@ -241,7 +242,7 @@ class Rpc extends EventEmitter {
   fail(id, code, message) { try { this.send({ id, error: { code, message } }); } catch {} }
 }
 async function startCodexServer({ findBinary, launch = platform.launch, env = process.env, cwd }) {
-  const codex = findBinary('codex'); if (!codex) throw new Error('找不到 Codex（codex）。');
+  const codex = findBinary('codex'); if (!codex) throw L.error('devSession.codexMissing');
   // the user's own config: their model, sandbox and approval settings, MCP servers and features
   const child = launch(codex, ['app-server', '--stdio'], { cwd, env: childEnv(env, codex), stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true });
   let stderr = ''; child.stderr.setEncoding('utf8'); child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
@@ -272,7 +273,7 @@ class CodexAdapter extends EventEmitter {
     this.engine = 'codex'; this.busy = false; this.turnId = null; this.closed = false; this.items = new Map(); this.requests = new Map(); this.next = 0; this.messages = [];
   }
   async start() {
-    if (!fs.existsSync(this.cwd)) throw new Error(`專案資料夾不見了：${this.cwd}`);
+    if (!fs.existsSync(this.cwd)) throw L.error('devSession.projectMissing', { path: this.cwd });
     const { child, rpc } = await startCodexServer({ findBinary: this.findBinary, launch: this.launch, env: this.env, cwd: this.cwd });
     this.child = child; this.rpc = rpc;
     rpc.on('notification', message => this.notification(message));

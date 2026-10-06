@@ -1,5 +1,5 @@
 // Local AI voice: Kokoro v1.0 (Apache-2.0) through sherpa-onnx. Runs offline on this Mac.
-const {renameRetry}=require('./platform.cjs');
+const {renameRetry}=require('./platform.cjs');const L=require('./locales.cjs');
 // The ~400 MB model is downloaded once from a pinned Hugging Face revision and its large files are hash-checked.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 
@@ -53,7 +53,7 @@ class Kokoro{
   constructor(dir,{sherpa}={}){this.dir=dir;this.sherpa=sherpa;this.tts=null;}
   load(){
     if(this.tts)return this.tts;
-    if(!installed(this.dir))throw new Error('本機語音模型尚未下載。到 AI 設定 → 語音 → 下載。');
+    if(!installed(this.dir))throw L.error('tts.kokoro.notDownloaded');
     const sherpa=this.sherpa||require('sherpa-onnx-node');const d=name=>path.join(this.dir,name);
     this.tts=new sherpa.OfflineTts({model:{kokoro:{model:d('model.onnx'),voices:d('voices.bin'),tokens:d('tokens.txt'),dataDir:d('espeak-ng-data'),dictDir:d('dict'),lexicon:`${d('lexicon-us-en.txt')},${d('lexicon-zh.txt')}`},numThreads:2,provider:'cpu'},ruleFsts:`${d('date-zh.fst')},${d('phone-zh.fst')},${d('number-zh.fst')}`,maxNumSentences:1});
     return this.tts;

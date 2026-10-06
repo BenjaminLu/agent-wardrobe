@@ -4,10 +4,11 @@
 //  discover — usable characters: .vrm / .glb, Live2D and MMD (through model-formats.cjs when it is there), .psd, .png / .jpg, and motions
 //  terms    — readme / 利用規約 / license text files (Shift-JIS or UTF-8), and the VRM's own licence metadata
 //  psd      — flattened to PNG: Photoshop's saved composite, or the visible layers when the file has none
-const {ON_HERE,MACHINE,tarCommand,bsdtar}=require('./platform.cjs');
+const {tarCommand,bsdtar}=require('./platform.cjs');const L=require('./locales.cjs');
 const fs=require('node:fs');const path=require('node:path');const zlib=require('node:zlib');const {spawnSync}=require('node:child_process');
 const LIMIT=500*1024*1024,MAX_ENTRIES=20000;
-const fail=(message,code)=>Object.assign(new Error(message),{code});
+// errors shown to people: translated, with their key (L.error) and a code for the caller
+const fail=(key,vars,code)=>L.error(key,vars,{code});
 
 // --- text: BOM, then strict UTF-8, then Shift-JIS (Windows-31J), then EUC-JP
 function decodeText(buffer){
@@ -25,13 +26,13 @@ function htmlText(html){return String(html).replace(/<(script|style)[\s\S]*?<\/\
 // --- paths: every name is made relative and checked before anything is written
 function safeRelative(name){
   const clean=String(name).normalize('NFC').replace(/\\/g,'/');
-  if(/^\//.test(clean)||/^[a-z]:/i.test(clean)||/[\0-\x1f]/.test(clean))throw fail(`壓縮檔裡有不安全的路徑：${clean.slice(0,80)}`,'ZIP_SLIP');
+  if(/^\//.test(clean)||/^[a-z]:/i.test(clean)||/[\0-\x1f]/.test(clean))throw fail('archive.unsafePath',{path:clean.slice(0,80)},'ZIP_SLIP');
   const parts=clean.split('/').filter(p=>p&&p!=='.');
-  if(parts.includes('..'))throw fail(`壓縮檔裡有不安全的路徑：${clean.slice(0,80)}`,'ZIP_SLIP');
+  if(parts.includes('..'))throw fail('archive.unsafePath',{path:clean.slice(0,80)},'ZIP_SLIP');
   return parts.join('/');
 }
 const junk=rel=>/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db|desktop\.ini)(\/|$)/i.test(rel);
-function inside(root,rel){const target=path.resolve(root,rel);if(target!==path.resolve(root)&&!target.startsWith(path.resolve(root)+path.sep))throw fail('壓縮檔裡有不安全的路徑。','ZIP_SLIP');return target;}
+function inside(root,rel){const target=path.resolve(root,rel);if(target!==path.resolve(root)&&!target.startsWith(path.resolve(root)+path.sep))throw fail('archive.unsafePathPlain',null,'ZIP_SLIP');return target;}
 
 // --- zip: central directory → local headers; stored and deflate only, no encryption, no ZIP64
 function decodeName(raw,utf8,extra){
@@ -43,12 +44,12 @@ function decodeName(raw,utf8,extra){
 }
 function zipEntries(buf){
   let end=-1;for(let i=buf.length-22;i>=Math.max(0,buf.length-65557);i--)if(buf.readUInt32LE(i)===0x06054b50){end=i;break;}
-  if(end<0)throw fail('ZIP 檔不完整，請重新下載。','ZIP_BROKEN');
+  if(end<0)throw fail('archive.zipIncomplete',null,'ZIP_BROKEN');
   const count=buf.readUInt16LE(end+10),offset=buf.readUInt32LE(end+16);
-  if(count===0xffff||offset===0xffffffff)throw fail('這個 ZIP 用了 ZIP64 格式，目前不支援。','ZIP64');
+  if(count===0xffff||offset===0xffffffff)throw fail('archive.zip64Unsupported',null,'ZIP64');
   const entries=[];let p=offset;
   for(let n=0;n<count;n++){
-    if(p+46>buf.length||buf.readUInt32LE(p)!==0x02014b50)throw fail('ZIP 目錄損壞，請重新下載。','ZIP_BROKEN');
+    if(p+46>buf.length||buf.readUInt32LE(p)!==0x02014b50)throw fail('archive.zipDirBroken',null,'ZIP_BROKEN');
     const flags=buf.readUInt16LE(p+8),method=buf.readUInt16LE(p+10),csize=buf.readUInt32LE(p+20),size=buf.readUInt32LE(p+24),nl=buf.readUInt16LE(p+28),el=buf.readUInt16LE(p+30),cl=buf.readUInt16LE(p+32);
     const host=buf.readUInt16LE(p+4)>>8,mode=buf.readUInt32LE(p+38)>>>16,local=buf.readUInt32LE(p+42);
     const name=decodeName(buf.subarray(p+46,p+46+nl),Boolean(flags&0x800),buf.subarray(p+46+nl,p+46+nl+el));
@@ -58,22 +59,22 @@ function zipEntries(buf){
 }
 function unzip(file,dest,{limit=LIMIT}={}){
   const buf=fs.readFileSync(file),entries=zipEntries(buf);
-  if(entries.length>MAX_ENTRIES)throw fail('壓縮檔裡的檔案太多。','TOO_MANY');
-  if(entries.reduce((sum,e)=>sum+e.size,0)>limit)throw fail(`解開後超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
+  if(entries.length>MAX_ENTRIES)throw fail('archive.tooManyFiles',null,'TOO_MANY');
+  if(entries.reduce((sum,e)=>sum+e.size,0)>limit)throw fail('archive.tooBigLimit',{mb:Math.round(limit/1048576)},'TOO_BIG');
   const skipped=[];let total=0;
   for(const e of entries){
     const rel=safeRelative(e.name);if(!rel||junk(rel))continue;
     if(e.symlink){skipped.push(rel);continue;}
     if(e.dir){fs.mkdirSync(inside(dest,rel),{recursive:true});continue;}
-    if(e.flags&1)throw fail(`這個壓縮檔有密碼，請先在${ON_HERE}解開。`,'ZIP_PASSWORD');
-    if(buf.readUInt32LE(e.local)!==0x04034b50)throw fail('ZIP 檔損壞，請重新下載。','ZIP_BROKEN');
+    if(e.flags&1)throw fail('archive.passwordHere',null,'ZIP_PASSWORD');
+    if(buf.readUInt32LE(e.local)!==0x04034b50)throw fail('archive.zipBroken',null,'ZIP_BROKEN');
     const start=e.local+30+buf.readUInt16LE(e.local+26)+buf.readUInt16LE(e.local+28),raw=buf.subarray(start,start+e.csize);
     let data;
     if(e.method===0)data=raw;
-    else if(e.method===8){try{data=zlib.inflateRawSync(raw,{maxOutputLength:Math.max(1,e.size)});}catch{throw fail(`ZIP 裡的「${rel}」解不開（可能損壞或大小不符）。`,'ZIP_BROKEN');}}
-    else throw fail(`ZIP 用了不支援的壓縮方式（${e.method}），請先在${ON_HERE}解開。`,'ZIP_METHOD');
-    if(data.length!==e.size)throw fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN');
-    if((total+=data.length)>limit)throw fail('解開後太大了。','TOO_BIG');
+    else if(e.method===8){try{data=zlib.inflateRawSync(raw,{maxOutputLength:Math.max(1,e.size)});}catch{throw fail('archive.entryBroken',{name:rel},'ZIP_BROKEN');}}
+    else throw fail('archive.methodHere',{method:e.method},'ZIP_METHOD');
+    if(data.length!==e.size)throw fail('archive.entrySize',{name:rel},'ZIP_BROKEN');
+    if((total+=data.length)>limit)throw fail('archive.tooBig',null,'TOO_BIG');
     const target=inside(dest,rel);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,data,{mode:0o600});
   }
   return {skipped};
@@ -85,17 +86,17 @@ function readAt(fd,length,position){const b=Buffer.alloc(length);const n=fs.read
 function zip64Entries(fd,size){
   const tail=readAt(fd,Math.min(size,65557+20+56),Math.max(0,size-(65557+20+56)));const base=Math.max(0,size-tail.length);
   let end=-1;for(let i=tail.length-22;i>=0;i--)if(tail.readUInt32LE(i)===0x06054b50){end=i;break;}
-  if(end<0)throw fail('ZIP 檔不完整，請重新下載。','ZIP_BROKEN');
+  if(end<0)throw fail('archive.zipIncomplete',null,'ZIP_BROKEN');
   let count=tail.readUInt16LE(end+10),dirSize=tail.readUInt32LE(end+12),offset=tail.readUInt32LE(end+16);
   if(count===0xffff||offset===0xffffffff||dirSize===0xffffffff){
-    const loc=end-20;if(loc<0||tail.readUInt32LE(loc)!==0x07064b50)throw fail('ZIP64 目錄找不到。','ZIP_BROKEN');
-    const rec=readAt(fd,56,Number(tail.readBigUInt64LE(loc+8)));if(rec.readUInt32LE(0)!==0x06064b50)throw fail('ZIP64 目錄損壞。','ZIP_BROKEN');
+    const loc=end-20;if(loc<0||tail.readUInt32LE(loc)!==0x07064b50)throw fail('archive.zip64DirMissing',null,'ZIP_BROKEN');
+    const rec=readAt(fd,56,Number(tail.readBigUInt64LE(loc+8)));if(rec.readUInt32LE(0)!==0x06064b50)throw fail('archive.zip64DirBroken',null,'ZIP_BROKEN');
     count=Number(rec.readBigUInt64LE(32));dirSize=Number(rec.readBigUInt64LE(40));offset=Number(rec.readBigUInt64LE(48));
   }
-  if(count>MAX_ENTRIES*10||offset+dirSize>base+end)throw fail('ZIP 目錄損壞，請重新下載。','ZIP_BROKEN');
+  if(count>MAX_ENTRIES*10||offset+dirSize>base+end)throw fail('archive.zipDirBroken',null,'ZIP_BROKEN');
   const dir=readAt(fd,dirSize,offset),entries=[];let p=0;
   for(let n=0;n<count;n++){
-    if(p+46>dir.length||dir.readUInt32LE(p)!==0x02014b50)throw fail('ZIP 目錄損壞，請重新下載。','ZIP_BROKEN');
+    if(p+46>dir.length||dir.readUInt32LE(p)!==0x02014b50)throw fail('archive.zipDirBroken',null,'ZIP_BROKEN');
     const flags=dir.readUInt16LE(p+8),method=dir.readUInt16LE(p+10),nl=dir.readUInt16LE(p+28),el=dir.readUInt16LE(p+30),cl=dir.readUInt16LE(p+32);
     let csize=dir.readUInt32LE(p+20),usize=dir.readUInt32LE(p+24),local=dir.readUInt32LE(p+42);const host=dir.readUInt16LE(p+4)>>8,mode=dir.readUInt32LE(p+38)>>>16;
     const extra=dir.subarray(p+46+nl,p+46+nl+el);
@@ -112,7 +113,7 @@ async function unzipLarge(file,dest,{limit=Infinity,onProgress=()=>{},links=fals
   const fd=fs.openSync(file,'r');const skipped=[];
   try{
     const entries=zip64Entries(fd,fs.fstatSync(fd).size),total=entries.reduce((n,e)=>n+e.size,0);
-    if(total>limit)throw fail(`解開後超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
+    if(total>limit)throw fail('archive.tooBigLimit',{mb:Math.round(limit/1048576)},'TOO_BIG');
     let done=0;
     for(const e of entries){
       const rel=safeRelative(e.name);if(!rel||junk(rel))continue;
@@ -125,15 +126,15 @@ async function unzipLarge(file,dest,{limit=Infinity,onProgress=()=>{},links=fals
         fs.mkdirSync(path.dirname(target),{recursive:true});fs.rmSync(target,{force:true});fs.symlinkSync(to,target);continue;
       }
       if(e.dir){fs.mkdirSync(target,{recursive:true});continue;}
-      if(e.flags&1)throw fail('這個壓縮檔有密碼。','ZIP_PASSWORD');if(![0,8].includes(e.method))throw fail(`ZIP 用了不支援的壓縮方式（${e.method}）。`,'ZIP_METHOD');
-      const head=readAt(fd,30,e.local);if(head.readUInt32LE(0)!==0x04034b50)throw fail('ZIP 檔損壞，請重新下載。','ZIP_BROKEN');
+      if(e.flags&1)throw fail('archive.password',null,'ZIP_PASSWORD');if(![0,8].includes(e.method))throw fail('archive.method',{method:e.method},'ZIP_METHOD');
+      const head=readAt(fd,30,e.local);if(head.readUInt32LE(0)!==0x04034b50)throw fail('archive.zipBroken',null,'ZIP_BROKEN');
       const start=e.local+30+head.readUInt16LE(26)+head.readUInt16LE(28);fs.mkdirSync(path.dirname(target),{recursive:true});
       const out=fs.createWriteStream(target,{mode:e.mode&0o111?0o755:0o644});let written=0;
       const source=e.csize?fs.createReadStream(null,{fd,start,end:start+e.csize-1,autoClose:false}):require('node:stream').Readable.from([]);
-      const counter=new (require('node:stream').Transform)({transform(chunk,_enc,cb){written+=chunk.length;done+=chunk.length;if(written>e.size)return cb(fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN'));onProgress(total?done/total:1);cb(null,chunk);}});
+      const counter=new (require('node:stream').Transform)({transform(chunk,_enc,cb){written+=chunk.length;done+=chunk.length;if(written>e.size)return cb(fail('archive.entrySize',{name:rel},'ZIP_BROKEN'));onProgress(total?done/total:1);cb(null,chunk);}});
       try{await require('node:stream/promises').pipeline(...[source,...(e.method===8?[zlib.createInflateRaw()]:[]),counter,out]);}
-      catch(error){throw error.code==='ZIP_BROKEN'?error:fail(`ZIP 裡的「${rel}」解不開（可能損壞）。`,'ZIP_BROKEN');}
-      if(written!==e.size)throw fail(`ZIP 裡的「${rel}」大小不符。`,'ZIP_BROKEN');
+      catch(error){throw error.code==='ZIP_BROKEN'?error:fail('archive.entryBrokenShort',{name:rel},'ZIP_BROKEN');}
+      if(written!==e.size)throw fail('archive.entrySize',{name:rel},'ZIP_BROKEN');
     }
     return {skipped,entries:entries.length};
   }finally{fs.closeSync(fd);}
@@ -142,16 +143,16 @@ async function unzipLarge(file,dest,{limit=Infinity,onProgress=()=>{},links=fals
 // --- 7z / rar: bsdtar (libarchive: /usr/bin/tar on macOS, tar.exe on Windows 10+, bsdtar from libarchive-tools on Linux)
 // lists first, refuses unsafe paths, then extracts; links are removed afterwards
 function untar(file,dest,{limit=LIMIT,tar=tarCommand(),canRead=bsdtar()}={}){
-  if(!canRead)throw fail('這台電腦解不開 7z / rar：請安裝 libarchive-tools（提供 bsdtar，例如 sudo apt install libarchive-tools），或改下載 .zip 版本。','ARCHIVE_UNSUPPORTED');
+  if(!canRead)throw fail('archive.noBsdtar',null,'ARCHIVE_UNSUPPORTED');
   const list=spawnSync(tar,['-tvf',file],{encoding:'utf8',maxBuffer:64e6,timeout:60000,windowsHide:true});
-  if(list.status!==0)throw fail(`這個壓縮檔解不開（${String(list.stderr).trim().split('\n')[0]||'格式不支援'}）。請改下載 .zip 版本，或先用${process.platform==='darwin'?`${MACHINE}的「封存工具程式」或 The Unarchiver `:' 7-Zip 之類的工具'}解開。`,'ARCHIVE_UNSUPPORTED');
-  const lines=list.stdout.split('\n').filter(Boolean);if(lines.length>MAX_ENTRIES)throw fail('壓縮檔裡的檔案太多。','TOO_MANY');
+  if(list.status!==0){const reason=String(list.stderr).trim().split('\n')[0];throw L.error(process.platform==='darwin'?'archive.cannotOpenMac':'archive.cannotOpenOther',{reason:reason||L.t('archive.unsupportedFormat')},{code:'ARCHIVE_UNSUPPORTED'});}
+  const lines=list.stdout.split('\n').filter(Boolean);if(lines.length>MAX_ENTRIES)throw fail('archive.tooManyFiles',null,'TOO_MANY');
   let declared=0;for(const line of lines){const m=line.match(/^\S+\s+\d+\s+\S+\s+\S+\s+(\d+)\s+\S+\s+\d+\s+[\d:]+\s+(.*)$/);if(!m)continue;declared+=Number(m[1]);safeRelative(m[2].replace(/ -> .*$/,''));}
-  if(declared>limit)throw fail(`解開後超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
+  if(declared>limit)throw fail('archive.tooBigLimit',{mb:Math.round(limit/1048576)},'TOO_BIG');
   const run=spawnSync(tar,['-xf',file,'-C',dest,'--no-same-owner'],{encoding:'utf8',timeout:10*60000,windowsHide:true});
-  if(run.status!==0)throw fail(`這個壓縮檔解不開（${String(run.stderr).trim().split('\n')[0]}）。請改下載 .zip 版本，或先在${ON_HERE}解開。`,'ARCHIVE_UNSUPPORTED');
+  if(run.status!==0)throw fail('archive.cannotExtractHere',{reason:String(run.stderr).trim().split('\n')[0]},'ARCHIVE_UNSUPPORTED');
   const skipped=[];let total=0;
-  for(const {file:f,rel,stat} of walk(dest,{links:true})){if(stat.isSymbolicLink()||!stat.isFile()){skipped.push(rel);fs.rmSync(f,{force:true});continue;}if((total+=stat.size)>limit)throw fail('解開後太大了。','TOO_BIG');}
+  for(const {file:f,rel,stat} of walk(dest,{links:true})){if(stat.isSymbolicLink()||!stat.isFile()){skipped.push(rel);fs.rmSync(f,{force:true});continue;}if((total+=stat.size)>limit)throw fail('archive.tooBig',null,'TOO_BIG');}
   return {skipped};
 }
 
@@ -161,7 +162,7 @@ function kindOf(file){const fd=fs.openSync(file,'r'),head=Buffer.alloc(8);fs.rea
   if(head.subarray(0,6).equals(Buffer.from([0x37,0x7a,0xbc,0xaf,0x27,0x1c])))return '7z';
   if(head.subarray(0,4).toString('latin1')==='Rar!')return 'rar';return 'file';}
 function unpack(file,dest,{limit=LIMIT,name=path.basename(file)}={}){
-  const size=fs.statSync(file).size;if(size>limit)throw fail(`檔案超過 ${Math.round(limit/1048576)} MB，太大了。`,'TOO_BIG');
+  const size=fs.statSync(file).size;if(size>limit)throw fail('archive.fileTooBig',{mb:Math.round(limit/1048576)},'TOO_BIG');
   fs.mkdirSync(dest,{recursive:true,mode:0o700});const kind=kindOf(file);
   if(kind==='zip')return {kind,...unzip(file,dest,{limit})};
   if(kind==='7z'||kind==='rar')return {kind,...untar(file,dest,{limit})};
@@ -289,7 +290,7 @@ function readPsd(buffer){
 // (normal blending, layer opacity and clipping masks; '!' layers are always shown, as in PSDToolKit's convention).
 function flattenPsd(buffer){
   const psd=readPsd(buffer),W=psd.width,H=psd.height;
-  if(!W||!H||W*H>64e6)throw new Error('PSD 太大或格式不支援。');
+  if(!W||!H||W*H>64e6)throw L.error('archive.psdUnsupported');
   const composite=psd.imageData?.data;
   const blank=d=>{if(!d||d.length!==W*H*4)return true;for(let i=4;i<d.length;i+=4)if(d[i]!==d[0]||d[i+1]!==d[1]||d[i+2]!==d[2]||d[i+3]!==d[3])return false;return true;};
   let rgba;

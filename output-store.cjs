@@ -1,4 +1,4 @@
-const fs=require('node:fs');const path=require('node:path');
+const fs=require('node:fs');const path=require('node:path');const {t}=require('./locales.cjs');
 const reportTool={name:'report_save',description:'Save a requested report or comparison as a document in this task’s Desktop folder. Use readable Markdown for reports, CSV for tables, TXT or JSON for data. Files are never overwritten. Returns the verified saved path.',inputSchema:{type:'object',properties:{filename:{type:'string'},content:{type:'string',maxLength:150000}},required:['filename','content'],additionalProperties:false}};
 const outputInstructions='When the user asks to organize information, prepare a report/comparison/table, or save/export data, create useful complete documents with report_save. Default to a readable Markdown report and CSV when a comparison table is useful. Include verified sources, dimensions and links when available, distinguish unknown facts, and use prior conversation context. Do not save only your short final spoken reply. The App saves to a task folder on the Desktop and provides an Open folder button. Use report_save instead of shell or other filesystem tools for these deliverables. Do not claim a file was saved without a successful tool response.';
 function wantsDocument(text){
@@ -14,7 +14,7 @@ class OutputStore{
   constructor(root,plans){this.root=path.resolve(root);this.plans=path.resolve(plans);directory(this.plans);}
   planFile(id){if(!validId(id))throw new Error('Invalid output task');return path.join(this.plans,id+'.json');}
   create(id,title){
-    const label=String(title).replace(/[\\/\x00-\x1f<>:"|?*]/g,' ').replace(/\s+/g,' ').trim().slice(0,35)||'整理資料';
+    const label=String(title).replace(/[\\/\x00-\x1f<>:"|?*]/g,' ').replace(/\s+/g,' ').trim().slice(0,35)||t('output.defaultTitle');
     const date=new Date().toLocaleDateString('en-CA');const plan={id,root:this.root,folder:path.join(this.root,date+'_'+label+'_'+id.slice(0,6)),title:label,active:true,files:[]};
     fs.writeFileSync(this.planFile(id),JSON.stringify(plan),{mode:0o600,flag:'wx'});return plan;
   }

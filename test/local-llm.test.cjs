@@ -1,4 +1,5 @@
-const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {LocalLlm,MODELS,RUNTIME,recommended}=require('../local-llm.cjs');
 test('model choice follows the Mac memory and every download is pinned',()=>{
   assert.equal(recommended(8*2**30),'qwen3.5-2b');assert.equal(recommended(16*2**30),'qwen3.5-4b');assert.equal(recommended(64*2**30),'qwen3.5-9b');

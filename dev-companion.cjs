@@ -5,6 +5,7 @@
 const devSessions = require('./dev-sessions.cjs');
 const { createAdapter: makeAdapter, listCodexThreads } = require('./dev-session.cjs');
 const { speakable, describeTool, StatusVoice, describeApproval, parseApprovalAnswer, isStopCommand } = require('./dev-speech.cjs');
+const L = require('./locales.cjs'); const { t } = L;
 
 const ENGINE_NAMES = { claude: 'Claude', codex: 'Codex' };
 function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking = () => false, getSettings, persist, remoteEvent = () => {}, findBinary, home, codexHome, canAttach = () => null, onAttention = () => {},
@@ -13,8 +14,8 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
   const pending = new Map(), voice = new StatusVoice({ now });
   // home folders may be given as functions (smoke runs set theirs after start-up)
   const homes = () => ({ home: typeof home === 'function' ? home() : home, codexHome: typeof codexHome === 'function' ? codexHome() : codexHome });
-  const zh = () => String(getSettings().language || 'zh').startsWith('zh');
-  const lang = () => getSettings().language;
+  // what the companion says and shows follows the interface language
+  const lang = () => L.language;
   const activity = (value, emotion) => { try { getRuntime()?.activity(value, emotion); } catch {} };
   function emit(event) {
     if (event.type !== 'delta' && !event.state) event = { ...event, state: snapshot() };  // pages keep busy / pending in step
@@ -40,10 +41,10 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
     await sessions(); return devSessions.findSession(cache, engine, id);
   }
   async function attach({ engine, id, askUser = Boolean(getSettings().devCodexAskMe) } = {}) {
-    if (!ENGINE_NAMES[engine] || typeof id !== 'string' || !/^[0-9a-zA-Z-]{8,80}$/.test(id)) throw new Error(zh() ? '不認得這個工作階段。' : 'Unknown session.');
-    const blocked = canAttach(); if (blocked) throw new Error(blocked);
+    if (!ENGINE_NAMES[engine] || typeof id !== 'string' || !/^[0-9a-zA-Z-]{8,80}$/.test(id)) throw L.error('devCompanion.unknownSession');
+    const blocked = canAttach(); if (blocked) throw blocked instanceof Error ? blocked : new Error(blocked);
     const session = await lookup(engine, id);
-    if (!session) throw new Error(zh() ? '找不到這個工作階段（檔案可能被搬走或刪掉了）。' : 'That session could not be found.');
+    if (!session) throw L.error('devCompanion.sessionMissing');
     if (adapter) leave({ quiet: true });
     if (getSettings().devCodexAskMe !== Boolean(askUser)) { getSettings().devCodexAskMe = Boolean(askUser); persist(); }
     const next = createAdapter(engine, { id, cwd: session.cwd, mode: session.permissionMode, askUser: engine === 'codex' && Boolean(askUser), findBinary, env: process.env });
@@ -52,21 +53,20 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
     next.on('event', event => { if (adapter === next) handle(event); });
     try { await next.start(); }
     catch (error) { if (adapter === next) { adapter = null; info = null; } try { next.close(); } catch {} emit({ type: 'state', state: snapshot() }); throw error; }
-    if (adapter !== next) throw new Error(zh() ? '已經離開了。' : 'Left already.');
+    if (adapter !== next) throw L.error('devCompanion.alreadyLeft');
     getSettings().devSession = { engine, id: info.sessionId, cwd: info.cwd, project: info.project, title: info.title, at: now() }; persist();
     activity('idle', 'happy');
     emit({ type: 'attached', state: snapshot() });
     return snapshot();
   }
   function handle(event) {
-    const z = zh();
     if (event.type === 'ready') {
       if (event.mode) info.mode = event.mode; if (event.reviewer) info.reviewer = event.reviewer;
       emit({ type: 'state', state: snapshot() }); return;
     }
     if (event.type === 'notice' && event.text === 'session-forked') {
       info.sessionId = event.sessionId; if (getSettings().devSession) { getSettings().devSession.id = event.sessionId; persist(); }
-      emit({ type: 'notice', text: z ? `Claude 把這段對話接成了新的工作階段 ${event.sessionId}。` : `Claude continued this as a new session ${event.sessionId}.` }); return;
+      emit({ type: 'notice', text: t('devCompanion.sessionForked', { id: event.sessionId }) }); return;
     }
     if (event.type === 'delta') { emit({ type: 'delta', text: event.text }); return; }
     if (event.type === 'progress') { emit({ type: 'progress', text: event.text }); return; }
@@ -101,8 +101,8 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
       const status = interrupting ? 'interrupted' : event.status; interrupting = false;
       activity(status === 'completed' ? 'success' : status === 'interrupted' ? 'idle' : 'error', status === 'completed' ? 'happy' : status === 'failed' ? 'nervous' : 'neutral');
       emit({ type: 'turn', status, error: event.error || null });
-      if (status === 'interrupted') say(z ? '好，停下來了。' : 'Okay, stopped.');
-      else if (status === 'failed') say(z ? '這一輪沒有完成，細節在聊天框。' : 'That turn did not finish; details are in the chat.');
+      if (status === 'interrupted') say(t('devCompanion.stopped'));
+      else if (status === 'failed') say(t('devCompanion.turnFailed'));
       return;
     }
     if (event.type === 'error') { emit({ type: 'error', message: event.message }); return; }
@@ -110,19 +110,18 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
   // A typed or spoken message. While an approval is pending, only an answer (or 停下來) is accepted.
   // source: 'desktop' or 'phone'; device: the phone's id, so the remote server does not echo a phone's own line back to it
   function input(text, { source = 'desktop', device = null } = {}) {
-    const z = zh();
-    if (!adapter) return { ok: false, error: z ? '還沒有接入工作階段。' : 'No session attached.' };
+    if (!adapter) return { ok: false, error: t('devCompanion.notAttached') };
     text = String(text || '').trim();
-    if (!text || text.length > 8000 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)) return { ok: false, error: z ? '訊息不能是空的或太長。' : 'Invalid message.' };
+    if (!text || text.length > 8000 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text)) return { ok: false, error: t('devCompanion.invalidMessage') };
     if (isStopCommand(text) && (busy || pending.size)) { interrupt(); return { ok: true, interrupted: true }; }
     if (pending.size) {
       const answer = parseApprovalAnswer(text);
       if (answer) { const first = [...pending.keys()][0]; respond(first, answer === 'allow', { source, how: 'words' }); return { ok: true, answered: answer }; }
-      say(z ? '請說允許或拒絕。' : 'Please say allow or deny.');
-      return { ok: false, waiting: true, error: z ? '還在等你決定：說「允許」或「拒絕」，或按卡片上的按鈕。' : 'Waiting for your decision: say “allow” or “deny”, or use the buttons.' };
+      say(t('devCompanion.sayAllowOrDeny'));
+      return { ok: false, waiting: true, error: t('devCompanion.waitingDecision') };
     }
-    if (busy) return { ok: false, busy: true, error: z ? '我還在處理上一句；要打斷可以說「停下來」。' : 'Still working on the last one; say “stop” to interrupt.' };
-    try { adapter.send(text); } catch (error) { return { ok: false, error: error.code === 'BUSY' ? (z ? '我還在處理上一句。' : 'Still working.') : error.message }; }
+    if (busy) return { ok: false, busy: true, error: t('devCompanion.stillWorkingSayStop') };
+    try { adapter.send(text); } catch (error) { return { ok: false, error: error.code === 'BUSY' ? t('devCompanion.stillWorking') : error.message }; }
     busy = true; lastFrom = source; voice.turn(); stopSpeech();
     activity('working', 'neutral');
     emit({ type: 'user', text, source, ...(device ? { from: device } : {}) });
@@ -130,7 +129,7 @@ function createDevCompanion({ getWin, getRuntime, speak, stopSpeech, isSpeaking 
   }
   // The user's decision on one request: from the card's buttons (desktop or phone) or their words.
   function respond(requestId, allow, { source = 'desktop', how = 'button' } = {}) {
-    if (!adapter || !pending.has(requestId)) return { ok: false, error: zh() ? '這個請求已經不在了。' : 'That request is gone.' };
+    if (!adapter || !pending.has(requestId)) return { ok: false, error: t('devCompanion.requestGone') };
     const done = allow ? adapter.approve(requestId) : adapter.deny(requestId, 'The user denied this.');
     pending.delete(requestId);
     stopSpeech();

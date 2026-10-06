@@ -5,22 +5,24 @@ const path = require('node:path');
 const voiceInput = require('./voice-input.cjs');
 const { execFile } = require('node:child_process');
 const { typelessStatus, SpeechEnd } = require('./typeless.cjs');
+const L = require('./locales.cjs');
 
 function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntime, getSettings, persist, speech }) {
   const asrDir = () => path.join(app.getPath('userData'), 'models', 'sensevoice-int8-2025-09-09');
   // --- Hands-free input: wake word, then dictation of the following utterance, sent to the chat.
-  const WAKE_NAMES = { annie: '安妮', miso: '米索', byte: '拜特' };
+  // the built-in characters' Chinese wake phrases: words the user says (matched by speech recognition), not interface text
+  const WAKE_PHRASES = { annie: '嘿安妮', miso: '嘿米索', byte: '嘿拜特' };
   // A wake word is a short name to call, not a sentence: a dictated question pasted into the field must not become one.
   const splitPhrases = text => String(text || '').split(/[,，、]/).map(p => p.trim()).filter(Boolean);
   const badPhrase = p => /[?？。！!.:：;；]/.test(p) || (/[\u3400-\u9fff\u3040-\u30ff]/.test(p) ? [...p].length > 8 : p.length > 24);
   function wakePhrases() {
     const custom = splitPhrases(getSettings().wakePhrases).filter(p => !badPhrase(p));
     if (custom.length) return custom.slice(0, 5);
-    const mod = getRuntime().snapshot().mod; return [WAKE_NAMES[mod.id] ? `嘿${WAKE_NAMES[mod.id]}` : null, `Hey ${mod.name.split(/\s+/)[0]}`].filter(Boolean);
+    const mod = getRuntime().snapshot().mod; return [WAKE_PHRASES[mod.id] || null, `Hey ${mod.name.split(/\s+/)[0]}`].filter(Boolean);
   }
   let wake = null, dictation = null, listenMode = 'wake', listenTimer = null, listenStarted = 0, wakeError = null, speechEnd = null;
   const useTypeless = () => getSettings().dictationEngine === 'typeless' && typelessStatus().supported;
-  const tapFn = () => new Promise((resolve, reject) => execFile(path.join(__dirname, 'bin', 'native-input'), [JSON.stringify({ action: 'fn' })], { timeout: 4000 }, (error, _out, stderr) => error ? reject(new Error(String(stderr || error.message).includes('Accessibility') ? '要用 Typeless 辨識，請在「系統設定 → 隱私權與安全性 → 輔助使用」允許 Agent Wardrobe。' : `無法啟動 Typeless：${stderr || error.message}`)) : resolve()));
+  const tapFn = () => new Promise((resolve, reject) => execFile(path.join(__dirname, 'bin', 'native-input'), [JSON.stringify({ action: 'fn' })], { timeout: 4000 }, (error, _out, stderr) => error ? reject(String(stderr || error.message).includes('Accessibility') ? L.error('wake.typelessAccessibility') : L.error('wake.typelessFailed', { error: String(stderr || error.message) })) : resolve()));
   // Wake -> bring the chat box forward -> Fn starts Typeless -> a pause ends the question -> Fn again; Typeless pastes the text.
   async function startTypeless() {
     const win = getWin(); listenMode = 'typeless'; speechEnd = new SpeechEnd();
@@ -28,7 +30,7 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
     await new Promise(resolve => setTimeout(resolve, 350));
     // Typeless pastes into the focused field: only start it once the chat box has focus, never a settings field
     const focused = () => win.webContents.executeJavaScript(`(()=>{const p=document.getElementById('prompt');if(document.activeElement!==p){document.activeElement?.blur?.();p?.focus();}return document.activeElement===p;})()`).catch(() => false);
-    if (!await focused()) { await new Promise(resolve => setTimeout(resolve, 250)); if (!await focused()) { listenMode = 'wake'; win.webContents.send('bula:typeless', { state: 'error', error: '聊天輸入框沒有拿到游標，這次先不啟動 Typeless，再叫我一次。' }); return; } }
+    if (!await focused()) { await new Promise(resolve => setTimeout(resolve, 250)); if (!await focused()) { listenMode = 'wake'; win.webContents.send('bula:typeless', { state: 'error', error: L.t('wake.typelessNoFocus') }); return; } }
     try { await tapFn(); } catch (error) { listenMode = 'wake'; win.webContents.send('bula:typeless', { state: 'error', error: error.message }); }
   }
   async function finishTypeless(result) {
@@ -124,13 +126,13 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
   handle('bula:listen-cancel',async()=>{clearInterval(listenTimer);resetBarge();voiceSession=false;wasSpeaking=false;
     if(listenMode==='typeless'){listenMode='finishing';try{await tapFn();}catch{}setTimeout(()=>{listenMode='wake';},1500);}else listenMode='wake';return true;});
   handle('bula:wake-settings',async data=>{
-    if(typeof data?.wakePhrases==='string'){const bad=splitPhrases(data.wakePhrases).find(badPhrase);if(bad)throw new Error(`「${bad.slice(0,20)}」不像喚醒詞：請用短短的稱呼，例如「嘿安妮」（中文 8 字內、不加標點）。`);getSettings().wakePhrases=data.wakePhrases.slice(0,200);}
+    if(typeof data?.wakePhrases==='string'){const bad=splitPhrases(data.wakePhrases).find(badPhrase);if(bad)throw L.error('wake.badPhrase',{phrase:bad.slice(0,20)});getSettings().wakePhrases=data.wakePhrases.slice(0,200);}
     if(['normal','high'].includes(data?.wakeSensitivity))getSettings().wakeSensitivity=data.wakeSensitivity;
     if(['local','typeless'].includes(data?.dictationEngine))getSettings().dictationEngine=data.dictationEngine;
     if(typeof data?.bargeIn==='boolean')getSettings().bargeIn=data.bargeIn;
     if(typeof data?.conversationMode==='boolean')getSettings().conversationMode=data.conversationMode;
     if(typeof data?.wakeEnabled==='boolean'){
-      if(data.wakeEnabled&&process.platform==='darwin'&&!process.env.AGENT_WARDROBE_FAKE_MIC&&systemPreferences.getMediaAccessStatus('microphone')!=='granted'&&!(await systemPreferences.askForMediaAccess('microphone')))throw new Error('需要麥克風權限才能使用語音喚醒。到「系統設定 → 隱私權與安全性 → 麥克風」允許 Agent Wardrobe。');
+      if(data.wakeEnabled&&process.platform==='darwin'&&!process.env.AGENT_WARDROBE_FAKE_MIC&&systemPreferences.getMediaAccessStatus('microphone')!=='granted'&&!(await systemPreferences.askForMediaAccess('microphone')))throw L.error('wake.micPermission');
       getSettings().wakeEnabled=data.wakeEnabled;
     }
     persist();const status=configureWake();if(status.error&&typeof data?.wakePhrases==='string')throw new Error(status.error);

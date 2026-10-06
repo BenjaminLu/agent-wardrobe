@@ -1,4 +1,5 @@
-const test=require('node:test');const assert=require('node:assert/strict');const {WebSocketServer}=require('ws');
+const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const assert=require('node:assert/strict');const {WebSocketServer}=require('ws');
 const edge=require('../edge-tts.cjs');
 test('the token is stable within a 5-minute window and changes after it',()=>{
   const t=1790000000;assert.equal(edge.secMsGec(t),edge.secMsGec(t+299-(t%300)));assert.notEqual(edge.secMsGec(t),edge.secMsGec(t+300));assert.match(edge.secMsGec(t),/^[0-9A-F]{64}$/);

@@ -5,7 +5,7 @@
 // Profile files: reference.wav (the reference clip, 24 kHz mono) and reference.txt (what is said in it).
 // Params: {model, refText, lang: 'zh'|'en'|'ja'|'ko', speed: 0.7–1.4}
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const {createPythonEnv,torchIndex,detectGpu}=require('./python-env.cjs');const {createSidecar}=require('./sidecar.cjs');
+const {createPythonEnv,torchIndex,detectGpu}=require('./python-env.cjs');const L=require('../locales.cjs');const {t}=L;const {createSidecar}=require('./sidecar.cjs');
 
 const SOURCE={commit:'074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',url:'https://codeload.github.com/FunAudioLLM/CosyVoice/tar.gz/074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',
   submodules:[{path:'third_party/Matcha-TTS',url:'https://codeload.github.com/shivammehta25/Matcha-TTS/tar.gz/dd9105b34bf2be2230f4aa1e4769fb586a3c824e'}]};
@@ -26,7 +26,7 @@ const WETEXT=[['en/tn/tagger.fst',5645674,'245e2dc9174cdd007a8e9e50f3339773d1adb
   ['zh/tn/tagger.fst',527178,'cf341314c51f7ce59049f3b2c42f0ce8fd71e6d08d4d6969613aad384a5e2ae8'],['zh/tn/verbalizer.fst',1069758,'5a13cd679dd54637d12d2bd1bd33ee2165d91c867e14468c93195af02256e5da']]
   .map(([file,size,sha256])=>({path:`models/wetext/${file}`,url:`https://www.modelscope.cn/models/pengzhendong/wetext/resolve/master/${file}`,size,sha256}));
 const LANGS=['zh','en','ja','ko'];
-const LICENSE='CosyVoice（FunAudioLLM，Apache-2.0）';
+const license=()=>t('voiceEngines.cosyvoice.license');
 
 // The language a text is mostly written in: kana → ja, hangul → ko, CJK → zh, otherwise en.
 function detectLang(text){const s=String(text);if(/[぀-ヿ]/.test(s))return 'ja';if(/[가-힯]/.test(s))return 'ko';if(/[㐀-鿿]/.test(s))return 'zh';return 'en';}
@@ -45,12 +45,14 @@ function validate(params={}){
 // CosyVoice was trained on Simplified Chinese: Traditional input comes out garbled (measured with SenseVoice: 「收到好友
 // H T O N方记起…」 for Traditional, the exact sentence for Simplified), so Chinese text is converted before synthesis.
 const STEPS={fast:4,best:10};
+// a short line in the voice's own language, said once to load the model (never played)
+const WARM_TEXT={en:'Hi.',ja:'こんにちは。',zh:'你好。',ko:'안녕하세요.'};
 let simplify=null;
 const forModel=text=>detectLang(text)==='zh'?(simplify||=require('opencc-js').Converter({from:'t',to:'cn'}))(text):text;
 // 8 threads measured fastest on an M3 Max (RTF ~2 against ~3–4 with PyTorch's default); MPS produced garbage, so CPU it is.
 const THREADS=Math.min(8,Math.max(2,Math.floor(os.cpus().length/2)));
 // Where the Python engines can run: macOS (CPU), Windows x64 and Linux x64 / arm64 (CUDA with an NVIDIA GPU, otherwise CPU).
-const engineHost=()=>process.platform==='win32'&&process.arch!=='x64'?'Windows on ARM 還不能跑這個聲音引擎（PyTorch 沒有對應版本）。':null;
+const engineHost=()=>process.platform==='win32'&&process.arch!=='x64'?t('voiceEngines.armUnsupported',{name:'CosyVoice'}):null;
 
 function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THREADS}={}){
   // Windows / Linux: torch from the CUDA index when nvidia-smi finds a GPU (CosyVoice then runs on it), the CPU index otherwise
@@ -69,12 +71,12 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
     return sidecars.get(model);
   }
   const engine={
-    id:'cosyvoice',label:'CosyVoice（本機快速複製）',license:LICENSE,models:MODELS,
+    id:'cosyvoice',get label(){return t('voiceEngines.cosyvoice.label');},get license(){return license();},models:MODELS,
     async available(model='CosyVoice2-0.5B'){
       if(sidecar)return {ok:true};
       if(engineHost())return {ok:false,reason:engineHost()};
-      if(installing)return {ok:false,reason:'CosyVoice 正在安裝…',installing:true};
-      return envFor(model).installed()?{ok:true}:{ok:false,reason:`還沒安裝 CosyVoice（第一次約下載 ${(MODELS[model].size/1e9+1.5).toFixed(1)} GB）。`,install:true};
+      if(installing)return {ok:false,reason:t('voiceEngines.installing',{name:'CosyVoice'}),installing:true};
+      return envFor(model).installed()?{ok:true}:{ok:false,reason:t('voiceEngines.notInstalled',{name:'CosyVoice',size:(MODELS[model].size/1e9+1.5).toFixed(1)}),install:true};
     },
     install(onProgress=()=>{},{signal,model='CosyVoice2-0.5B'}={}){
       if(sidecar)return Promise.resolve({ok:true});
@@ -90,8 +92,8 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
     },
     async speak({text,profile,dir:profileDir,signal}){
       const params=validate(profile?.params);const ref=path.join(profileDir,'reference.wav');
-      if(!fs.existsSync(ref))throw new Error('這個聲音的參考錄音不見了，請重新複製一次。');
-      const clean=String(text||'').trim().slice(0,1000);if(!clean)throw new Error('沒有要念的文字。');
+      if(!fs.existsSync(ref))throw L.error('voiceEngines.cosyvoice.referenceMissing');
+      const clean=String(text||'').trim().slice(0,1000);if(!clean)throw L.error('voiceEngines.noText');
       const out=path.join(os.tmpdir(),`agent-wardrobe-cosyvoice-${process.pid}-${crypto.randomBytes(6).toString('hex')}.wav`);
       try{
         await sidecarFor(params.model).request('speak',{text:forModel(clean),ref,refText:forModel(params.refText),mode:modeFor(clean,params),speed:params.speed,steps:STEPS[params.quality],out},{signal});
@@ -102,7 +104,7 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
     async warm({profile,dir:profileDir}){
       const params=validate(profile?.params);const ref=path.join(profileDir,'reference.wav');if(!fs.existsSync(ref)||(!sidecar&&!envFor(params.model).installed()))return false;
       const out=path.join(os.tmpdir(),`agent-wardrobe-cosyvoice-${process.pid}-warm-${crypto.randomBytes(4).toString('hex')}.wav`);
-      try{await sidecarFor(params.model).request('warm',{text:params.lang==='en'?'Hi.':params.lang==='ja'?'こんにちは。':'你好。',ref,refText:forModel(params.refText),mode:'zero_shot',speed:params.speed,steps:STEPS[params.quality],out});return true;}
+      try{await sidecarFor(params.model).request('warm',{text:WARM_TEXT[params.lang]||WARM_TEXT.zh,ref,refText:forModel(params.refText),mode:'zero_shot',speed:params.speed,steps:STEPS[params.quality],out});return true;}
       catch{return false;}finally{fs.rmSync(out,{force:true});}
     },
     stop(options){for(const s of sidecars.values())s.stop(options);},
@@ -111,4 +113,4 @@ function create({dir,fetchImpl=fetch,sidecar=null,idleMs=30*60*1000,threads=THRE
   };
   return engine;
 }
-module.exports={gpu:()=>detectGpu(),create,validate,detectLang,modeFor,MODELS,PACKAGES,SOURCE,LICENSE};
+module.exports={gpu:()=>detectGpu(),create,validate,detectLang,modeFor,MODELS,PACKAGES,SOURCE,get LICENSE(){return license();}};

@@ -2,14 +2,16 @@
 // This is the unofficial endpoint the Edge browser uses: free and keyless, but Microsoft may change or block it.
 // Only the spoken text is sent; nothing identifies the user beyond a random per-connection cookie.
 const crypto=require('node:crypto');
-const WebSocket=require('ws');
+const WebSocket=require('ws');const L=require('./locales.cjs');
 
 const TOKEN='6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 const EDGE_VERSION='143.0.3650.75';
 const HOST='wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1';
+// label is read in the interface language each time the list is sent; labelKey lets a page translate it itself
+const voice=(name,labelKey)=>({name,labelKey,get label(){return L.t(labelKey);}});
 const VOICES=[
-  {name:'zh-TW-HsiaoChenNeural',label:'曉臻 · 台灣女聲'},{name:'zh-TW-HsiaoYuNeural',label:'曉雨 · 台灣女聲'},{name:'zh-TW-YunJheNeural',label:'雲哲 · 台灣男聲'},
-  {name:'en-US-AvaMultilingualNeural',label:'Ava · English'},{name:'en-US-AndrewMultilingualNeural',label:'Andrew · English'},{name:'ja-JP-NanamiNeural',label:'七海 · 日本語'}
+  voice('zh-TW-HsiaoChenNeural','tts.edge.voice.hsiaoChen'),voice('zh-TW-HsiaoYuNeural','tts.edge.voice.hsiaoYu'),voice('zh-TW-YunJheNeural','tts.edge.voice.yunJhe'),
+  voice('en-US-AvaMultilingualNeural','tts.edge.voice.ava'),voice('en-US-AndrewMultilingualNeural','tts.edge.voice.andrew'),voice('ja-JP-NanamiNeural','tts.edge.voice.nanami')
 ];
 let clockSkew=0;
 // Sec-MS-GEC: SHA-256 of Windows file time (rounded down to 5 minutes) + client token.
@@ -35,15 +37,15 @@ function synthesize(text,voice,rate=1,{url=HOST,signal,retry=true}={}){
     const chunks=[];let settled=false;
     const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);signal?.removeEventListener('abort',onAbort);try{ws.terminate();}catch{}error?reject(error):resolve(value);};
     const onAbort=()=>{const error=new Error('aborted');error.name='AbortError';finish(error);};
-    const timer=setTimeout(()=>finish(new Error('Edge 語音逾時，請檢查網路。')),20000);
+    const timer=setTimeout(()=>finish(L.error('tts.edge.timeout')),20000);
     signal?.addEventListener('abort',onAbort);
     ws.on('unexpected-response',(_req,res)=>{
       // A 403 is usually clock skew against the token window: correct from the server's clock once.
       const server=Date.parse(res.headers.date||'');
       if(res.statusCode===403&&retry&&server){clockSkew+=(server-Date.now())/1000;settled=true;clearTimeout(timer);ws.terminate();synthesize(text,voice,rate,{url,signal,retry:false}).then(resolve,reject);return;}
-      finish(new Error(`Edge 語音服務拒絕連線（${res.statusCode}），微軟可能更改了介面。請先改用其他語音。`));
+      finish(L.error('tts.edge.rejected',{status:res.statusCode}));
     });
-    ws.on('error',()=>finish(new Error('連不到 Edge 語音服務，請檢查網路。')));
+    ws.on('error',()=>finish(L.error('tts.edge.unreachable')));
     ws.on('open',()=>{
       const date=new Date().toString();
       ws.send(`X-Timestamp:${date}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n`);
@@ -51,7 +53,7 @@ function synthesize(text,voice,rate=1,{url=HOST,signal,retry=true}={}){
     });
     ws.on('message',(data,binary)=>{
       if(binary){const audio=audioOf(data);if(audio)chunks.push(audio);return;}
-      if(String(data).includes('Path:turn.end'))finish(chunks.length?null:new Error('Edge 語音沒有回傳聲音。'),Buffer.concat(chunks));
+      if(String(data).includes('Path:turn.end'))finish(chunks.length?null:L.error('tts.edge.noAudio'),Buffer.concat(chunks));
     });
   });
 }

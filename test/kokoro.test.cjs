@@ -1,4 +1,5 @@
-const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');const http=require('node:http');
+const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');const http=require('node:http');
 const {Kokoro,install,installed,sentences,wav,VOICES,REQUIRED}=require('../kokoro.cjs');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 test('replies are split into sentences so speech can start early',()=>{

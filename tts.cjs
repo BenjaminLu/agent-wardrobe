@@ -1,7 +1,7 @@
 // AI text-to-speech providers and the encrypted store for their API keys.
 // Keys are encrypted with Electron safeStorage (backed by the macOS Keychain), never sent to pages,
 // and only ever sent to the provider's own API host.
-const fs=require('node:fs');const path=require('node:path');
+const fs=require('node:fs');const path=require('node:path');const L=require('./locales.cjs');
 
 const OPENAI_VOICES=['marin','cedar','alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse'];
 const OPENAI_MODELS=['gpt-4o-mini-tts','tts-1','tts-1-hd'];
@@ -15,7 +15,7 @@ class Secrets{
   has(name){return Boolean(this.read()[name]);}
   get(name){const value=this.read()[name];return value?this.safe.decryptString(Buffer.from(value,'base64')):null;}
   set(name,value){
-    if(!this.safe.isEncryptionAvailable())throw new Error(process.platform==='linux'?'No system keyring (Secret Service, e.g. GNOME Keyring or KWallet) is available to encrypt the key; it was not saved.':process.platform==='darwin'?'This Mac cannot encrypt the key right now; it was not saved.':'This computer cannot encrypt the key right now; it was not saved.');
+    if(!this.safe.isEncryptionAvailable())throw L.error(process.platform==='linux'?'tts.keyring.linux':'tts.keyring.unavailable');
     const data=this.read();data[name]=this.safe.encryptString(value).toString('base64');this.write(data);
   }
   clear(name){const data=this.read();delete data[name];this.write(data);}
@@ -24,7 +24,7 @@ class Secrets{
 function looksLikeOpenAIKey(value){return typeof value==='string'&&/^sk-[A-Za-z0-9_\-]{16,512}$/.test(value);}
 
 async function openaiSpeech({key,text,voice,model,instructions,base=OPENAI_BASE,signal}){
-  if(!key)throw new Error('尚未設定 OpenAI API key。到 AI 設定 → 語音 → 設定 API key。');
+  if(!key)throw L.error('tts.openai.noKey');
   if(!OPENAI_VOICES.includes(voice))throw new Error(`Unknown OpenAI voice ${voice}`);
   if(!OPENAI_MODELS.includes(model))throw new Error(`Unknown OpenAI speech model ${model}`);
   const body={model,voice,input:String(text).slice(0,MAX_INPUT),response_format:'mp3'};
@@ -32,18 +32,18 @@ async function openaiSpeech({key,text,voice,model,instructions,base=OPENAI_BASE,
   if(model==='gpt-4o-mini-tts'&&instructions)body.instructions=String(instructions).slice(0,1000);
   let response;
   try{response=await fetch(`${base}/audio/speech`,{method:'POST',redirect:'error',signal:signal||AbortSignal.timeout(30000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify(body)});}
-  catch(error){if(error.name==='AbortError')throw error;throw new Error('連不到 OpenAI 語音服務，請檢查網路。');}
+  catch(error){if(error.name==='AbortError')throw error;throw L.error('tts.openai.unreachable');}
   if(!response.ok){
     // The provider's own message can echo the key back; never surface it.
-    if(response.status===401)throw new Error('OpenAI API key 無效或已撤銷，請到 AI 設定重新輸入。');
-    if(response.status===403)throw new Error('這個 OpenAI key 沒有語音（Audio）權限。到 API keys 頁面把權限改成 All，或在 Restricted 裡開啟語音／Model capabilities 的寫入權限。');
+    if(response.status===401)throw L.error('tts.openai.invalidKey');
+    if(response.status===403)throw L.error('tts.openai.noPermission');
     if(response.status===429){
       // Only the error code is read from the body; its message may quote the key.
       let code='';try{code=String((await response.json())?.error?.code||'');}catch{}
-      const error=code==='insufficient_quota'?new Error('OpenAI API 帳號沒有可用額度。API 是預付制、跟 ChatGPT 訂閱分開：到帳單頁儲值後就能使用。'):new Error('OpenAI 請求太頻繁（rate limit），請稍等一下再試。');
+      const error=L.error(code==='insufficient_quota'?'tts.openai.noQuota':'tts.openai.rateLimit');
       error.code=code||'rate_limit';throw error;
     }
-    throw new Error(`OpenAI 語音服務錯誤（${response.status}）。`);
+    throw L.error('tts.openai.error',{status:response.status});
   }
   return Buffer.from(await response.arrayBuffer());
 }

@@ -2,13 +2,16 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes, timingSafeEqual } = require('node:crypto');
-const FILES={ '/':'wardrobe.html','/wardrobe.js':'wardrobe.js','/wardrobe.css':'wardrobe.css','/interaction.css':'interaction.css','/avatars.js':'avatars.js','/avatar.css':'avatar.css','/locale.js':'locale.js','/vendor/vrm-kit.js':'vendor/vrm-kit.js' };
+const L = require('./locales.cjs');
+const FILES={ '/':'wardrobe.html','/wardrobe.js':'wardrobe.js','/wardrobe.css':'wardrobe.css','/interaction.css':'interaction.css','/avatars.js':'avatars.js','/avatar.css':'avatar.css','/i18n.js':'i18n.js','/platform-text.js':'platform-text.js','/vendor/vrm-kit.js':'vendor/vrm-kit.js' };
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp','.vrm':'model/gltf-binary'};
 async function startControl({runtime,catalog,modsRoot=path.join(__dirname,'mods'),language,onSelect,onProvider,onHook,onConnectClaude,onInspectDesktop,onControlConnect,identity={}}) {
   const token=identity.token||randomBytes(32).toString('hex'), clients=new Set(); let origin;
   const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   function authorized(req,value) { const supplied=Buffer.from(value||'');const expected=Buffer.from(token);return supplied.length===expected.length&&timingSafeEqual(supplied,expected); }
   function event(state) { for(const res of clients)res.write(`data: ${JSON.stringify(state)}\n\n`); }
+  // a language change is announced as a named event; the page fetches /api/i18n again
+  function languageEvent(lang) { for(const res of clients)res.write(`event: i18n\ndata: ${JSON.stringify({lang})}\n\n`); }
   const server=http.createServer(async(req,res)=>{
     try {
       if(req.headers.host!==new URL(origin).host){send(res,403,{error:'Invalid host'});return;}
@@ -17,6 +20,8 @@ async function startControl({runtime,catalog,modsRoot=path.join(__dirname,'mods'
       const credential=req.headers.authorization?.replace(/^Bearer /,'') || (url.pathname==='/api/events'?url.searchParams.get('token'):null);
       if(url.pathname.startsWith('/api/')&&!authorized(req,credential)){send(res,401,{error:'Open the control page from the desktop app'});return;}
       if(req.method==='GET'&&url.pathname==='/api/catalog'){send(res,200,{catalog,state:runtime.snapshot(),language});return;}
+      // the interface language and its dictionary (the page has no preload; it calls i18n.set with these)
+      if(req.method==='GET'&&url.pathname==='/api/i18n'){send(res,200,L.bundle());return;}
       if(req.method==='GET'&&url.pathname==='/api/desktop'&&onInspectDesktop){send(res,200,await onInspectDesktop());return;}
       if(req.method==='GET'&&url.pathname==='/api/events'){
         if(onControlConnect)onControlConnect();
@@ -47,7 +52,7 @@ async function startControl({runtime,catalog,modsRoot=path.join(__dirname,'mods'
     }catch(error){send(res,400,{error:error.message});}
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(identity.port||0,'127.0.0.1',resolve);});
-  origin=`http://127.0.0.1:${server.address().port}`;runtime.on('change',event);
-  return {url:`${origin}/#${token}`,origin,token,port:server.address().port,close:async()=>{runtime.off('change',event);for(const res of clients)res.end();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
+  origin=`http://127.0.0.1:${server.address().port}`;runtime.on('change',event);const offLanguage=L.onChange(languageEvent);
+  return {url:`${origin}/#${token}`,origin,token,port:server.address().port,close:async()=>{runtime.off('change',event);offLanguage();for(const res of clients)res.end();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
 }
 module.exports={startControl};

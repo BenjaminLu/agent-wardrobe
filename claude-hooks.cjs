@@ -1,15 +1,16 @@
 const fs=require('node:fs');const path=require('node:path');
+const L=require('./locales.cjs');
 const EVENTS=['SessionStart','UserPromptSubmit','MessageDisplay','PreToolUse','PostToolUse','PostToolUseFailure','PermissionRequest','Notification','Stop','StopFailure','SessionEnd'];
 const PREFIX='/usr/bin/env WARDROBE_HOOK=1 ELECTRON_RUN_AS_NODE=1 ';
 const quote=value=>`'${String(value).replaceAll("'", "'\\''")}'`;
 function configure({project,executable,client,bridge,remove=false,taskResults=false}){
   const file=path.join(project,'.claude/settings.local.json');
   let data={};if(fs.existsSync(file))data=JSON.parse(fs.readFileSync(file,'utf8'));
-  if(!data||typeof data!=='object'||Array.isArray(data)||data.hooks&&(typeof data.hooks!=='object'||Array.isArray(data.hooks)))throw new Error('Invalid Claude settings; left unchanged.');
+  if(!data||typeof data!=='object'||Array.isArray(data)||data.hooks&&(typeof data.hooks!=='object'||Array.isArray(data.hooks)))throw L.error('errors.claudeSettingsInvalid');
   const before=JSON.stringify(data);const hooks=data.hooks||{};
   const command=PREFIX+[executable,client,bridge].map(quote).join(' ')+(taskResults?' --task-results':'');
   for(const event of new Set([...Object.keys(hooks),...EVENTS])){
-    if(hooks[event]&&!Array.isArray(hooks[event]))throw new Error('Invalid hook entries; left unchanged.');
+    if(hooks[event]&&!Array.isArray(hooks[event]))throw L.error('errors.hookEntriesInvalid');
     const kept=(hooks[event]||[]).flatMap(entry=>{
       if(!Array.isArray(entry?.hooks))return [entry];
       const inner=entry.hooks.filter(h=>!h?.command?.startsWith(PREFIX));

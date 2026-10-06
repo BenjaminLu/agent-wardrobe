@@ -1,5 +1,5 @@
 const { Notification, app, BrowserWindow, WebContentsView, session, ipcMain, Menu, Tray, nativeImage, screen, globalShortcut, dialog, systemPreferences, shell, desktopCapturer, clipboard, safeStorage } = require('electron');
-const platform=require('./platform.cjs');const {HERE,ON_HERE,MACHINE}=platform;
+const platform=require('./platform.cjs');const L=require('./locales.cjs');const {t}=L;
 const tts = require('./tts.cjs');
 const { createSpeech } = require('./speech.cjs');
 const kokoro = require('./kokoro.cjs');
@@ -38,7 +38,6 @@ function taskEvent(event){
   if(!event)return;
   event.provider=lastTaskProvider;
   remoteEvent('task', { ...event });
-  const zh=settings.language?.startsWith('zh');
   if(event.type==='working'||event.type==='progress'){runtime.activity('working');}
   if(event.type==='progress'){
     if(event.tool)taskLog.push(event.tool);
@@ -48,14 +47,14 @@ function taskEvent(event){
   }
   if(event.type==='approval'){
     runtime.activity('waiting_for_approval');
-    event.text=zh?'我需要你確認一次官方授權，確認後會繼續，結果由我告訴你。':'I need you to confirm an official permission prompt. I’ll continue and explain the result here.';
+    event.text=t('tasks.approvalNeeded');
     openAgentConsole({automatic:true}).catch(error=>console.error(error.message));
   }
   if(['result','error','cancelled'].includes(event.type)){
     clearTimeout(setupTimer);
-    if(!event.text)event.text=event.type==='cancelled'?(zh?'操作已停止。':'The operation has been stopped.'):event.type==='result'?(zh?'工作階段已結束，但沒有收到結果說明；請查看詳細紀錄。':'The session ended without a result explanation. Please check the detailed log.'):(zh?'這次操作沒有完成。你可以查看詳細紀錄，確認登入、額度或工具設定後再試。':'This operation did not complete. Check the detailed log for sign-in, quota, or tool setup issues before retrying.');
+    if(!event.text)event.text=t(event.type==='cancelled'?'tasks.stopped':event.type==='result'?'tasks.noResult':'tasks.failed');
     const artifact=outputs?.artifact(event.id);event.artifacts=artifact?[artifact]:[];outputs?.close(event.id);
-    if(event.type==='result'&&event.mode==='files'&&!artifact){event.type='error';event.text+=(zh?'\n尚未產生可開啟的檔案。':'\nNo saved document was produced.');}
+    if(event.type==='result'&&event.mode==='files'&&!artifact){event.type='error';event.text+='\n'+t('tasks.noFile');}
     conversations?.finishTask(event.id,event.text,lastTaskProvider,event.type,event.artifacts);
     if(filesWindow&&!filesWindow.isDestroyed())filesWindow.webContents.send('files:refresh');
     runtime.activity(event.type==='result'?'success':event.type==='cancelled'?'idle':'error',event.type==='result'?'happy':event.type==='error'?'nervous':'neutral');
@@ -82,7 +81,7 @@ agentSession.on('event',data=>{
 async function openAgentConsole({automatic=false}={}){
   consoleAutomatic=automatic;
   if(agentWindow&&!agentWindow.isDestroyed()){agentWindow.show();agentWindow.focus();return;}
-  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:'Agent 操作視窗',backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(__dirname,'agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:t('console.windowTitle'),backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(__dirname,'agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   agentWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   agentWindow.webContents.on('will-navigate',event=>event.preventDefault());
   agentWindow.once('ready-to-show',()=>{agentWindow.show();agentWindow.focus();});
@@ -120,13 +119,13 @@ if (process.argv.includes('--smoke-test')) {
   shell.showItemInFolder = target => { opened.push(target); };
   shell.openExternal = async url => { opened.push(url); };
 }
-if (process.argv.includes('--smoke-test')) app.setPath('userData', __dirname.includes('.app/Contents/Resources/') || app.isPackaged ? path.join(app.getPath('temp'), 'agent-wardrobe-smoke') : path.join(__dirname, '.smoke-userdata'));
+if (process.argv.includes('--smoke-test')) app.setPath('userData', __dirname.includes('.app/Contents/Resources/') || app.isPackaged ? path.join(app.getPath('temp'), 'agent-wardrobe-smoke') : process.env.AGENT_WARDROBE_SMOKE_USERDATA || path.join(__dirname, '.smoke-userdata'));
 if (!app.requestSingleInstanceLock()) app.exit(0);
 let win, marketWindow, filesWindow, tray, runtime, control, streaming = false, chatBusy = false;
 // Skipped Mods are logged and shown once in the companion; the rest still load.
 const modErrors = [];
 const catalog = mods.loadCatalog(undefined, { onError: (id, error) => { modErrors.push({ id, message: error.message }); console.error(`Mod ${id} skipped: ${error.message}`); } });
-let settings = { provider: 'codex', base: 'http://127.0.0.1:1234/v1', model: '', voice: 'Eddy (Chinese (Taiwan))', volume: true, voiceProvider: 'system', openaiVoice: 'marin', openaiModel: 'gpt-4o-mini-tts', openaiStyle: 'Speak in a warm, lively and friendly tone, like a cute desktop companion.', kokoroVoice: 'zf_xiaoxiao', kokoroSpeed: 1, edgeVoice: 'zh-TW-HsiaoChenNeural', edgeRate: 1, characterVoices: {}, scale: 1, wakeEnabled: false, wakePhrases: '', wakeSensitivity: 'high', dictationEngine: 'local', replyLanguage: 'auto', chatSize: 'large', gameEngine: 'laya', game: 'lane', localEngine: 'lmstudio', builtinModel: recommendedModel() };
+let settings = { provider: 'codex', base: 'http://127.0.0.1:1234/v1', model: '', voice: 'Eddy (Chinese (Taiwan))', volume: true, voiceProvider: 'system', openaiVoice: 'marin', openaiModel: 'gpt-4o-mini-tts', openaiStyle: 'Speak in a warm, lively and friendly tone, like a cute desktop companion.', kokoroVoice: 'zf_xiaoxiao', kokoroSpeed: 1, edgeVoice: 'zh-TW-HsiaoChenNeural', edgeRate: 1, characterVoices: {}, scale: 1, wakeEnabled: false, wakePhrases: '', wakeSensitivity: 'high', dictationEngine: 'local', replyLanguage: 'auto', uiLanguage: 'auto', chatSize: 'large', gameEngine: 'laya', game: 'lane', localEngine: 'lmstudio', builtinModel: recommendedModel() };
 // Window size for the companion: the character area grows with the scale, the chat panel keeps its width.
 // Chat panel sizes (panel width, extra conversation height); keep in step with the CSS in styles.css.
 const CHAT_SIZES = { normal: [350, 0], large: [460, 154], xl: [580, 314] };
@@ -148,13 +147,13 @@ const devCompanion = require('./dev-companion.cjs').createDevCompanion({ getWin:
   speak: text => { if (devSmoke) (global.smokeSpoken ||= []).push(text); speak(text); }, stopSpeech: () => stopSpeech(), isSpeaking: () => voice.isSpeaking(),
   findBinary: name => (devSmoke && process.env[`DEV_SMOKE_${name.toUpperCase()}`]) || cli.binary(name), home: devHome, codexHome: () => devSmoke && process.env.DEV_SMOKE_HOME ? path.join(devHome(), '.codex') : undefined,
   processes: devSmoke ? async () => global.smokeDevProcesses || [] : undefined, onAttention: () => { if (win && !win.isDestroyed() && !win.isVisible()) win.showInactive(); },
-  canAttach: () => chatBusy || toolTask || agentSession.child ? (settings.language.startsWith('zh') ? '請先等目前的聊天或任務結束，再接入開發夥伴。' : 'Wait for the current chat or task to finish first.') : null });
+  canAttach: () => chatBusy || toolTask || agentSession.child ? L.error('devCompanion.waitBeforeAttach') : null });
 const gameService = require('./game-service.cjs').createGame({ ipcMain, handle, getRuntime: () => runtime, getSettings: () => settings, getSecrets: () => secrets, persist, speak });
 // Watch mode needs a local model that can see images: the chosen local brain, or the built-in model if it is downloaded.
 async function watchModel() {
   if (settings.provider === 'local' && settings.localEngine !== 'builtin') { const base = ai.localBase(settings.base); return { base, model: settings.model || await ai.defaultModel(base), headers: ai.authHeader(base), structured: false }; }
   const id = settings.provider === 'local' ? settings.builtinModel : llm.status().models.find(m => m.installed)?.id;
-  if (!id) throw new Error('看畫面吐槽需要能看圖的本機模型：請在「設定 → AI 大腦」下載內建模型，或在 LM Studio 載入看圖模型。');
+  if (!id) throw L.error('errors.visionModelNeeded');
   const info = await llm.ensure(id); ai.setKey(info.base, info.key); return { base: info.base, model: info.model, headers: ai.authHeader(info.base), structured: true };
 }
 // Live2D's Cubism Core, downloaded into userData only after the user agrees in a window (smoke runs use an offline stand-in).
@@ -163,7 +162,7 @@ handle('bula:live2d-core', () => live2dCore.url());
 handle('bula:live2d-core-install', () => live2dCore.install().then(() => live2dCore.url()));
 // Characters drawn by Codex from a photo of someone (private Mods in userData/my-mods), in Annie's style.
 const personService = require('./person-service.cjs').createPerson({ app, handle, ipcMain, systemPreferences, catalog, live2dCore,
-  onSaved: (mod, { skinId } = {}) => { selectMod({ modId: mod.id, skinId: skinId || mod.defaultSkin, personaId: mod.defaultPersona }); refreshMarketplace(); win?.webContents.send('bula:notice', settings.language.startsWith('zh') ? `做好了！${mod.name} 已經換上` : `${mod.name} is ready`); } });
+  onSaved: (mod, { skinId } = {}) => { selectMod({ modId: mod.id, skinId: skinId || mod.defaultSkin, personaId: mod.defaultPersona }); refreshMarketplace(); win?.webContents.send('bula:notice', t('notify.characterReady', { name: mod.name })); } });
 handle('bula:person-open', () => personService.open(settings.language).then(() => true));
 handle('bula:person-edit', (id, skinId) => personService.open(settings.language, { edit: id, skinId }).then(() => true));
 handle('bula:person-delete', id => { if (runtime.state.modId === id) selectMod({ modId: 'annie' }); personService.remove(id); refreshMarketplace(); return true; });
@@ -175,7 +174,7 @@ const libraryLinks = { vroid: { token: () => accountsFor().vroid.token(), expire
 const library = require('./asset-library.cjs').createLibrary(process.argv.includes('--smoke-test') && process.env.LIBRARY_FIXTURE ? { fetchImpl: require('./test/fixtures/library/make.cjs').fetchFixture(), accounts: { vroid: { token: async () => 'fixture-token' }, sketchfab: { token: () => 'f'.repeat(32) } } } : { accounts: libraryLinks, shrink: data => { const image = nativeImage.createFromBuffer(data); return image.isEmpty() ? null : image.resize({ width: 256, quality: 'good' }).toPNG(); } });
 // a picture becomes the reference for Codex, which redraws it as an editable character in Annie's style
 async function openRedraw({ data, name, credit, target = 'window' }) {
-  const image = nativeImage.createFromBuffer(data); if (image.isEmpty()) throw new Error('讀不了這張圖。');
+  const image = nativeImage.createFromBuffer(data); if (image.isEmpty()) throw L.error('errors.imageUnreadable');
   const size = image.getSize(), png = (Math.max(size.width, size.height) > 1024 ? image.resize(size.width > size.height ? { width: 1024 } : { height: 1024 }) : image).toPNG();
   const image_ = { png, name: String(name).slice(0, 24), credit };
   if (target === 'phone') { const editor = phoneEditor(); editor.begin({ image: image_ }); return { opened: 'phone-editor', edit: await editor.loaded() }; }
@@ -200,7 +199,7 @@ async function installCharacter({ name, author, description, license, renderer, 
   } catch (error) { reason ||= error; }
   if (!mod) {
     fs.rmSync(dir, { recursive: true, force: true });
-    throw new Error(`這個角色沒有通過檢查（檔案格式不對或引用了外部檔案），沒有加入。${reason?.message ? `（${reason.message}）` : ''}`);
+    throw reason?.message ? L.error('errors.characterRejectedReason', { reason: reason.message }) : L.error('errors.characterRejected');
   }
   mod.private = true; mod.root = userRoot; catalog.push(mod); selectMod({ modId: id }); refreshMarketplace(); return { opened: 'worn', id };
 }
@@ -209,7 +208,7 @@ async function importFromLibrary(key, { target = 'window' } = {}) {
   if (item.kind === 'image') return openRedraw({ data, name: item.title, credit, target });
   // a 3D avatar is added as it is, as your own private character
   const gltf = item.kind === 'glb', modelFile = gltf ? 'model.glb' : 'model.vrm';
-  return installCharacter({ name: item.title, author: item.author || item.source, description: `${item.source}：${item.title}（${item.license.label}）`, license: `${credit}.`, renderer: gltf ? 'gltf' : 'vrm',
+  return installCharacter({ name: item.title, author: item.author || item.source, description: t('mods.libraryDescription', { source: item.source, title: item.title, license: item.license.label }), license: `${credit}.`, renderer: gltf ? 'gltf' : 'vrm',
     write: dir => { fs.writeFileSync(path.join(dir, modelFile), data); return { model: modelFile }; } });
 }
 // AI-assisted download (sites without an API): the user browses and signs in in the assisted window; the download is
@@ -218,7 +217,7 @@ const archive = require('./archive.cjs');
 const motionFile = (m, i) => `motion-${i + 1}-${m.use}-${String(m.name).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'clip'}${path.extname(m.file).toLowerCase()}`;
 const motionEntry = (m, file) => ({ file, name: String(m.name || m.file).slice(0, 80), loop: typeof m.loop === 'boolean' ? m.loop : m.use === 'idle', use: ['idle', 'react', 'talk'].includes(m.use) ? m.use : 'react' });
 async function installAssisted({ candidate, dir, motions, name, source, record, formats }) {
-  const from = rel => { const file = path.resolve(dir, rel); if (!file.startsWith(path.resolve(dir) + path.sep)) throw new Error('不安全的檔案路徑。'); return file; };
+  const from = rel => { const file = path.resolve(dir, rel); if (!file.startsWith(path.resolve(dir) + path.sep)) throw L.error('errors.unsafePath'); return file; };
   if (candidate.kind === 'image' || candidate.kind === 'psd') {
     const data = fs.readFileSync(from(candidate.file));
     return openRedraw({ data: candidate.kind === 'psd' ? archive.flattenPsd(data).png : data, name, credit: record.license });
@@ -232,7 +231,7 @@ async function installAssisted({ candidate, dir, motions, name, source, record, 
         return { model: modelFile, motions: list }; } });
   }
   // Live2D / MMD: model-formats.cjs copies the model with its textures and motions
-  if (!formats?.install) throw new Error('這版 App 還不能加入 Live2D / MMD 角色。');
+  if (!formats?.install) throw L.error('errors.modelFormatUnsupported');
   return installCharacter({ name, author: source, description: record.description, license: record.license, renderer: candidate.renderer,
     write: async target => { const result = await formats.install({ srcDir: dir, entry: candidate.entry, renderer: candidate.renderer, destDir: target });
       return { model: result.model, motions: (result.motions || []).map(m => motionEntry(m, m.file)) }; } });
@@ -263,7 +262,7 @@ async function openWardrobe() {
   }
   const wasStreaming=streaming;
   setStreaming(true);
-  marketWindow=new BrowserWindow({width:1060,height:820,minWidth:700,minHeight:600,title:'Mod Marketplace · Agent Wardrobe',show:false,backgroundColor:'#f5f8fc',
+  marketWindow=new BrowserWindow({width:1060,height:820,minWidth:700,minHeight:600,title:t('marketplace.windowTitle'),show:false,backgroundColor:'#f5f8fc',
     webPreferences:{preload:path.join(__dirname,'marketplace-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   const opened=marketWindow;
   opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));
@@ -275,7 +274,7 @@ async function openWardrobe() {
 
 async function openFiles(){
   if(filesWindow&&!filesWindow.isDestroyed()){if(filesWindow.isMinimized())filesWindow.restore();filesWindow.show();filesWindow.focus();filesWindow.webContents.send('files:refresh');return;}
-  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:settings.language.startsWith('zh')?'角色文件':'Character files',backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(__dirname,'files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:t('files.windowTitle'),backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(__dirname,'files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   const opened=filesWindow;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());opened.once('ready-to-show',()=>opened.show());opened.on('closed',()=>{if(filesWindow===opened)filesWindow=null;});await opened.loadFile('files.html');
 }
 
@@ -285,7 +284,7 @@ app.whenReady().then(async () => {
   // voice profiles; the voices smoke speaks through a stand-in for sherpa-onnx's Kokoro
   voiceService = createVoiceService({ app, handle, dialog, getWin: () => win, getSettings: () => settings, persist, getRuntime: () => runtime, speech: voice, secrets, kokoroDir, remoteEvent: (type, data) => remoteEvent(type, data),
     sherpa: process.argv.includes('--smoke-test') && process.env.VOICES_SMOKE_STANDIN ? require('./scripts/voices-smoke.cjs').standinSherpa : undefined });
-  try { registerVoiceEngines(); } catch (error) { console.error(`錄音複製 engines: ${error.message}`); }  // CosyVoice, GPT-SoVITS, ElevenLabs; never blocks start-up
+  try { registerVoiceEngines(); } catch (error) { console.error(`Voice cloning engines: ${error.message}`); }  // CosyVoice, GPT-SoVITS, ElevenLabs; never blocks start-up
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) }; ai.localBase(settings.base); }
   catch { settings.base = 'http://127.0.0.1:1234/v1'; }
   // Smoke suites start from empty data; only the onboarding smoke should meet the first-run guide.
@@ -300,6 +299,11 @@ app.whenReady().then(async () => {
   }
   // a POSIX locale such as LANG=C (common on Linux servers and CI) is not a language tag; pages would throw on it
   settings.language = [...app.getPreferredSystemLanguages(), app.getLocale()].find(tag => { try { return /^[a-z]{2,3}(-|$)/i.test(tag) && Boolean(new Intl.Locale(tag)); } catch { return false; } }) || 'en';
+  // the interface language: the uiLanguage setting, or the system's. Smoke suites that read Chinese labels pin it with --ui-language=zh-Hant (scripts/run-smokes.cjs).
+  const pinnedLanguage = process.argv.find(arg => arg.startsWith('--ui-language='))?.slice(14);
+  if (process.argv.includes('--smoke-test') && pinnedLanguage) settings.uiLanguage = pinnedLanguage;
+  if (!['auto', ...L.LANGS].includes(settings.uiLanguage)) settings.uiLanguage = 'auto';
+  L.setLanguage(settings.uiLanguage, settings.language);
   settings.voice = settings.language.startsWith('zh') ? (/Hans|CN|SG/i.test(settings.language) ? 'Tingting' : 'Eddy (Chinese (Taiwan))') : settings.language.startsWith('ja') ? 'Kyoko' : 'Samantha';
   try { require('./voice-lab.cjs').sweepTemp(app.getPath('temp')); } catch {}  // raw recordings left by a crash
   personService.loadSaved((id, error) => { modErrors.push({ id, message: error.message }); console.error(`Mod ${id} skipped: ${error.message}`); });
@@ -336,8 +340,8 @@ app.whenReady().then(async () => {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', event => event.preventDefault());
   win.webContents.on('context-menu',(_event,params)=>{
-    const zh=settings.language.startsWith('zh');const menu=[];
-    if(params.selectionText)menu.push({label:zh?'複製選取文字':'Copy selected text',click:()=>clipboard.writeText(params.selectionText)});
+    const menu=[];
+    if(params.selectionText)menu.push({label:t('main.copySelection'),click:()=>clipboard.writeText(params.selectionText)});
     if(params.isEditable)menu.push({role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'});
     if(menu.length)Menu.buildFromTemplate(menu).popup({window:win});
   });
@@ -346,30 +350,10 @@ app.whenReady().then(async () => {
     && (details?.mediaTypes ? details.mediaTypes.length > 0 && details.mediaTypes.every(type => type === 'audio') : details?.mediaType !== 'video');
   win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(micAllowed(contents, permission, details)));
   win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => permission === 'media' && micAllowed(contents, permission, details));
-  const zh=settings.language.startsWith('zh');
-  const labels={game:zh?'讓角色玩遊戲（實驗）':'Let the character play (experimental)',show:zh?'顯示／恢復人物':'Show / restore companion',files:zh?'角色文件（搜尋與開啟）':'Character files (search & open)',wardrobe:zh?'Mod 市集（搜尋角色與 Skin）':'Mod Marketplace (search characters & skins)',connect:zh?'連接 Claude 專案 hooks…':'Connect Claude project hooks…',remove:zh?'移除 Claude 觀察 hooks':'Remove Claude observation hooks',stop:zh?'停止說話':'Stop speaking',stream:zh?'直播模式（滑鼠穿透）':'Stream mode (click-through)',quit:zh?'結束 Agent Wardrobe':'Quit Agent Wardrobe'};
-  // macOS has an app menu (with Edit for ⌘C / ⌘V); on Windows and Linux it would put a menu bar on every window, so the tray menu is the menu there.
-  if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
-    { label: labels.show, click: restore },
-    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
-    { label: labels.files, accelerator:'CommandOrControl+Shift+O',click:openFiles },
-    { label: labels.game, click: () => gameService.open() },
-    { label: labels.connect, click: () => connectClaude().catch(error=>dialog.showErrorBox('Claude hooks',error.message)) },
-    { label: labels.remove, click: () => {try{if(settings.claudeProject){hooks.configure({project:settings.claudeProject,remove:true});delete settings.claudeProject;persist();}}catch(error){dialog.showErrorBox('Claude hooks',error.message);}} },
-    { label: labels.stop, click: stopSpeech }, { type: 'separator' }, { role: 'quit', label: labels.quit }
-  ] },{role:'editMenu'}])); else Menu.setApplicationMenu(null);
   const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon-256.png')).resize(process.platform === 'darwin' ? { width: 20, height: 20, quality: 'best' } : { width: 32, height: 32, quality: 'best' });
   tray = new Tray(icon);
   tray.setToolTip('Agent Wardrobe');
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: labels.show, click: restore },
-    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
-    { label: labels.files,click:openFiles },
-    { label: labels.game, click: () => gameService.open() },
-    { label: labels.stream, click: () => setStreaming(true) },
-    { label: labels.stop, click: stopSpeech },
-    { label: labels.quit, click: () => app.quit() }
-  ]));
+  buildMenus();
   tray.on('click', restore);
   globalShortcut.register('CommandOrControl+Shift+B', restore);
   if(!globalShortcut.register('CommandOrControl+Shift+O',openFiles))console.warn('Files shortcut unavailable; use the folder button.');
@@ -381,27 +365,51 @@ app.whenReady().then(async () => {
   warmLocal();
   // learn this Mac's tailnet name first, or phones would be refused as an unknown host after a restart
   if (settings.remoteEnabled && !process.argv.includes('--smoke-test')) remoteStatus().then(startRemote).then(port => tailscale.serve(port)).catch(error => console.error(`Phone remote: ${error.message}`));
-  if (modErrors.length) win.webContents.send('bula:notice', `${modErrors.length} 個 Mod 無法載入，已略過：${modErrors.map(e => `${e.id}（${e.message}）`).join('、')}`);
+  if (modErrors.length) win.webContents.send('bula:notice', t('mods.loadFailed', { count: modErrors.length, list: modErrors.map(e => t('mods.loadFailedItem', { id: e.id, message: e.message })).join(t('mods.listSeparator')) }));
   if (process.argv.includes('--open-wardrobe') && !process.argv.includes('--smoke-test')) await openWardrobe();
   if (process.argv.includes('--smoke-test')) {
-    try { if(process.argv.includes('--devsession-smoke'))await require('./scripts/devsession-smoke.cjs').run({win,runtime,devCompanion,startRemote,getSettings:()=>settings});else if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('./scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
+    try { if(process.argv.includes('--i18n-smoke'))await require('./scripts/i18n-smoke.cjs').run({win,startRemote,getMarketWindow:()=>marketWindow});else if(process.argv.includes('--devsession-smoke'))await require('./scripts/devsession-smoke.cjs').run({win,runtime,devCompanion,startRemote,getSettings:()=>settings});else if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('./scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
     catch(error) { console.error('POC_SMOKE_FAILED',error); app.exit(1); }
   }
 }).catch(error=>{
   console.error('Startup failed:', error);
-  const message=error.code==='EADDRINUSE' ? `The local control port ${error.port||loadIdentity(app.getPath('userData')).port} is already in use. Close the conflicting service and reopen Agent Wardrobe. The app will keep its existing control address.` : error.message;
-  dialog.showErrorBox('Agent Wardrobe could not start',message);app.quit();
+  const message=error.code==='EADDRINUSE' ? t('main.portInUse',{port:error.port||loadIdentity(app.getPath('userData')).port}) : error.message;
+  dialog.showErrorBox(t('main.startFailedTitle'),message);app.quit();
 });
 
+// The app menu (macOS) and the tray menu, in the interface language; rebuilt when it changes.
+function buildMenus() {
+  const labels={game:t('menu.game'),show:t('menu.show'),files:t('menu.files'),wardrobe:t('menu.wardrobe'),connect:t('menu.connectHooks'),remove:t('menu.removeHooks'),stop:t('menu.stopSpeaking'),stream:t('menu.stream'),quit:t('menu.quit')};
+  // macOS has an app menu (with Edit for ⌘C / ⌘V); on Windows and Linux it would put a menu bar on every window, so the tray menu is the menu there.
+  if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Agent Wardrobe', submenu: [
+    { label: labels.show, click: restore },
+    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
+    { label: labels.files, accelerator:'CommandOrControl+Shift+O',click:openFiles },
+    { label: labels.game, click: () => gameService.open() },
+    { label: labels.connect, click: () => connectClaude().catch(error=>dialog.showErrorBox('Claude hooks',error.message)) },
+    { label: labels.remove, click: () => {try{if(settings.claudeProject){hooks.configure({project:settings.claudeProject,remove:true});delete settings.claudeProject;persist();}}catch(error){dialog.showErrorBox('Claude hooks',error.message);}} },
+    { label: labels.stop, click: stopSpeech }, { type: 'separator' }, { role: 'quit', label: labels.quit }
+  ] },{role:'editMenu'}])); else Menu.setApplicationMenu(null);
+  if (!tray || tray.isDestroyed()) return;
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: labels.show, click: restore },
+    { label: labels.wardrobe, accelerator: 'CommandOrControl+Shift+S', click: openWardrobe },
+    { label: labels.files,click:openFiles },
+    { label: labels.game, click: () => gameService.open() },
+    { label: labels.stream, click: () => setStreaming(true) },
+    { label: labels.stop, click: stopSpeech },
+    { label: labels.quit, click: () => app.quit() }
+  ]));
+}
 function handle(name, action) {
   ipcMain.handle(name, async (event, ...args) => {
-    if (event.sender !== win?.webContents) throw new Error('未知視窗。');
+    if (event.sender !== win?.webContents) throw L.error('errors.unknownWindow');
     return action(...args);
   });
 }
 // Marketplace receives only catalog/state, validated selections and window close.
 for(const [name,action] of [
-  ['marketplace:data',()=>({catalog,state:runtime.snapshot(),language:settings.language})],
+  ['marketplace:data',()=>({catalog,state:runtime.snapshot()})],
   ['marketplace:select',selectMod],
   ['marketplace:close',()=>marketWindow.close()],
   ['marketplace:mod-asset',modAsset],
@@ -465,7 +473,7 @@ handle('bula:wardrobe', openWardrobe);
 handle('bula:files',openFiles);
 handle('bula:agent-console',()=>lastTaskProvider==='claude'&&agentSession.id?openAgentConsole():{log:taskLog.join('\n')||'No operation log yet.'});
 handle('bula:official-setup',async()=>{
-  if(chatBusy||toolTask||agentSession.child)throw new Error('請先停止目前工作階段，再開啟官方設定。');
+  if(chatBusy||toolTask||agentSession.child)throw L.error('errors.stopBeforeSetup');
   const cwd=path.join(app.getPath('userData'),'agent-workspace');fs.mkdirSync(cwd,{recursive:true});
   hooks.configure({project:cwd,executable:process.execPath,client:path.join(__dirname,'hook-client.cjs'),bridge:path.join(app.getPath('userData'),'claude-bridge.json'),taskResults:true});
   clearTimeout(finishTimer);lastTaskProvider='claude';const id=randomUUID();taskFeedback.begin(id,'browser');
@@ -474,7 +482,7 @@ handle('bula:official-setup',async()=>{
 });
 handle('bula:computer-support',()=>computerSupport());
 handle('bula:operation-permissions',async kind=>{
-  if(process.platform!=='darwin')throw new Error('Native computer operation currently requires macOS.');
+  if(process.platform!=='darwin')throw L.error('errors.nativeComputerMacOnly');
   if(kind==='accessibility'){systemPreferences.isTrustedAccessibilityClient(true);await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');}
   else if(kind==='screen'){
     // An explicit settings-button click initiates the OS permission request;
@@ -497,25 +505,25 @@ handle('bula:drag',phase=>{
 });
 handle('bula:cursor',()=>{const p=screen.getCursorScreenPoint(),b=win.getContentBounds();return {x:p.x-b.x,y:p.y-b.y};});
 handle('bula:history',()=>conversations.snapshot());
-handle('bula:clear-history',()=>{if(chatBusy||toolTask||agentSession.child)throw new Error('請先停止目前任務，再清除對話。');conversations.clear();return true;});
+handle('bula:clear-history',()=>{if(chatBusy||toolTask||agentSession.child)throw L.error('errors.stopBeforeClear');conversations.clear();return true;});
 handle('bula:emergency-stop',emergencyStop);
 handle('bula:task-steer',async data=>{
   const text=data?.text;
   if(typeof text!=='string'||!text.trim()||text.length>2000||/[\x00-\x08\x0b-\x1f\x7f]/.test(text))throw new Error('Invalid interruption');
-  if(data.id!==taskFeedback.id||taskFeedback.finished)throw new Error('This task has already ended.');
-  if(toolTask){if(!toolTask.steer)throw new Error('The task is starting; please try again shortly.');await toolTask.steer(text);}
+  if(data.id!==taskFeedback.id||taskFeedback.finished)throw L.error('errors.taskEnded');
+  if(toolTask){if(!toolTask.steer)throw L.error('errors.taskStarting');await toolTask.steer(text);}
   else if(agentSession.child&&taskFeedback.started&&runtime.snapshot().activity!=='waiting_for_approval'){
     agentSession.input('\x1b[200~'+text+'\x1b[201~\r');
-  }else throw new Error('Complete official setup or permission prompts before interrupting.');
+  }else throw L.error('errors.interruptBlocked');
   conversations.append('user',text,{provider:lastTaskProvider,taskId:taskFeedback.id,kind:'steer'});
   return {accepted:true};
 });
 async function startTask(data){
-  if(devCompanion.attached)throw new Error(settings.language.startsWith('zh')?'開發夥伴模式中：訊息會交給接入的工作階段。要用一般任務請先按「離開」。':'Attached to a coding session; leave it first to run a task.');
-  if(chatBusy)throw new Error('請等目前聊天完成。');
-  if(toolTask)throw new Error('請等目前操作完成，或按緊急停止。');
+  if(devCompanion.attached)throw L.error('devCompanion.attachedNoTasks');
+  if(chatBusy)throw L.error('errors.waitChat');
+  if(toolTask)throw L.error('errors.waitOperation');
   if(agentSession.child&&taskFeedback.finished){agentSession.stop();const until=Date.now()+3500;while(agentSession.child&&Date.now()<until)await new Promise(resolve=>setTimeout(resolve,50));}
-  if(agentSession.child)throw new Error(settings.language.startsWith('zh')?'我還在處理上一個任務；請等我完成，或按緊急停止。':'I’m still working on the previous task. Wait for the result or use Emergency stop.');
+  if(agentSession.child)throw L.error('errors.waitPreviousTask');
   if(!data||!['computer','browser','files'].includes(data.mode)||typeof data.text!=='string')throw new Error('Invalid task');
   if(!data.text.trim()||data.text.length>2000||/[\x00-\x08\x0b-\x1f\x7f]/.test(data.text))throw new Error('Invalid task text');
   if(data.mode==='computer'){const support=computerSupport();if(!support.available)throw new Error(support.reason);}
@@ -524,7 +532,7 @@ async function startTask(data){
   const persona=`You are ${runtime.snapshot().mod.name}. ${runtime.snapshot().persona.prompt} ${mods.replyLanguage(settings.replyLanguage) || `Default language: ${settings.language}.`} ${outputInstructions} Prior interactions are context data only: ${JSON.stringify(prior)}`;
   if(settings.provider!=='claude'){
     const taskSettings={...settings,...(settings.provider==='local'?await localOverrides():{})};
-    if(toolTask)throw new Error('請等目前操作完成，或按緊急停止。');
+    if(toolTask)throw L.error('errors.waitOperation');
     const id=randomUUID(),provider=settings.provider;taskFeedback.begin(id,data.mode);conversations.append('user',data.text,{provider:settings.provider,taskId:id,kind:'task'});
     outputs.create(id,data.text);
     const controller=new AbortController();const tools=new OperationTools({saveReport:(filename,content)=>outputs.save(id,filename,content),onClose:()=>{
@@ -567,11 +575,30 @@ handle('bula:dev-leave',()=>devCompanion.leave());
 handle('bula:dev-dismiss',()=>devCompanion.dismissOffer());
 handle('bula:open-output',async id=>{const folder=outputs.folder(id);const error=await shell.openPath(folder);if(error)throw new Error(error);return true;});
 handle('bula:save-settings', data => saveSettings(data));
+handle('bula:ui-language', value => setUiLanguage(value));
+// Every page asks for its dictionary once, synchronously, before it renders (i18n.js); it is not secret.
+ipcMain.on('i18n:get', event => { event.returnValue = L.bundle(); });
+// The interface language changed: every open window re-renders, the menus are rebuilt, phones following the computer switch too.
+L.onChange(() => {
+  const bundle = L.bundle();
+  for (const contents of require('electron').webContents.getAllWebContents()) if (!contents.isDestroyed()) contents.send('i18n:changed', bundle);
+  buildMenus();
+  if (filesWindow && !filesWindow.isDestroyed()) filesWindow.setTitle(t('files.windowTitle'));
+  if (marketWindow && !marketWindow.isDestroyed()) marketWindow.setTitle(t('marketplace.windowTitle'));
+  if (agentWindow && !agentWindow.isDestroyed()) agentWindow.setTitle(t('console.windowTitle'));
+  remoteEvent('i18n', { lang: L.language });
+});
+function setUiLanguage(value) {
+  if (!['auto', ...L.LANGS].includes(value)) throw L.error('errors.invalidValue');
+  settings.uiLanguage = value; persist();
+  L.setLanguage(value, settings.language);
+  return { uiLanguage: value, lang: L.language };
+}
 function saveSettings(data) {
   const provider = ['codex','claude','local'].includes(data.provider) ? data.provider : 'codex';
   const base = ai.localBase(data.base);
   // Only an actual change of brain has to wait for a running reply; other settings save any time.
-  if (provider !== runtime.state.provider) { if (['working','waiting_for_approval'].includes(runtime.state.activity)) throw new Error('角色正在回覆或執行任務，等它完成後再切換 AI 大腦（其他設定可以先存）。'); runtime.provider(provider); }
+  if (provider !== runtime.state.provider) { if (['working','waiting_for_approval'].includes(runtime.state.activity)) throw L.error('errors.switchBrainBusy'); runtime.provider(provider); }
   settings = {
     ...settings,
     provider,
@@ -582,6 +609,7 @@ function saveSettings(data) {
     game: ['lane','pikachu'].includes(data.game) ? data.game : settings.game,
     builtinModel: MODELS.some(m => m.id === data.builtinModel) ? data.builtinModel : settings.builtinModel,
     voice: settings.voice, volume: data.voiceProvider ? data.voiceProvider !== 'off' : Boolean(data.volume),
+    uiLanguage: ['auto', ...L.LANGS].includes(data.uiLanguage) ? data.uiLanguage : settings.uiLanguage,
     replyLanguage: data.replyLanguage === 'auto' || mods.REPLY_LANGUAGES[data.replyLanguage] ? data.replyLanguage : settings.replyLanguage,
     voiceProvider: ['system','openai','kokoro','edge','off'].includes(data.voiceProvider) ? data.voiceProvider : settings.voiceProvider,
     edgeVoice: edgeTts.VOICES.some(v => v.name === data.edgeVoice) ? data.edgeVoice : settings.edgeVoice,
@@ -593,6 +621,7 @@ function saveSettings(data) {
     openaiStyle: typeof data.openaiStyle === 'string' ? data.openaiStyle.slice(0, 1000) : settings.openaiStyle
   };
   persist();
+  L.setLanguage(settings.uiLanguage, settings.language);
   if (!settings.volume) stopSpeech();
   if (settings.provider !== 'local' || settings.localEngine !== 'builtin') llm.stop(); else warmLocal();
   remoteEvent('settings', remoteSettings());
@@ -606,7 +635,7 @@ handle('bula:llm-remove', id => { llm.remove(id); return llm.status(); });
 async function localOverrides() {
   if (settings.localEngine !== 'builtin') return {};
   const downloading = llm.status().downloading;
-  if (downloading?.id === settings.builtinModel) throw new Error(`內建模型還在下載（${Math.round(downloading.progress * 100)}%），下載完就能聊天。`);
+  if (downloading?.id === settings.builtinModel) throw L.error('errors.builtinDownloading', { percent: Math.round(downloading.progress * 100) });
   const info = await llm.ensure(settings.builtinModel); ai.setKey(info.base, info.key);
   return { base: info.base, model: info.model, structured: true };
 }
@@ -617,9 +646,9 @@ handle('bula:chat', (input, options) => chatTurn(input, options));
 async function chatTurn(input, options, { speakAloud = true, from = null } = {}) {
   // Auto mode lets the companion model hand a request to a browser, computer or files task.
   const auto=options?.auto===true;
-  if(toolTask)return {ok:false,error:'操作進行中；請先等結果或緊急停止。'};
-  if(agentSession.child)return {ok:false,error:'操作工作階段仍開啟；請先停止，再使用純聊天。'};
-  if (chatBusy) return {ok:false,error:'A reply is already in progress.'};
+  if(toolTask)return {ok:false,error:t('errors.chatDuringOperation')};
+  if(agentSession.child)return {ok:false,error:t('errors.chatDuringSession')};
+  if (chatBusy) return {ok:false,error:t('errors.replyInProgress')};
   const text=typeof input==='string'?input:Array.isArray(input)&&input.at(-1)?.role==='user'?input.at(-1).content:null;
   // attached to a coding session: everything typed or said goes there (answers to its approvals included)
   if(devCompanion.attached){const result=devCompanion.input(text,from?{source:'phone',device:from}:{source:'desktop'});return {...result,dev:true};}
@@ -635,7 +664,7 @@ async function chatTurn(input, options, { speakAloud = true, from = null } = {})
       chatBusy=false;const task=await startTask({mode:reply.action,text});return {ok:true,task,mode:reply.action,text:reply.text,emotion:reply.emotion};
     }
     conversations.append('user',text,{provider:settings.provider});conversations.append('assistant',reply.text,{provider:requestSettings.provider});runtime.activity('success',reply.emotion); if (speakAloud) speak(reply.text); remoteEvent('message', { role: 'user', text, from }); remoteEvent('message', { role: 'assistant', text: reply.text, from }); return { ok: true, ...reply }; }
-  catch (error) { const last=conversations.snapshot().at(-1);if(!(last?.role==='user'&&last.content===text))conversations.append('user',text,{provider:settings.provider});runtime.activity('error','nervous'); return { ok: false, error: error.message === 'fetch failed' ? (settings.localEngine === 'builtin' ? '內建模型沒有回應，請再試一次。' : 'Local AI is unavailable. Load a model and start the LM Studio server.') : error.message }; }
+  catch (error) { const last=conversations.snapshot().at(-1);if(!(last?.role==='user'&&last.content===text))conversations.append('user',text,{provider:settings.provider});runtime.activity('error','nervous'); return { ok: false, error: error.message === 'fetch failed' ? t(settings.localEngine === 'builtin' ? 'errors.builtinNoResponse' : 'errors.localUnavailable') : error.message }; }
   finally {chatBusy=false;}
 }
 handle('bula:stream', setStreaming);
@@ -703,30 +732,30 @@ function remoteSettings() {
     selection: { modId: mod.id, skinId: skin.id, personaId: persona.id },
     characters: catalog.map(m => ({ id: m.id, name: m.name, skins: m.skins.map(s => ({ id: s.id, name: s.name })), personas: m.personas.map(p => ({ id: p.id, name: p.name })) })) };
 }
-function requireRemoteTasks() { if (!settings.remoteTasks) throw Object.assign(new Error(`要從手機叫電腦做事，請先在${MACHINE}的「設定 → 手機遙控」打開「允許手機下達電腦任務」。`), { status: 403 }); }
+function requireRemoteTasks() { if (!settings.remoteTasks) throw L.error('errors.remoteTasksOff', undefined, { status: 403 }); }
 const OUTPUT_TEXT = /\.(md|markdown|csv|txt|json)$/i;
 // The phone's own character editor; Codex jobs run in the background and report through phone events.
 let phoneEditorInstance = null;
 function phoneEditor() { return phoneEditorInstance ||= personService.createEditor({ onProgress: p => remoteEvent('edit', { state: 'progress', ...p }) }); }
 function phoneJob(work) {
-  if (phoneEditor().busy) throw new Error('Codex 還在畫上一個，請稍等。');
+  if (phoneEditor().busy) throw L.error('errors.codexBusy');
   work().then(result => remoteEvent('edit', { state: 'done', result }), error => remoteEvent('edit', { state: 'error', error: error.message }));
   return { started: true };
 }
 function remoteRoutes() {
   return {
     'GET /api/characters': () => { const { mod, skin } = runtime.snapshot(); return { selection: { modId: mod.id, skinId: skin.id }, characters: [...catalog].sort((a, b) => Number(Boolean(b.private)) - Number(Boolean(a.private))).map(m => ({ id: m.id, name: m.name, description: m.description, private: Boolean(m.private), renderer: m.renderer || 'builtin', skins: m.skins.map(s => ({ id: s.id, name: s.name })) })) }; },
-    'GET /api/mod': ({ query }) => { const mod = catalog.find(m => m.id === query.get('id')); if (!mod) throw new Error('找不到這個角色。'); return mod; },
+    'GET /api/mod': ({ query }) => { const mod = catalog.find(m => m.id === query.get('id')); if (!mod) throw L.error('errors.characterNotFound'); return mod; },
     'GET /api/library/search': ({ query }) => library.search(query.get('q'), String(query.get('sources') || 'featured,vroid,vrm,sketchfab').split(',')),
     'GET /api/library/thumb': async ({ query }) => ({ url: await library.thumbnail(String(query.get('key'))).catch(() => null) }),
     'POST /api/library/import': ({ body }) => importFromLibrary(String(body.key), { target: 'phone' }),
     // the phone cannot drive the Mac's assisted window; it asks the Mac to open it and follows its status
     'POST /api/assist/open': ({ body }) => { const result = assisted().open({ site: String(body.site || ''), query: String(body.q || '').slice(0, 80), page: body.page ? String(body.page) : undefined }); return { ...result, status: assisted().snapshot().status }; },
     'GET /api/assist/status': () => { const s = assisted().snapshot(); return { status: s.status, site: s.site, job: s.job && { state: s.job.state, filename: s.job.filename, error: s.job.error } }; },
-    'POST /api/edit/start': async ({ body }) => { const editor = phoneEditor(); if (editor.busy) throw new Error('Codex 還在畫上一個，請稍等。'); editor.begin({ edit: String(body.modId), skinId: body.skinId ? String(body.skinId) : null, outfit: body.outfit === true }); return editor.loaded(); },
+    'POST /api/edit/start': async ({ body }) => { const editor = phoneEditor(); if (editor.busy) throw L.error('errors.codexBusy'); editor.begin({ edit: String(body.modId), skinId: body.skinId ? String(body.skinId) : null, outfit: body.outfit === true }); return editor.loaded(); },
     // a photo of clothes becomes a new skin of the character picked with /api/edit/start {outfit: true}
     'POST /api/edit/outfit': { limit: 7e6, fn: ({ body }) => phoneJob(() => phoneEditor().outfitPhoto(String(body.photo || ''))) },
-    'POST /api/edit/photo': { limit: 7e6, fn: ({ body }) => { const editor = phoneEditor(); if (editor.busy) throw new Error('Codex 還在畫上一個，請稍等。'); editor.begin({}); return phoneJob(() => editor.drawPhoto(String(body.photo || ''))); } },
+    'POST /api/edit/photo': { limit: 7e6, fn: ({ body }) => { const editor = phoneEditor(); if (editor.busy) throw L.error('errors.codexBusy'); editor.begin({}); return phoneJob(() => editor.drawPhoto(String(body.photo || ''))); } },
     'POST /api/edit/redraw': () => phoneJob(() => phoneEditor().redraw()),
     'POST /api/edit/revise': ({ body }) => { const text = String(body.text || ''); return phoneJob(() => phoneEditor().revise(text)); },
     'POST /api/edit/save': ({ body }) => phoneEditor().save(String(body.name || '')),
@@ -755,8 +784,8 @@ function remoteRoutes() {
     'GET /api/outputs': () => outputs.list('').slice(0, 40).map(({ id, title, files, updatedAt }) => ({ id, title, files, updatedAt })),
     'GET /api/output-file': ({ query }) => {
       const id = query.get('id'), name = query.get('name'); const file = outputs.file(id, name);
-      if (!OUTPUT_TEXT.test(name)) throw new Error('只能在手機上讀文字檔（.md、.csv、.txt、.json）。');
-      const size = fs.statSync(file).size; if (size > 512 * 1024) throw new Error(`檔案太大，請在${ON_HERE}開啟。`);
+      if (!OUTPUT_TEXT.test(name)) throw L.error('errors.phoneTextOnly');
+      const size = fs.statSync(file).size; if (size > 512 * 1024) throw L.error('errors.fileTooLarge');
       return { id, name, content: fs.readFileSync(file, 'utf8') };
     }
   };
@@ -768,15 +797,15 @@ async function remoteStatus() {
 handle('bula:remote-status', remoteStatus);
 handle('bula:remote-enable', async () => {
   const ts = await tailscale.status();
-  if (!ts.installed) throw new Error(`${HERE} 還沒安裝 Tailscale：從 App Store 或 tailscale.com 安裝並登入，手機也登入同一個帳號。`);
-  if (!ts.running) throw new Error('Tailscale 還沒登入或沒有連線：打開 Tailscale 並登入後再試。');
+  if (!ts.installed) throw L.error('errors.tailscaleMissing');
+  if (!ts.running) throw L.error('errors.tailscaleOffline');
   const port = await startRemote(); await tailscale.serve(port);
   settings.remoteEnabled = true; persist(); return remoteStatus();
 });
 handle('bula:remote-disable', async () => { await tailscale.stop(); settings.remoteEnabled = false; persist(); await remote?.close(); remote = null; return remoteStatus(); });
 handle('bula:remote-pair', async () => {
   const status = await remoteStatus(); const base = status.url || (process.argv.includes('--smoke-test') ? status.local : null);
-  if (!base) throw new Error('先開啟手機遙控。');
+  if (!base) throw L.error('errors.remoteOff');
   const code = deviceStore.newCode(), link = `${base}?pair=${code.value}`, qr = qrcode(0, 'M'); qr.addData(link); qr.make();
   return { code: code.value, expires: code.expires, link, qr: qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }) };
 });
@@ -790,10 +819,8 @@ function hideToBackground() {
   win.hide();
   if (!settings.hiddenTipShown && !process.argv.includes('--smoke-test')) {
     settings.hiddenTipShown = true; persist();
-    const zh = settings.language.startsWith('zh');
-    const where = { darwin: zh ? ['點選單列圖示', '選單列'] : ['Click the menu bar icon', 'the menu bar'], win32: zh ? ['點工作列右下角的圖示', '那個圖示的選單'] : ['Click the icon in the taskbar corner', 'its menu'] }[process.platform] || (zh ? ['點系統匣圖示、再開一次 App', '系統匣圖示的選單'] : ['Click the tray icon or open the app again', 'the tray menu']);
-    const keys = process.platform === 'darwin' ? '⌘⇧B' : 'Ctrl+Shift+B';
-    if (Notification.isSupported()) new Notification({ title: zh ? `${runtime.snapshot().mod.name} 在背景待命` : `${runtime.snapshot().mod.name} is in the background`, body: zh ? `${where[0]}、按 ${keys} 或說喚醒詞叫我回來；要結束請從${where[1]}選「結束」。` : `${where[0]}, press ${keys} or say the wake word to bring me back. Quit from ${where[1]}.` }).show();
+    // written for the Mac (menu bar, ⌘⇧B); t() words it for the Windows notification area or the Linux tray
+    if (Notification.isSupported()) new Notification({ title: t('notify.backgroundTitle', { name: runtime.snapshot().mod.name }), body: t('notify.backgroundBody') }).show();
   }
 }
 app.on('second-instance', restore);
@@ -809,7 +836,7 @@ async function inspectDesktop(){
   return {...view,clickThrough:streaming};
 }
 async function connectClaude() {
-  const result=await dialog.showOpenDialog(win,{title:'Choose the project where Claude Code runs',properties:['openDirectory']});
+  const result=await dialog.showOpenDialog(win,{title:t('main.chooseProject'),properties:['openDirectory']});
   if(result.canceled)return {canceled:true};
   const project=result.filePaths[0];
   hooks.configure({project,executable:process.execPath,client:path.join(__dirname,'hook-client.cjs'),bridge:path.join(app.getPath('userData'),'claude-bridge.json')});

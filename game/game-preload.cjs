@@ -7,3 +7,5 @@ contextBridge.exposeInMainWorld('game',{
   close:()=>ipcRenderer.invoke('game:close'),
   onStatus:callback=>ipcRenderer.on('game:status',(_event,value)=>callback(value))
 });
+// the interface language for i18n.js: the dictionary once, synchronously, before the page renders; then every change
+contextBridge.exposeInMainWorld('i18nBridge',{get:()=>ipcRenderer.sendSync('i18n:get'),onChange:callback=>ipcRenderer.on('i18n:changed',(_event,value)=>callback(value))});

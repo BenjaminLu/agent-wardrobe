@@ -37,6 +37,11 @@ async function run({win,openVoiceLab,getVoiceLab,voices,startRemote,getSettings,
   await wait(()=>l(`document.querySelectorAll('#takes li').length===1`),10000,'take listed');
   assert.equal(await l(`document.querySelector('#mic-on').hidden`),true,'mic indicator off after stop');
   const take=await l(`document.querySelector('#takes li .q').textContent`);assert.match(take,/音質沒問題|!/);assert.doesNotMatch(take,/✗/,`take passes: ${take}`);
+  // the record step in English: title, engine line, take notes and buttons are redrawn; then back to zh-Hant
+  await js(`window.bula.uiLanguage('en')`);await wait(()=>l(`document.querySelector('#record-title').textContent.startsWith('⚡ Quick clone')`),5000,'record step in en');
+  assert.match(await l(`document.querySelector('#engine-status').textContent+document.querySelector('#takes li').textContent+document.querySelector('#create').textContent`),/Ready ✓[\s\S]*(Sound quality is fine|!)[\s\S]*Make the voice/);
+  if(process.env.VOICELAB_SHOTS)fs.writeFileSync(path.join(process.env.VOICELAB_SHOTS,'voicelab-record-en.png'),(await lab.webContents.capturePage()).toPNG());
+  await js(`window.bula.uiLanguage('zh-Hant')`);await wait(()=>l(`document.querySelector('#record-title').textContent.startsWith('⚡ 快速複製')`),5000,'record step back in zh-Hant');
   const draftDir=getVoiceLab().draft.temp.dir;if(process.platform!=='win32')assert.equal(fs.statSync(draftDir).mode&0o777,0o700,'raw audio folder is private');  // Windows: the folder is in the user's own profile; there are no POSIX modes
   assert.ok(fs.readdirSync(draftDir).some(n=>n.startsWith('take-')),'the take waits in the private temp folder');
   await l(`document.querySelector('#create').click();true`);await wait(()=>l(`document.body.dataset.step==="finish"`),20000,'voice made');
@@ -52,6 +57,13 @@ async function run({win,openVoiceLab,getVoiceLab,voices,startRemote,getSettings,
   assert.equal(getSettings().characterVoices?.[modId],id,'bound to the worn character');
   const spoken=await voices.speak(id,'嗨，這是我的新聲音。');assert.equal(spoken.mime,'audio/wav');assert.ok(spoken.audio.length>1000);
   assert.throws(()=>voices.exportPack(id),/不能匯出/);
+  // a new interface language redraws the open studio in place (what it wrote itself, too), then back to zh-Hant
+  for(const [lang,heading,saved] of [['en','Your voice is ready!',/original recordings were deleted/],['ja','声ができました！',/元の録音は削除しました/],['zh-Hant','聲音做好了！',/原始錄音已刪除/]]){
+    await js(`window.bula.uiLanguage(${JSON.stringify(lang)})`);
+    await wait(()=>l(`document.querySelector('#step-finish h2').textContent===${JSON.stringify(heading)}`),5000,`studio in ${lang}`);
+    assert.match(await l(`document.querySelector('#saved').textContent`),saved,`${lang}: the saved note is redrawn`);
+    if(process.env.VOICELAB_SHOTS){await new Promise(r=>setTimeout(r,300));fs.writeFileSync(path.join(process.env.VOICELAB_SHOTS,`voicelab-${lang}.png`),(await lab.webContents.capturePage()).toPNG());}
+  }
   lab.close();await wait(()=>!getVoiceLab().getWindow(),5000,'closed');
 
   // the phone: 設定 → 錄音做聲音 with the same consent step, recorded with MediaRecorder from the fake microphone

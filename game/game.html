@@ -3,14 +3,15 @@
 <body>
 <header><b id="title">Lane Dash</b><span id="laya-status"></span></header>
 <section id="engine-row"><span id="engine-name"></span><span id="engine-hint"></span></section>
-<section id="hud"><span><small data-t="score">分數</small><b id="score">0</b></span><span><small data-t="best">最佳</small><b id="best">0</b></span><span><small data-t="coins">金幣</small><b id="coins">0</b></span><span><small data-t="crashes">撞到</small><b id="crashes">0</b></span></section>
+<section id="hud"><span><small data-i18n="game.hud.score"></small><b id="score">0</b></span><span><small data-i18n="game.hud.best"></small><b id="best">0</b></span><span><small data-i18n="game.hud.coins"></small><b id="coins">0</b></span><span><small data-i18n="game.hud.crashes"></small><b id="crashes">0</b></span></section>
 <canvas id="road" width="480" height="470"></canvas>
 <section id="brain">
-  <div class="row"><small id="brain-label">Laya 的判斷</small><span id="rate"></span></div>
+  <div class="row"><small id="brain-label"></small><span id="rate"></span></div>
   <div id="bars"></div>
   <div id="why"></div>
 </section>
-<nav><button id="ai" data-t="ai">▶ 讓角色玩</button><button id="me" data-t="me">⌨ 我來玩</button><button id="stop" data-t="stop" disabled>■ 停止</button></nav>
+<nav><button id="ai" data-i18n="game.button.ai"></button><button id="me" data-i18n="game.button.me"></button><button id="stop" data-i18n="game.button.stop" disabled></button></nav>
 <p id="note"></p>
+<script src="../i18n.js"></script>
 <script src="game.js"></script>
 </body></html>

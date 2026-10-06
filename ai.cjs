@@ -4,6 +4,7 @@ const SYSTEM = `你是使用者的桌面 AI 夥伴。
 不能將角色台詞說成真實操作。不必每次都說免責聲明。
 請回覆 JSON：{"text":"你要說的話","emotion":"neutral|smug|happy|surprised|nervous|sad"}。
 emotion 選最符合內容的一個值。`;
+const L = require('./locales.cjs');
 const EMOTIONS = new Set(['neutral', 'smug', 'happy', 'surprised', 'nervous', 'sad']);
 // Auto mode: the model may hand a request to an operation task instead of answering in chat.
 const ACTIONS = new Set(['browser', 'computer', 'files']);
@@ -14,7 +15,7 @@ function localBase(value = 'http://127.0.0.1:1234/v1') {
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol) ||
       !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.username || url.password) {
-    throw new Error('請使用本機 AI 位址，例如 http://127.0.0.1:1234/v1。');
+    throw L.error('ai.localOnly');
   }
   url.hash = ''; url.search = '';
   return url.toString().replace(/\/+$/, '');
@@ -26,7 +27,7 @@ function setKey(base, key) { keys.set(new URL(localBase(base)).origin, key); }
 function authHeader(base) { const key = keys.get(new URL(localBase(base)).origin) || process.env.BULA_LOCAL_TOKEN; return key ? { Authorization: `Bearer ${key}` } : {}; }
 
 function parseReply(content) {
-  if (typeof content !== 'string' || !content.trim()) throw new Error('本機模型沒有傳回文字。');
+  if (typeof content !== 'string' || !content.trim()) throw L.error('ai.noText');
   // A reasoning model that hits max_tokens leaves an unclosed <think>; never show that as the reply.
   const cleaned = content.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/i, '').trim();
   const json = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -38,7 +39,7 @@ function parseReply(content) {
       return reply;
     }
   } catch {}
-  if (!cleaned) throw new Error('本機模型只有推理文字，沒有完成回覆。推理型模型（例如 DeepSeek-R1）在聊天上容易這樣，建議在 LM Studio 改載入非推理模型。');
+  if (!cleaned) throw L.error('ai.reasoningOnly');
   return { text: cleaned.slice(0, 600), emotion: 'neutral' };
 }
 
@@ -49,7 +50,7 @@ async function request(base, path, options = {}, timeout = 45000) {
   });
   if (!response.ok) {
     const reason = await response.text();
-    throw new Error(`本機 AI 回應 ${response.status}：${reason.slice(0, 180)}`);
+    throw L.error('ai.httpError', { status: response.status, reason: reason.slice(0, 180) });
   }
   return response.json();
 }
@@ -72,13 +73,13 @@ async function models(base) {
 }
 
 async function chat(settings, history) {
-  if (!Array.isArray(history)) throw new Error('聊天記錄格式錯誤。');
+  if (!Array.isArray(history)) throw L.error('ai.badHistory');
   const messages = history.slice(-20).filter(m =>
     m && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string'
   ).map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
-  if (!messages.length || messages.at(-1).role !== 'user') throw new Error('請先輸入訊息。');
+  if (!messages.length || messages.at(-1).role !== 'user') throw L.error('ai.enterMessage');
   const model = settings.model || await defaultModel(settings.base);
-  if (!model) throw new Error('LM Studio 尚未提供聊天模型。請載入模型並啟動本機伺服器。');
+  if (!model) throw L.error('ai.noModel');
   const timeout = settings.timeout || 90000;
   let result;
   try {
@@ -92,10 +93,10 @@ async function chat(settings, history) {
     }, timeout);
   } catch (error) {
     if (error.name !== 'TimeoutError') throw error;
-    throw new Error(`本機模型「${model}」${Math.round(timeout / 1000)} 秒內沒有回覆。大型或推理型模型在這台電腦上可能太慢，建議在 LM Studio 改載入較小、非推理的模型。`);
+    throw L.error('ai.timeout', { model, seconds: Math.round(timeout / 1000) });
   }
   const choice = result.choices?.[0];
-  if (!choice?.message?.content?.trim() && choice?.finish_reason === 'length') throw new Error(`本機模型「${model}」還在推理就用完了回覆額度，沒有寫出回答。推理型模型在聊天上又慢又容易這樣，建議在 LM Studio 改載入非推理模型。`);
+  if (!choice?.message?.content?.trim() && choice?.finish_reason === 'length') throw L.error('ai.outOfTokens', { model });
   return { ...parseReply(choice?.message?.content), model };
 }
 

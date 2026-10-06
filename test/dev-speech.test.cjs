@@ -1,5 +1,6 @@
 // 開發夥伴 speech: replies made speakable, tool one-liners, approval questions and spoken answers.
 const test = require('node:test'); const assert = require('node:assert/strict');
+require('../locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
 const { speakable, describeTool, StatusVoice, describeApproval, parseApprovalAnswer, isStopCommand } = require('../dev-speech.cjs');
 
 test('code blocks, tables, links and long paths become short notes', () => {
@@ -54,4 +55,11 @@ test('spoken answers: short yes / no only, negatives first', () => {
   for (const other of ['', '你好', '今天天氣怎麼樣', '好啦我想想看這個檔案到底要不要改比較好', 'what does this do']) assert.equal(parseApprovalAnswer(other), null, other);
   for (const stop of ['停下來', '停下來。', 'Stop', '停止']) assert.ok(isStopCommand(stop), stop);
   assert.ok(!isStopCommand('不要停下來繼續做'));
+});
+test('spoken lines follow the interface language; answers are understood in any of them', () => {
+  assert.equal(describeApproval({ tool: 'Bash', input: { command: 'ls' } }, { language: 'ja' }).question, 'ls を実行してもいいですか？');
+  assert.equal(describeTool('Edit', { file_path: '/a/b/main.cjs' }, { language: 'zh-Hans' }).label, '正在编辑 main.cjs');
+  for (const yes of ['はい', 'いいよ', 'お願いします']) assert.equal(parseApprovalAnswer(yes), 'allow', yes);
+  for (const no of ['いいえ', 'だめ', 'やめて']) assert.equal(parseApprovalAnswer(no), 'deny', no);
+  for (const stop of ['ストップ', '止めて']) assert.ok(isStopCommand(stop), stop);
 });

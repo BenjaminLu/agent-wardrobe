@@ -1,6 +1,7 @@
 // 開發夥伴 in the app: messages go to the session, spoken yes / no only while an approval is pending, the character's
 // activity follows the session, replies are spoken in a speakable form, and the attached session is remembered.
 const test = require('node:test'); const assert = require('node:assert/strict');
+require('../locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
 const { EventEmitter } = require('node:events');
 const { createDevCompanion } = require('../dev-companion.cjs');
 

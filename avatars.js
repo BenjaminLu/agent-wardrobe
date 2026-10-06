@@ -1,4 +1,11 @@
 (() => {
+  // Interface text: el gets the text of key through the page's t() (i18n.js) and keeps the key in data-i18n, so the page's
+  // i18n.apply() redoes it when the language changes. A page without a language yet shows the English fallback.
+  function say(el,key,fallback,vars){
+    const out=typeof globalThis.t==='function'?globalThis.t(key,vars):key;
+    el.textContent=out&&out!==key?out:String(fallback).replace(/\{(\w+)\}/g,(whole,name)=>vars&&vars[name]!=null?String(vars[name]):whole);
+    if(out&&out!==key){el.dataset.i18n=key;if(vars)el.dataset.i18nVars=JSON.stringify(vars);else delete el.dataset.i18nVars;}
+  }
   const ink='var(--ink)', body='var(--body)', light='var(--bodyLight)', belly='var(--belly)', accent='var(--accent)';
   const models = {
     cat:`<path d="M258 217 Q322 208 299 165 Q284 144 281 165 Q309 200 250 192" fill="${body}"/><path d="M84 106 L78 36 Q80 22 96 33 L137 76 M204 78 L249 32 Q263 25 261 44 L255 110" fill="${body}"/><path d="M89 49 L97 90 L122 76 M248 48 L242 90 L218 78" fill="var(--cheek)" stroke="none"/><path d="M173 73 C105 66 66 107 69 166 C70 207 93 216 93 230 C84 259 116 270 136 249 C156 265 193 265 207 249 C231 275 263 257 250 228 C278 201 285 138 255 104 C233 80 204 72 173 73Z" fill="url(#body-gradient)"/><ellipse cx="173" cy="224" rx="57" ry="29" fill="${belly}" stroke="none"/><path d="M148 80 L151 99 M174 77 L174 98 M197 81 L195 99" stroke-width="9" opacity=".55"/><path d="M60 179 L96 185 M57 194 L96 194 M249 185 L283 179 M249 194 L285 194"/><path d="M161 199 L183 199 L172 209Z" fill="${accent}" stroke-width="3"/>`,
@@ -246,12 +253,12 @@
     // Without the Core the character cannot be drawn: say why and, on the Mac, offer the download from Live2D's own server.
     function askForCore(){
       host.dataset.needs='live2d-core';const box=document.createElement('div');box.className='live2d-consent';box.addEventListener('pointerdown',event=>event.stopPropagation());
-      const note=document.createElement('p');note.textContent='這是 Live2D 角色，要用 Live2D 官方的 Cubism Core 才能顯示。Cubism Core 是 Live2D 公司自己的軟體，依 Live2D 的授權條款（Live2D Proprietary Software License）使用，不會隨本 App 散布。';box.append(note);
-      if(live2dCore.install){const button=document.createElement('button');button.type='button';button.textContent='同意條款，從 Live2D 官網下載';
-        button.addEventListener('click',async event=>{event.stopPropagation();button.disabled=true;button.textContent='下載中…';
-          try{await live2dCore.install();box.remove();delete host.dataset.needs;controller.ready=load();}catch(error){button.disabled=false;button.textContent='再試一次';note.textContent=`下載失敗：${error.message}`;}});
+      const note=document.createElement('p');say(note,'avatar.live2d.consent',"This is a Live2D character; it needs Live2D's official Cubism Core to be shown. Cubism Core is Live2D Inc.'s own software, used under the Live2D Proprietary Software License, and is not distributed with this app.");box.append(note);
+      if(live2dCore.install){const button=document.createElement('button');button.type='button';say(button,'avatar.live2d.agree','Agree and download from Live2D');
+        button.addEventListener('click',async event=>{event.stopPropagation();button.disabled=true;say(button,'avatar.live2d.downloading','Downloading…');
+          try{await live2dCore.install();box.remove();delete host.dataset.needs;controller.ready=load();}catch(error){button.disabled=false;say(button,'avatar.live2d.retry','Try again');say(note,'avatar.live2d.failed','Download failed: {error}',{error:error.message});}});
         box.append(button);}
-      else{const more=document.createElement('p');more.textContent='請先在 Mac 上的角色視窗同意並下載。';box.append(more);}
+      else{const more=document.createElement('p');say(more,'avatar.live2d.onMac','Agree and download it in the character window on the Mac first.');box.append(more);}
       host.append(box);
     }
     async function load(){

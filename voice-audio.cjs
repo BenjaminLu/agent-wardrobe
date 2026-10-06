@@ -1,19 +1,19 @@
 // Audio helpers for the voice studio: WAV read/write, the recording quality check (length, loudness, clipping,
 // silence), trimming, resampling, slicing a long recording at pauses, and converting imported files with afconvert.
 // Everything works on mono Float32 samples in memory.
-const fs=require('node:fs');const {execFile}=require('node:child_process');
+const fs=require('node:fs');const {execFile}=require('node:child_process');const L=require('./locales.cjs');const {t}=L;
 
 // PCM 8/16/24/32-bit and 32-bit float WAV (incl. WAVE_FORMAT_EXTENSIBLE); channels are mixed to mono.
 function parseWav(buf){
-  if(buf.length<44||buf.toString('ascii',0,4)!=='RIFF'||buf.toString('ascii',8,12)!=='WAVE')throw new Error('不是 WAV 檔。');
+  if(buf.length<44||buf.toString('ascii',0,4)!=='RIFF'||buf.toString('ascii',8,12)!=='WAVE')throw L.error('voiceLab.audio.notWav');
   let p=12,fmt=null,data=null;
   while(p+8<=buf.length){const id=buf.toString('ascii',p,p+4),size=buf.readUInt32LE(p+4),body=p+8;
     if(id==='fmt '){let format=buf.readUInt16LE(body);if(format===0xfffe&&size>=26)format=buf.readUInt16LE(body+24);fmt={format,channels:buf.readUInt16LE(body+2),sampleRate:buf.readUInt32LE(body+4),bits:buf.readUInt16LE(body+14)};}
     else if(id==='data'){data=buf.subarray(body,Math.min(buf.length,body+size));break;}
     p=body+size+(size&1);}
-  if(!fmt||!data)throw new Error('WAV 檔不完整。');
+  if(!fmt||!data)throw L.error('voiceLab.audio.incomplete');
   const {format,channels,bits,sampleRate}=fmt,bytes=bits/8;
-  if(!channels||![1,3].includes(format)||![8,16,24,32].includes(bits)||(format===3&&bits!==32))throw new Error('不支援這種 WAV 格式。');
+  if(!channels||![1,3].includes(format)||![8,16,24,32].includes(bits)||(format===3&&bits!==32))throw L.error('voiceLab.audio.format');
   const frames=Math.floor(data.length/(bytes*channels)),samples=new Float32Array(frames);
   const read=format===3?o=>data.readFloatLE(o):bits===16?o=>data.readInt16LE(o)/32768:bits===24?o=>data.readIntLE(o,3)/8388608:bits===32?o=>data.readInt32LE(o)/2147483648:o=>(data[o]-128)/128;
   for(let i=0;i<frames;i++){let sum=0;for(let c=0;c<channels;c++)sum+=read((i*channels+c)*bytes);samples[i]=sum/channels;}
@@ -41,21 +41,22 @@ function analyze(samples,sampleRate){
 }
 // What each engine needs from one recording (seconds of actual speech).
 const NEEDS={cosyvoice:{min:3,ideal:[5,15],max:30},sovits:{min:3,ideal:[5,600],max:900},elevenlabs:{min:10,ideal:[30,180],max:600}};
-// {ok, issues:[{code,message}]}: an issue blocks using the take; a warning (level 'warn') does not.
+// {ok, issues:[{code,message,level,key,vars}]}: an issue blocks using the take; a warning (level 'warn') does not.
+// message is in the interface language; key and vars let another screen (the phone) show it in its own.
 function qualityCheck(a,engine='cosyvoice'){
   const need=NEEDS[engine]||NEEDS.cosyvoice,issues=[];
-  const add=(code,message,level='error')=>issues.push({code,message,level});
-  if(a.speechSeconds<.5||a.peakDb<-50)add('silent','幾乎沒有聲音：麥克風有收到嗎？');
+  const add=(code,vars,level='error')=>{const key=`voiceLab.quality.${code.replace(/-(\w)/g,(_,c)=>c.toUpperCase())}`;issues.push({code,message:t(key,vars),level,key,vars:vars||null});};
+  if(a.speechSeconds<.5||a.peakDb<-50)add('silent');
   else{
-    if(a.speechDb<-35)add('too-quiet','太小聲了：靠近麥克風一點，或把輸入音量調大。');
-    else if(a.speechDb<-28)add('quiet','有點小聲，靠近一點會更好。','warn');
-    if(a.clippedRatio>.001)add('clipping','爆音了（聲音太大被削掉）：離麥克風遠一點，或調低輸入音量。');
-    else if(a.peakDb>-.5)add('hot','音量接近上限，小心爆音。','warn');
-    if(a.speechSeconds<need.min)add('too-short',`太短了：至少要說 ${need.min} 秒（現在約 ${a.speechSeconds.toFixed(1)} 秒）。`);
-    else if(a.speechSeconds<need.ideal[0])add('short',`再長一點更好（建議 ${need.ideal[0]} 秒以上）。`,'warn');
-    if(a.duration>need.max)add('too-long',`太長了：這個方式最多 ${need.max} 秒。`);
-    else if(a.speechSeconds>need.ideal[1]&&engine==='cosyvoice')add('long',`會只用最清楚的前 ${need.ideal[1]} 秒左右。`,'warn');
-    if(a.speechRatio<.3&&a.duration>3)add('mostly-silent','大部分是安靜的：開始後直接念，念完就停。','warn');
+    if(a.speechDb<-35)add('too-quiet');
+    else if(a.speechDb<-28)add('quiet',null,'warn');
+    if(a.clippedRatio>.001)add('clipping');
+    else if(a.peakDb>-.5)add('hot',null,'warn');
+    if(a.speechSeconds<need.min)add('too-short',{min:need.min,now:a.speechSeconds.toFixed(1)});
+    else if(a.speechSeconds<need.ideal[0])add('short',{min:need.ideal[0]},'warn');
+    if(a.duration>need.max)add('too-long',{max:need.max});
+    else if(a.speechSeconds>need.ideal[1]&&engine==='cosyvoice')add('long',{max:need.ideal[1]},'warn');
+    if(a.speechRatio<.3&&a.duration>3)add('mostly-silent',null,'warn');
   }
   return {ok:!issues.some(i=>i.level==='error'),issues};
 }
@@ -90,6 +91,6 @@ function sliceOnSilence(samples,sampleRate,{min=2,max=10,gap=.3}={}){
 // Imported audio (wav, mp3, m4a, aac, aiff, caf…) → 16-bit mono WAV at `rate`, with macOS's afconvert.
 function convertToWav(input,output,{rate=24000,afconvert='/usr/bin/afconvert',timeout=120000}={}){
   return new Promise((resolve,reject)=>execFile(afconvert,['-f','WAVE','-d',`LEI16@${rate}`,'-c','1',input,output],{timeout},(error,_out,stderr)=>{
-    if(error){fs.rmSync(output,{force:true});reject(new Error(`這個音檔轉不了（${String(stderr||error.message).trim().split('\n')[0].slice(0,120)}）。請用 wav、mp3 或 m4a。`));}else resolve(output);}));
+    if(error){fs.rmSync(output,{force:true});reject(L.error('voiceLab.error.convert',{detail:String(stderr||error.message).trim().split('\n')[0].slice(0,120)}));}else resolve(output);}));
 }
 module.exports={parseWav,encodeWav,analyze,qualityCheck,trimSilence,limitLength,resample,sliceOnSilence,convertToWav,NEEDS};

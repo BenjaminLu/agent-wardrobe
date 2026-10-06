@@ -1,4 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const path=require('node:path');
+require('../locales.cjs').setLanguage('zh-Hant');  // messages are checked in the zh-Hant interface text
 const {keywordLine,syllableTokens,loadTokens,loadEnglish}=require('../voice-input.cjs');
 const dir=path.join(__dirname,'..','models','kws');const ctx={tokens:loadTokens(path.join(dir,'tokens.txt')),english:loadEnglish(path.join(dir,'en.phone'))};
 test('pinyin syllables split into the model\'s initial and toned-final tokens',()=>{

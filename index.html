@@ -5,197 +5,198 @@
   <section id="onboarding" hidden aria-live="polite">
     <div class="ob-steps"><span></span><span></span><span></span><span></span></div>
     <div class="ob-page" data-step="0">
-      <h2 data-en="Hi! First, pick my AI brain">嗨！先選我的 AI 大腦</h2>
-      <p data-en="I use it to chat and to do things for you. Codex and Claude use your signed-in account; the local model is free and needs no account.">我會用它來聊天和幫你做事。Codex／Claude 用你已登入的帳號；本機模型免費、不用帳號。</p>
+      <h2 data-i18n="onboarding.brain.title"></h2>
+      <p data-i18n="onboarding.brain.intro"></p>
       <div class="ob-choices" id="ob-brains"></div>
-      <div id="ob-llm" hidden><p class="ob-note" data-en="Pick a local model. It downloads after you press Get started:">選一個本機模型，按「開始使用」後才會下載：</p><div class="ob-choices" id="ob-llm-models"></div></div>
+      <div id="ob-llm" hidden><p class="ob-note" data-i18n="onboarding.brain.llmNote"></p><div class="ob-choices" id="ob-llm-models"></div></div>
     </div>
     <div class="ob-page" data-step="1" hidden>
-      <h2 data-en="How should I sound?">我要用什麼聲音說話？</h2>
+      <h2 data-i18n="onboarding.voice.title"></h2>
       <div class="ob-choices">
-        <label><input type="radio" name="ob-voice" value="edge"><b data-en="Taiwanese Mandarin">台灣腔</b><small data-en="Free, online; the text goes to Microsoft">免費，要連網，文字會送到微軟</small></label>
-        <label><input type="radio" name="ob-voice" value="kokoro"><b data-en="Local AI voice">本機 AI 語音</b><small data-en="Free and offline; about 400 MB to download once">免費、離線，第一次要下載約 400 MB</small></label>
-        <label><input type="radio" name="ob-voice" value="system"><b data-en="macOS voice">macOS 內建</b><small data-en="Nothing to download; sounds more robotic">不用下載，聲音比較機械</small></label>
-        <label><input type="radio" name="ob-voice" value="off"><b data-en="Silent">不說話</b><small data-en="Text replies only">只用文字回覆</small></label>
+        <label><input type="radio" name="ob-voice" value="edge"><b data-i18n="onboarding.voice.edge"></b><small data-i18n="onboarding.voice.edgeHint"></small></label>
+        <label><input type="radio" name="ob-voice" value="kokoro"><b data-i18n="onboarding.voice.kokoro"></b><small data-i18n="onboarding.voice.kokoroHint"></small></label>
+        <label><input type="radio" name="ob-voice" value="system"><b data-i18n="onboarding.voice.system"></b><small data-i18n="onboarding.voice.systemHint"></small></label>
+        <label><input type="radio" name="ob-voice" value="off"><b data-i18n="onboarding.voice.off"></b><small data-i18n="onboarding.voice.offHint"></small></label>
       </div>
-      <p class="ob-note" data-en="For OpenAI voices, add an API key later in Settings → Voice.">想用 OpenAI 的聲音，之後可以到「設定 → 語音」輸入 API key。</p>
-      <button type="button" id="ob-preview" data-en="▶ Preview">▶ 試聽</button>
+      <p class="ob-note" data-i18n="onboarding.voice.openaiNote"></p>
+      <button type="button" id="ob-preview" class="preview" data-i18n="onboarding.voice.preview"></button>
     </div>
     <div class="ob-page" data-step="2" hidden>
-      <h2 data-en="Call me by voice?">要不要用叫的？</h2>
-      <p><span data-en="Say “">開啟後說「</span><b id="ob-wake-word">嘿安妮</b><span data-en="” and then just ask. Speech is recognised on this Mac and is never recorded or uploaded.">」就能叫我，接著直接說問題。聲音只在這台 Mac 上辨識，不錄存、不上傳。</span></p>
-      <label class="check"><input type="checkbox" id="ob-wake"> <span data-en="Turn on the wake word (asks for microphone access)">開啟語音喚醒（會詢問麥克風權限）</span></label>
-      <label class="check"><input type="checkbox" id="ob-asr"> <span data-en="Also download speech recognition (about 240 MB) so you can talk after waking me">同時下載語音辨識模型（約 240 MB），叫醒後可以直接用說的</span></label>
+      <h2 data-i18n="onboarding.wake.title"></h2>
+      <p><span data-i18n="onboarding.wake.sayBefore"></span><b id="ob-wake-word" translate="no"></b><span data-i18n="onboarding.wake.sayAfter"></span></p>
+      <label class="check"><input type="checkbox" id="ob-wake"> <span data-i18n="onboarding.wake.enable"></span></label>
+      <label class="check"><input type="checkbox" id="ob-asr"> <span data-i18n="onboarding.wake.asr"></span></label>
     </div>
     <div class="ob-page" data-step="3" hidden>
-      <h2 data-en="All set!">準備好了！</h2>
+      <h2 data-i18n="onboarding.done.title"></h2>
       <ul>
-        <li data-en="Click me to chat; drag to move me.">點一下我就能聊天；拖曳可以移動我。</li>
-        <li data-en="⌘-scroll over me to make me bigger or smaller.">在我身上按 ⌘ 捲動，可以把我變大變小。</li>
-        <li data-en="◈ Skin changes character and outfit; 📁 shows files I saved for you.">◈ Skin 換角色和衣服，📁 看我幫你存的檔案。</li>
-        <li data-en="Just ask for tasks, like “check today’s weather in Taipei”.">要我做事直接說，例如「幫我查今天台北天氣」。</li>
-        <li data-en="Change any of this in ⚙ Settings, where you can also reopen this guide.">之後都可以在 ⚙ 設定裡改，也能重新看這份引導。</li>
+        <li data-i18n="onboarding.done.tip1"></li>
+        <li data-i18n="onboarding.done.tip2"></li>
+        <li data-i18n="onboarding.done.tip3"></li>
+        <li data-i18n="onboarding.done.tip4"></li>
+        <li data-i18n="onboarding.done.tip5"></li>
       </ul>
     </div>
-    <div class="ob-nav"><button type="button" id="ob-skip" data-en="Skip">略過</button><button type="button" id="ob-back" hidden data-en="Back">上一步</button><button type="button" id="ob-next">下一步</button></div>
+    <div class="ob-nav"><button type="button" id="ob-skip" data-i18n="onboarding.skip"></button><button type="button" id="ob-back" hidden data-i18n="onboarding.back"></button><button type="button" id="ob-next" data-i18n="onboarding.next"></button></div>
   </section>
   <section id="panel">
-    <header class="drag"><span class="brand">ANNIE<span class="dot"></span></span><button id="chat-size" class="nodrag" title="放大／縮小對話框" aria-label="放大或縮小對話框">⤢</button><button id="settings-toggle" class="nodrag" title="AI 設定"><span aria-hidden="true">⚙</span> <span id="settings-label">設定</span></button><button id="close" title="收到背景（要結束請從選單列）" class="nodrag">×</button></header>
+    <header class="drag"><span class="brand" translate="no">ANNIE<span class="dot"></span></span><button id="chat-size" class="nodrag" data-i18n-title="chat.size" data-i18n-aria-label="chat.sizeAria">⤢</button><button id="settings-toggle" class="nodrag" data-i18n-title="settings.title" data-i18n-aria-label="settings.title"><span aria-hidden="true">⚙</span> <span id="settings-label" data-i18n="settings.title"></span></button><button id="close" data-i18n-title="chat.close" class="nodrag">×</button></header>
     <div id="settings" hidden>
-      <nav id="settings-nav" role="tablist" aria-label="設定分類">
-        <button type="button" data-pane="brain">🧠<span>AI 大腦</span></button>
-        <button type="button" data-pane="voice">🔊<span>語音・聲音</span></button>
-        <button type="button" data-pane="wake">🎙<span>語音喚醒</span></button>
-        <button type="button" data-pane="characters">🎭<span>角色</span></button>
-        <button type="button" data-pane="games">🎮<span>遊戲</span></button>
-        <button type="button" data-pane="remote">📱<span>手機遙控</span></button>
-        <button type="button" data-pane="general">⚙️<span>一般</span></button>
+      <nav id="settings-nav" role="tablist" data-i18n-aria-label="settings.nav.aria">
+        <button type="button" data-pane="brain">🧠<span data-i18n="settings.nav.brain"></span></button>
+        <button type="button" data-pane="voice">🔊<span data-i18n="settings.nav.voice"></span></button>
+        <button type="button" data-pane="wake">🎙<span data-i18n="settings.nav.wake"></span></button>
+        <button type="button" data-pane="characters">🎭<span data-i18n="settings.nav.characters"></span></button>
+        <button type="button" data-pane="games">🎮<span data-i18n="settings.nav.games"></span></button>
+        <button type="button" data-pane="remote">📱<span data-i18n="settings.nav.remote"></span></button>
+        <button type="button" data-pane="general">⚙️<span data-i18n="settings.nav.general"></span></button>
       </nav>
       <div id="settings-panes">
-      <section class="pane" data-pane="brain" hidden><h3 class="pane-title">AI 大腦</h3>
-        <label>AI 大腦<select id="provider"><option value="codex">Codex · 現有帳號</option><option value="claude">Claude · 現有帳號</option><option value="builtin">本機模型 · 內建（免費）</option><option value="local">LM Studio · 本機</option></select></label>
-        <div id="cli-setup" class="voice-row" hidden><span id="cli-status"></span><button type="button" id="cli-install">安裝並登入</button></div>
-        <div id="builtin-settings" hidden><div class="ob-choices" id="llm-models"></div><progress id="llm-progress" max="1" value="0" hidden></progress><div class="voice-row"><span id="llm-status"></span><button type="button" id="llm-install">下載這個模型</button><button type="button" id="llm-remove" hidden>刪除</button></div></div>
-        <div id="local-settings" hidden><label>本機位址<input id="base" value="http://127.0.0.1:1234/v1"></label><label>模型 ID（留空自動選擇）<input id="model"></label></div>
-        <label>AI 回覆語言<select id="reply-language"><option value="auto">自動（跟著我用的語言）</option><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option><option value="ja">日本語</option></select></label>
-        <label>任務模式<select id="task-mode" aria-label="Task mode"><option value="auto">自動判斷</option><option value="chat">只聊天</option><option value="computer">電腦操作</option><option value="browser">瀏覽器操作</option><option value="files">整理資料／存檔</option></select></label>
-        <div class="voice-row"><button id="agent-console">詳細紀錄 ↗</button></div>
-        <p>CLI 使用既有登入與方案額度。聊天送往所選服務；本機模式送至你的電腦。</p>
-        <p id="operation-help">操作使用所選大腦。Claude 接官方工具；Codex／LM Studio 使用 App 瀏覽器與原生電腦工具。LM Studio 請載入支援 tools 的模型；電腦操作另需支援影像。</p>
-        <div id="operation-permissions" data-mac-only><button data-permission="screen">螢幕錄製權限</button><button data-permission="accessibility">輔助使用權限</button></div>
-        <button id="official-setup">Claude 官方操作設定</button>
-        <div id="dev-settings"><b class="section-title">開發夥伴</b>
-          <p class="voice-note">把你在終端機開過的 Claude Code 或 Codex 工作階段接進來：角色就是那個工作階段，帶著完整上下文在那個專案資料夾繼續做。打字、說話都會交給它，回覆用說的，要批准的動作會先問你。</p>
-          <div class="voice-row"><button type="button" id="dev-pick">🧑‍💻 選一個工作階段接入…</button></div></div>
+      <section class="pane" data-pane="brain" hidden><h3 class="pane-title" data-i18n="settings.nav.brain"></h3>
+        <label data-i18n="settings.nav.brain"><select id="provider"><option value="codex">Codex</option><option value="claude">Claude</option><option value="builtin" data-i18n="settings.brain.builtin"></option><option value="local" data-i18n="settings.brain.lmstudio"></option></select></label>
+        <div id="cli-setup" class="voice-row" hidden><span id="cli-status"></span><button type="button" id="cli-install" data-i18n="settings.cli.install"></button></div>
+        <div id="builtin-settings" hidden><div class="ob-choices" id="llm-models"></div><progress id="llm-progress" max="1" value="0" hidden></progress><div class="voice-row"><span id="llm-status"></span><button type="button" id="llm-install" data-i18n="settings.llm.install"></button><button type="button" id="llm-remove" hidden data-i18n="settings.llm.remove"></button></div></div>
+        <div id="local-settings" hidden><label data-i18n="settings.brain.base"><input id="base" value="http://127.0.0.1:1234/v1"></label><label data-i18n="settings.brain.model"><input id="model"></label></div>
+        <label data-i18n="settings.brain.replyLanguage"><select id="reply-language"><option value="auto" data-i18n="settings.brain.replyLanguageAuto"></option><option value="zh-Hant" translate="no">繁體中文</option><option value="zh-Hans" translate="no">简体中文</option><option value="en" translate="no">English</option><option value="ja" translate="no">日本語</option></select></label>
+        <label data-i18n="settings.brain.taskMode"><select id="task-mode" data-i18n-aria-label="settings.brain.taskMode"><option value="auto" data-i18n="settings.brain.taskMode.auto"></option><option value="chat" data-i18n="settings.brain.taskMode.chat"></option><option value="computer" data-i18n="settings.brain.taskMode.computer"></option><option value="browser" data-i18n="settings.brain.taskMode.browser"></option><option value="files" data-i18n="settings.brain.taskMode.files"></option></select></label>
+        <div class="voice-row"><button id="agent-console" data-i18n="settings.brain.console"></button></div>
+        <p data-i18n="settings.brain.privacy"></p>
+        <p id="operation-help" data-i18n="settings.brain.operationHelp"></p>
+        <div id="operation-permissions" data-mac-only><button data-permission="screen" data-i18n="settings.brain.permScreen"></button><button data-permission="accessibility" data-i18n="settings.brain.permAccessibility"></button></div>
+        <button id="official-setup" data-i18n="settings.brain.officialSetup"></button>
+        <div id="dev-settings"><b class="section-title" data-i18n="settings.dev.title"></b>
+          <p class="voice-note" data-i18n="settings.dev.note"></p>
+          <div class="voice-row"><button type="button" id="dev-pick" data-i18n="settings.dev.pick"></button></div></div>
       </section>
-      <section class="pane" data-pane="voice" hidden><h3 class="pane-title">語音・聲音</h3>
+      <section class="pane" data-pane="voice" hidden><h3 class="pane-title" data-i18n="settings.nav.voice"></h3>
         <div id="voice-current" class="voice-current">
           <p id="voice-current-text"></p>
-          <label><span id="voice-for-label">這個角色用</span><select id="voice-for" aria-label="這個角色的聲音"></select></label>
+          <label><span id="voice-for-label"></span><select id="voice-for" data-i18n-aria-label="settings.voice.forAria"></select></label>
         </div>
-        <div id="voice-default"><b class="section-title">預設語音</b><p class="voice-note" id="voice-default-note">沒有專屬聲音的角色都用這個。</p>
+        <div id="voice-default"><b class="section-title" data-i18n="settings.voice.defaultTitle"></b><p class="voice-note" id="voice-default-note" data-i18n="settings.voice.defaultNote"></p>
         <div id="voice-settings">
-          <label>語音<select id="voice-provider"><option value="edge">台灣腔 · Edge 線上語音（免費）</option><option value="kokoro">本機 AI 語音 · Kokoro（免費、離線）</option><option value="openai">OpenAI AI 語音</option><option value="system">macOS 內建語音</option><option value="off">關閉語音</option></select></label>
+          <label data-i18n="settings.voice.label"><select id="voice-provider"><option value="edge" data-i18n="settings.voice.provider.edge"></option><option value="kokoro" data-i18n="settings.voice.provider.kokoro"></option><option value="openai" data-i18n="settings.voice.provider.openai"></option><option value="system" data-i18n="settings.voice.provider.system"></option><option value="off" data-i18n="settings.voice.provider.off"></option></select></label>
           <div id="edge-voice" hidden>
-            <label>聲音<select id="edge-voice-name"></select></label>
-            <label>語速 <span id="edge-rate-value">1.0×</span><input id="edge-rate" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
-            <div class="voice-row"><button type="button" id="edge-preview">▶ 試聽</button></div>
-            <p class="voice-note">使用 Edge 瀏覽器「大聲朗讀」的微軟線上語音：免費、免帳號，但要連網，說的文字會送到微軟。這是非官方介面，微軟改版時可能暫時無法使用，那時請先換成本機語音。</p>
+            <label data-i18n="settings.voice.voice"><select id="edge-voice-name"></select></label>
+            <label data-i18n="settings.voice.speed"> <span id="edge-rate-value">1.0×</span><input id="edge-rate" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="edge-preview" class="preview" data-i18n="settings.voice.preview"></button></div>
+            <p class="voice-note" data-i18n="settings.voice.edgeNote"></p>
           </div>
           <div id="kokoro-voice" hidden>
-            <div class="voice-row"><span id="kokoro-status"></span><button type="button" id="kokoro-install">下載語音模型（約 400 MB）</button></div>
+            <div class="voice-row"><span id="kokoro-status"></span><button type="button" id="kokoro-install" data-i18n="settings.voice.kokoroInstall"></button></div>
             <progress id="kokoro-progress" max="1" value="0" hidden></progress>
-            <label>聲音<select id="kokoro-voice-name"></select></label>
-            <label>語速 <span id="kokoro-speed-value">1.0×</span><input id="kokoro-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
-            <div class="voice-row"><button type="button" id="kokoro-preview">▶ 試聽</button></div>
-            <p class="voice-note">在這台 Mac 上執行，文字不會離開電腦。模型：Kokoro-82M（Apache 2.0）。中文聲音為普通話口音。</p>
+            <label data-i18n="settings.voice.voice"><select id="kokoro-voice-name"></select></label>
+            <label data-i18n="settings.voice.speed"> <span id="kokoro-speed-value">1.0×</span><input id="kokoro-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="kokoro-preview" class="preview" data-i18n="settings.voice.preview"></button></div>
+            <p class="voice-note" data-i18n="settings.voice.kokoroNote"></p>
           </div>
           <div id="openai-voice" hidden>
-            <label>聲音<select id="openai-voice-name"></select></label>
-            <label>模型<select id="openai-model"><option value="gpt-4o-mini-tts">gpt-4o-mini-tts · 可指定語氣</option><option value="tts-1">tts-1 · 回應較快</option><option value="tts-1-hd">tts-1-hd · 音質較細</option></select></label>
-            <label>語氣（gpt-4o-mini-tts 才會套用）<input id="openai-style" maxlength="1000"></label>
-            <div class="voice-row"><span id="openai-key-status"></span><button type="button" id="openai-key-toggle">設定 API key</button><button type="button" id="voice-preview">▶ 試聽</button></div>
+            <label data-i18n="settings.voice.voice"><select id="openai-voice-name"></select></label>
+            <label data-i18n="settings.voice.model"><select id="openai-model"><option value="gpt-4o-mini-tts" data-i18n="settings.voice.openaiModel.mini"></option><option value="tts-1" data-i18n="settings.voice.openaiModel.tts1"></option><option value="tts-1-hd" data-i18n="settings.voice.openaiModel.tts1hd"></option></select></label>
+            <label data-i18n="settings.voice.style"><input id="openai-style" maxlength="1000"></label>
+            <div class="voice-row"><span id="openai-key-status"></span><button type="button" id="openai-key-toggle" data-i18n="settings.voice.keySetUp"></button><button type="button" id="voice-preview" class="preview" data-i18n="settings.voice.preview"></button></div>
             <div id="openai-key-guide" hidden>
               <ol>
-                <li>開啟 <button type="button" data-openai="keys">OpenAI API keys 頁面</button> 並登入。API 跟 ChatGPT 訂閱分開計費，Plus／Pro 不含 API 額度。</li>
-                <li>按「Create new secret key」，名稱填 Agent Wardrobe，權限選 All（或 Restricted 時開啟語音權限），複製 sk- 開頭的 key。它只會顯示這一次。</li>
-                <li>到 <button type="button" data-openai="billing">帳單頁</button> 確認有餘額。語音按字數或播放時間計費，日常朗讀一句通常不到 1 美分；用量可在 <button type="button" data-openai="usage">用量頁</button> 查。</li>
-                <li>把 key 貼在下面，按「驗證並儲存」。</li>
+                <li><span data-i18n="settings.voice.guide1Before"></span><button type="button" data-openai="keys" data-i18n="settings.voice.guide1Link"></button><span data-i18n="settings.voice.guide1After"></span></li>
+                <li data-i18n="settings.voice.guide2"></li>
+                <li><span data-i18n="settings.voice.guide3Before"></span><button type="button" data-openai="billing" data-i18n="settings.voice.guide3Billing"></button><span data-i18n="settings.voice.guide3Middle"></span><button type="button" data-openai="usage" data-i18n="settings.voice.guide3Usage"></button><span data-i18n="settings.voice.guide3After"></span></li>
+                <li data-i18n="settings.voice.guide4"></li>
               </ol>
               <label>API key<input id="openai-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"></label>
-              <div class="voice-row"><button type="button" id="openai-key-save">驗證並儲存</button><button type="button" id="openai-key-clear">移除 key</button></div>
-              <p id="openai-key-note">保管方式：key 驗證成功後才儲存，加密存在這台 Mac（由 macOS 鑰匙圈保護），不寫進設定檔、之後也不會再顯示，只會送到 api.openai.com。不要把 key 貼到聊天框或分享給別人；懷疑外洩就到 API keys 頁面刪掉舊的、換一把新的。</p>
+              <div class="voice-row"><button type="button" id="openai-key-save" data-i18n="settings.voice.keySave"></button><button type="button" id="openai-key-clear" data-i18n="settings.voice.keyClear"></button></div>
+              <p id="openai-key-note" data-i18n="settings.voice.keyNote"></p>
             </div>
           </div>
         </div>
           </div>
-      <div id="voices-settings"><b class="section-title">我的聲音庫</b><p class="voice-note">做好的聲音放在這裡，可以給任何角色用。</p>
+      <div id="voices-settings"><b class="section-title" data-i18n="settings.voices.title"></b><p class="voice-note" data-i18n="settings.voices.note"></p>
           <p id="voices-bound" class="voice-note"></p>
-          <p id="voices-lang" class="voice-note" hidden>VOICEVOX 只會說日文，現在的回覆語言不是日文。<button type="button" id="voices-japanese">讓角色用日文回覆</button></p>
+          <p id="voices-lang" class="voice-note" hidden><span data-i18n="settings.voices.japaneseOnly"></span><button type="button" id="voices-japanese" data-i18n="settings.voices.useJapanese"></button></p>
           <ul id="voices-list"></ul>
-          <div class="voice-row"><span class="voice-note">新增聲音 →</span><button type="button" id="voice-new-mix">萌系混音</button><button type="button" id="voice-new-vv">VOICEVOX 角色</button>
+          <div class="voice-row"><span class="voice-note" data-i18n="settings.voices.newLabel"></span><button type="button" id="voice-new-mix" data-i18n="settings.voices.newMix"></button><button type="button" id="voice-new-vv" data-i18n="settings.voices.newVv"></button>
             <!-- 錄音複製 opens the 聲音工作室 window (voice-lab.cjs) -->
-            <button type="button" id="voice-lab" hidden>🎙 錄音複製</button>
-            <button type="button" id="voice-import">匯入聲音包…</button></div>
+            <button type="button" id="voice-lab" hidden data-i18n="settings.voices.lab"></button>
+            <button type="button" id="voice-import" data-i18n="settings.voices.import"></button></div>
           <div id="voice-mix" hidden>
-            <label>名稱<input id="mix-name" maxlength="40"></label>
-            <label>風格<select id="mix-preset"></select></label>
-            <label>聲音 A<select id="mix-a"></select></label>
-            <label>聲音 B<select id="mix-b"></select></label>
-            <label>混合 <span id="mix-blend-value"></span><input id="mix-blend" type="range" min="0" max="100" step="5" value="60"></label>
-            <label>音高 <span id="mix-pitch-value"></span><input id="mix-pitch" type="range" min="-6" max="8" step="1" value="0"></label>
-            <label>語速 <span id="mix-speed-value"></span><input id="mix-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
-            <div class="voice-row"><button type="button" id="mix-preview">▶ 試聽</button><button type="button" id="mix-save">儲存並綁定到目前角色</button><button type="button" id="mix-cancel">取消</button></div>
-            <p class="voice-note">用本機 Kokoro 模型的聲音混出新的聲音，在這台 Mac 上執行（需要先下載「本機 AI 語音」模型）。授權：Apache-2.0，可商用。</p>
+            <label data-i18n="settings.mix.name"><input id="mix-name" maxlength="40"></label>
+            <label data-i18n="settings.mix.style"><select id="mix-preset"></select></label>
+            <label data-i18n="settings.mix.a"><select id="mix-a"></select></label>
+            <label data-i18n="settings.mix.b"><select id="mix-b"></select></label>
+            <label data-i18n="settings.mix.blend"> <span id="mix-blend-value"></span><input id="mix-blend" type="range" min="0" max="100" step="5" value="60"></label>
+            <label data-i18n="settings.mix.pitch"> <span id="mix-pitch-value"></span><input id="mix-pitch" type="range" min="-6" max="8" step="1" value="0"></label>
+            <label data-i18n="settings.voice.speed"> <span id="mix-speed-value"></span><input id="mix-speed" type="range" min="0.7" max="1.4" step="0.05" value="1"></label>
+            <div class="voice-row"><button type="button" id="mix-preview" class="preview" data-i18n="settings.voice.preview"></button><button type="button" id="mix-save" data-i18n="settings.mix.save"></button><button type="button" id="mix-cancel" data-i18n="settings.mix.cancel"></button></div>
+            <p class="voice-note" data-i18n="settings.mix.note"></p>
           </div>
           <div id="voice-vv" hidden>
-            <div class="voice-row"><span id="vv-status" class="voice-note"></span><button type="button" id="vv-install" hidden>下載 VOICEVOX ENGINE</button></div>
+            <div class="voice-row"><span id="vv-status" class="voice-note"></span><button type="button" id="vv-install" hidden data-i18n="settings.vv.downloadPlain"></button></div>
             <progress id="vv-progress" max="1" value="0" hidden></progress>
             <div id="vv-pick" hidden>
-              <label>角色<select id="vv-speaker"></select></label><label>風格<select id="vv-style"></select></label>
-              <label>語速 <span id="vv-speed-value"></span><input id="vv-speed" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
-              <label>音高 <span id="vv-pitch-value"></span><input id="vv-pitch" type="range" min="-0.15" max="0.15" step="0.01" value="0"></label>
-              <div class="voice-row"><button type="button" id="vv-preview">▶ 試聽</button><button type="button" id="vv-save">儲存並綁定到目前角色</button><button type="button" id="vv-cancel">取消</button></div>
+              <label data-i18n="settings.vv.character"><select id="vv-speaker" translate="no"></select></label><label data-i18n="settings.mix.style"><select id="vv-style" translate="no"></select></label>
+              <label data-i18n="settings.voice.speed"> <span id="vv-speed-value"></span><input id="vv-speed" type="range" min="0.7" max="1.5" step="0.05" value="1"></label>
+              <label data-i18n="settings.mix.pitch"> <span id="vv-pitch-value"></span><input id="vv-pitch" type="range" min="-0.15" max="0.15" step="0.01" value="0"></label>
+              <div class="voice-row"><button type="button" id="vv-preview" class="preview" data-i18n="settings.voice.preview"></button><button type="button" id="vv-save" data-i18n="settings.mix.save"></button><button type="button" id="vv-cancel" data-i18n="settings.mix.cancel"></button></div>
             </div>
-            <p class="voice-note">VOICEVOX 只會說日文。每個角色有自己的利用規約，使用時要標示「VOICEVOX:角色名」；儲存時會一起保存該角色的規約。</p>
+            <p class="voice-note" data-i18n="settings.vv.note"></p>
           </div>
         </div>
       </section>
-      <section class="pane" data-pane="wake" hidden><h3 class="pane-title">語音喚醒</h3>
+      <section class="pane" data-pane="wake" hidden><h3 class="pane-title" data-i18n="settings.nav.wake"></h3>
         <div id="wake-settings">
-          <label class="check"><input type="checkbox" id="wake-enabled"> 語音喚醒：說喚醒詞就開始聊天</label>
-          <div class="voice-row"><span id="wake-listening">麥克風</span><meter id="mic-level" min="0" max="0.5" low="0.02" high="0.3" optimum="0.1" value="0"></meter></div>
-          <label>喚醒詞（可用逗號設定多個，中英文皆可）<input id="wake-phrases" maxlength="200" placeholder="嘿安妮, Hey Annie"></label>
-          <label>叫醒後的語音辨識<select id="dictation-engine"><option value="local">本機（SenseVoice，離線）</option><option value="typeless" data-mac-only>Typeless（較準，用你的 Typeless 帳號）</option></select></label><p id="typeless-note" class="voice-note" hidden></p>
-          <label>靈敏度<select id="wake-sensitivity"><option value="high">高（比較好叫醒，偶爾誤觸）</option><option value="normal">一般（較少誤觸）</option></select></label>
-        <label class="check"><input type="checkbox" id="barge-in"> 角色說話時可以直接插話打斷她</label>
-        <label class="check"><input type="checkbox" id="conversation-mode"> 回答完繼續聽 8 秒，不用再喊喚醒詞就能接著說</label>
-          <div class="voice-row"><span id="asr-status"></span><button type="button" id="asr-install">下載語音辨識模型（約 240 MB）</button></div>
+          <label class="check"><input type="checkbox" id="wake-enabled"> <span data-i18n="settings.wake.enabled"></span></label>
+          <div class="voice-row"><span id="wake-listening" data-i18n="settings.wake.mic"></span><meter id="mic-level" min="0" max="0.5" low="0.02" high="0.3" optimum="0.1" value="0"></meter></div>
+          <label data-i18n="settings.wake.phrases"><input id="wake-phrases" maxlength="200" translate="no" data-i18n-placeholder="settings.wake.phrasesPlaceholder"></label>
+          <label data-i18n="settings.wake.dictation"><select id="dictation-engine"><option value="local" data-i18n="settings.wake.dictationLocal"></option><option value="typeless" data-mac-only data-i18n="settings.wake.dictationTypeless"></option></select></label><p id="typeless-note" class="voice-note" hidden></p>
+          <label data-i18n="settings.wake.sensitivity"><select id="wake-sensitivity"><option value="high" data-i18n="settings.wake.sensitivityHigh"></option><option value="normal" data-i18n="settings.wake.sensitivityNormal"></option></select></label>
+        <label class="check"><input type="checkbox" id="barge-in"> <span data-i18n="settings.wake.bargeIn"></span></label>
+        <label class="check"><input type="checkbox" id="conversation-mode"> <span data-i18n="settings.wake.conversation"></span></label>
+          <div class="voice-row"><span id="asr-status"></span><button type="button" id="asr-install" data-i18n="settings.wake.asrInstall"></button></div>
           <progress id="asr-progress" max="1" value="0" hidden></progress>
-          <p class="voice-note">喚醒後直接說出你的問題，停頓一下就會自動送出。聲音只在這台 Mac 上辨識，不錄存、不上傳。沒下載辨識模型時，喚醒只會打開聊天框。</p>
+          <p class="voice-note" data-i18n="settings.wake.note"></p>
         </div>
       </section>
-      <section class="pane" data-pane="characters" hidden><h3 class="pane-title">角色</h3>
-        <div id="person-settings"><b class="section-title">用照片做角色</b><div class="voice-row"><button type="button" id="person-open">📷 拍照或選照片，做成 Q 版角色</button></div><ul id="person-list"></ul></div>
+      <section class="pane" data-pane="characters" hidden><h3 class="pane-title" data-i18n="settings.nav.characters"></h3>
+        <div id="person-settings"><b class="section-title" data-i18n="settings.characters.photoTitle"></b><div class="voice-row"><button type="button" id="person-open" data-i18n="settings.characters.photoOpen"></button></div><ul id="person-list"></ul></div>
       </section>
-      <section class="pane" data-pane="games" hidden><h3 class="pane-title">遊戲</h3>
-        <div id="watch-settings"><label>陪玩吐槽：看你玩的遊戲<select id="watch-source"><option value="">（選擇遊戲視窗）</option></select></label>
-          <label>遊戲名稱（用來查玩法，不查劇情）<input id="watch-game" maxlength="80" placeholder="例如：空洞騎士"></label>
-          <div class="voice-row"><button type="button" id="watch-refresh">重新整理視窗清單</button><button type="button" id="watch-toggle">▶ 開始陪玩</button></div><p id="watch-status" class="voice-note"></p></div>
-        <div id="game-settings"><label>要玩的遊戲<select id="game-choice"><option value="lane">Lane Dash（跑酷）</option><option value="pikachu">皮卡丘打排球（第三方網頁遊戲，不隨附）</option></select></label><p id="game-third-party" class="voice-note">皮卡丘打排球是 gorisanson 製作的同人重製網頁版（gorisanson.github.io/pikachu-volleyball），開始時才從網路載入，本 App 不隨附它的程式或任何素材。Pikachu © Nintendo / Creatures / GAME FREAK / The Pokémon Company；本專案與他們無關。</p><label>遊戲決策模型<select id="game-engine"><option value="laya">Laya · 本機・免費</option><option value="jev">Jev · TypeSafe API・按用量付費</option></select></label>
-          <div id="game-jev" hidden><div class="voice-row"><span id="game-jev-status"></span><button type="button" id="game-jev-get">取得 key ↗</button><button type="button" id="game-jev-clear" hidden>移除 key</button></div><input id="game-jev-key" type="password" placeholder="貼上 Jev API key" autocomplete="off"><div class="voice-row"><button type="button" id="game-jev-save">驗證並儲存</button></div></div>
-          <button type="button" id="open-game">🎮 讓角色玩遊戲（實驗）</button></div>
+      <section class="pane" data-pane="games" hidden><h3 class="pane-title" data-i18n="settings.nav.games"></h3>
+        <div id="watch-settings"><label data-i18n="settings.games.watch"><select id="watch-source"><option value="" data-i18n="settings.games.chooseWindow"></option></select></label>
+          <label data-i18n="settings.games.game"><input id="watch-game" maxlength="80" data-i18n-placeholder="settings.games.gamePlaceholder"></label>
+          <div class="voice-row"><button type="button" id="watch-refresh" data-i18n="settings.games.refresh"></button><button type="button" id="watch-toggle" data-i18n="settings.games.start"></button></div><p id="watch-status" class="voice-note"></p></div>
+        <div id="game-settings"><label data-i18n="settings.games.choice"><select id="game-choice"><option value="lane" data-i18n="settings.games.lane"></option><option value="pikachu" data-i18n="settings.games.pikachu"></option></select></label><p id="game-third-party" class="voice-note" data-i18n="settings.games.thirdParty"></p><label data-i18n="settings.games.engine"><select id="game-engine"><option value="laya" data-i18n="settings.games.laya"></option><option value="jev" data-i18n="settings.games.jev"></option></select></label>
+          <div id="game-jev" hidden><div class="voice-row"><span id="game-jev-status"></span><button type="button" id="game-jev-get" data-i18n="settings.games.jevGet"></button><button type="button" id="game-jev-clear" hidden data-i18n="settings.games.jevClear"></button></div><input id="game-jev-key" type="password" data-i18n-placeholder="settings.games.jevPlaceholder" autocomplete="off"><div class="voice-row"><button type="button" id="game-jev-save" data-i18n="settings.games.jevSave"></button></div></div>
+          <button type="button" id="open-game" data-i18n="settings.games.open"></button></div>
       </section>
-      <section class="pane" data-pane="remote" hidden><h3 class="pane-title">手機遙控</h3>
-        <div id="remote-settings"><b class="section-title">手機遙控（透過 Tailscale）</b>
+      <section class="pane" data-pane="remote" hidden><h3 class="pane-title" data-i18n="settings.nav.remote"></h3>
+        <div id="remote-settings"><b class="section-title" data-i18n="settings.remote.title"></b>
           <p id="remote-status" class="voice-note"></p>
-          <label class="check" id="remote-tasks-row" hidden><input type="checkbox" id="remote-tasks"> 允許手機下達電腦任務（操作電腦、瀏覽器、存檔）</label>
-          <div class="voice-row"><button type="button" id="remote-toggle">開啟手機遙控</button><button type="button" id="remote-pair" hidden>配對新手機</button></div>
-          <div id="remote-qr" hidden><div id="remote-qr-image"></div><p class="voice-note">用手機相機掃描，或在手機開 <span id="remote-link"></span> 輸入配對碼 <b id="remote-code"></b>（5 分鐘內有效）</p></div>
+          <label class="check" id="remote-tasks-row" hidden><input type="checkbox" id="remote-tasks"> <span data-i18n="settings.remote.tasks"></span></label>
+          <div class="voice-row"><button type="button" id="remote-toggle" data-i18n="settings.remote.turnOn"></button><button type="button" id="remote-pair" hidden data-i18n="settings.remote.pair"></button></div>
+          <div id="remote-qr" hidden><div id="remote-qr-image"></div><p class="voice-note"><span data-i18n="settings.remote.qrBefore"></span><span id="remote-link"></span><span data-i18n="settings.remote.qrMiddle"></span><b id="remote-code"></b><span data-i18n="settings.remote.qrAfter"></span></p></div>
           <ul id="remote-devices"></ul></div>
       </section>
-      <section class="pane" data-pane="general" hidden><h3 class="pane-title">一般</h3>
-        <button type="button" id="show-onboarding">重新看使用引導</button>
+      <section class="pane" data-pane="general" hidden><h3 class="pane-title" data-i18n="settings.nav.general"></h3>
+        <label><span data-i18n="settings.general.uiLanguage"></span><select id="ui-language"><option value="auto" data-i18n="settings.general.uiLanguageAuto"></option><option value="zh-Hant" translate="no">繁體中文</option><option value="zh-Hans" translate="no">简体中文</option><option value="en" translate="no">English</option><option value="ja" translate="no">日本語</option></select></label>
+        <button type="button" id="show-onboarding" data-i18n="settings.general.showOnboarding"></button>
       </section>
       </div>
-      <button id="save">儲存設定</button>
+      <button id="save" data-i18n="settings.save"></button>
     </div>
-    <div id="dev-bar" hidden><span id="dev-label"></span><button type="button" id="dev-stop" title="打斷目前這一輪（也可以說「停下來」）">■ 停下來</button><button type="button" id="dev-leave" title="離開，回到原本的 AI 大腦">離開</button></div>
-    <section id="dev-picker" hidden aria-label="選擇要接入的工作階段">
-      <div class="dev-picker-head"><b>接入開發工作階段</b><button type="button" id="dev-refresh" title="重新整理">↻</button><button type="button" id="dev-close" title="關閉">×</button></div>
-      <p class="voice-note" id="dev-picker-note">選一個最近的 Claude Code／Codex 工作階段。接入後角色會在那個專案資料夾、帶著完整對話繼續做；離開後一樣可以回終端機接著用。</p>
-      <label class="check"><input type="checkbox" id="dev-ask-codex"> <span>Codex：需要批准的動作一律問我（不交給 Codex 自動審查）</span></label>
+    <div id="dev-bar" hidden><span id="dev-label"></span><button type="button" id="dev-stop" data-i18n="companion.dev.stop" data-i18n-title="companion.dev.stopTitle"></button><button type="button" id="dev-leave" data-i18n="companion.dev.leave" data-i18n-title="companion.dev.leaveTitle"></button></div>
+    <section id="dev-picker" hidden data-i18n-aria-label="companion.dev.pickerAria">
+      <div class="dev-picker-head"><b data-i18n="companion.dev.pickerTitle"></b><button type="button" id="dev-refresh" data-i18n-title="companion.dev.refresh">↻</button><button type="button" id="dev-close" data-i18n-title="companion.dev.close">×</button></div>
+      <p class="voice-note" id="dev-picker-note" data-i18n="companion.dev.pickerNote"></p>
+      <label class="check"><input type="checkbox" id="dev-ask-codex"> <span data-i18n="companion.dev.askCodex"></span></label>
       <ul id="dev-list"></ul>
     </section>
-    <div id="conversation" aria-live="polite"><div class="message assistant">嗨，我是 Annie。今天想聊點什麼？</div></div>
-    <form id="chat-form"><textarea rows="1" id="prompt" aria-label="和角色聊天" placeholder="跟 Annie 說點什麼…" maxlength="2000" autocomplete="off"></textarea><button id="voice-input" type="button" aria-pressed="false" title="Typeless 語音模式：貼入文字後自動送出（包含一般貼上）">🎙</button><button id="send" title="送出">↑</button></form>
-    <footer><span id="status">Codex · 準備好了</span><button id="reset">清空</button></footer>
+    <div id="conversation" aria-live="polite" translate="no"><div class="message assistant" data-i18n="chat.greeting" data-i18n-vars='{"name":"Annie"}'></div></div>
+    <form id="chat-form"><textarea rows="1" id="prompt" data-i18n-aria-label="chat.promptAria" data-i18n-placeholder="chat.placeholder" data-i18n-vars='{"name":"Annie"}' maxlength="2000" autocomplete="off"></textarea><button id="voice-input" type="button" aria-pressed="false" data-i18n-title="chat.voiceInput">🎙</button><button id="send" data-i18n-title="chat.send">↑</button></form>
+    <footer><span id="status"></span><button id="reset" data-i18n="chat.clear"></button></footer>
   </section>
-  <div id="subtitle" hidden></div>
-  <div id="pet-wrap" title="拖曳移動，點一下戳戳我">
+  <div id="subtitle" hidden translate="no"></div>
+  <div id="pet-wrap" data-i18n-title="avatar.dragHint">
     <!-- The selected Mod model is mounted by the shared avatar renderer. -->
   </div>
-  <button id="stop-speech" type="button" hidden title="停止朗讀（Esc）">⏹ 停止朗讀</button>
-  <nav id="toolbar"><button id="speak-toggle" type="button" title="靜音（不念出回覆）" aria-label="靜音">🔊</button><button id="mic-toggle" type="button" hidden title="停止監聽" aria-label="停止監聽"><span id="mic-indicator"></span></button><button id="wardrobe" title="角色與服裝（⌘⇧S）">◈ Skin</button><button id="files" title="角色文件（⌘⇧O）" aria-label="角色文件">📁</button><button id="dev-open" title="開發夥伴：接入 Claude Code／Codex 工作階段" aria-label="開發夥伴">🧑‍💻</button></nav>
-  <button id="emergency-stop" title="停止任務（⌘⇧X）" aria-label="停止任務"><span aria-hidden="true"></span>停止</button>
-</main><script src="platform-text.js"></script><script src="locale.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>
+  <button id="stop-speech" type="button" hidden data-i18n="toolbar.stopSpeech" data-i18n-title="toolbar.stopSpeechTitle"></button>
+  <nav id="toolbar"><button id="speak-toggle" type="button" data-i18n-title="toolbar.mute" data-i18n-aria-label="toolbar.mute">🔊</button><button id="mic-toggle" type="button" hidden data-i18n-title="toolbar.stopListening" data-i18n-aria-label="toolbar.stopListening"><span id="mic-indicator"></span></button><button id="wardrobe" data-i18n-title="toolbar.wardrobe">◈ Skin</button><button id="files" data-i18n-title="toolbar.files" data-i18n-aria-label="toolbar.filesAria">📁</button><button id="dev-open" data-i18n-title="toolbar.dev" data-i18n-aria-label="toolbar.devAria">🧑‍💻</button></nav>
+  <button id="emergency-stop" data-i18n-title="toolbar.stopTask" data-i18n-aria-label="toolbar.stopTaskAria"><span aria-hidden="true"></span><b data-i18n="toolbar.stop"></b></button>
+</main><script src="i18n.js"></script><script src="platform-text.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>

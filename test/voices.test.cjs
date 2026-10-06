@@ -1,3 +1,4 @@
+require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');const crypto=require('node:crypto');
 const {createVoices,validate,boundProfile,zip,unzip,LIMITS}=require('../voices.cjs');
 const mix=require('../voice-engines/kokoro-mix.cjs');const voicevox=require('../voice-engines/voicevox.cjs');const kokoro=require('../kokoro.cjs');

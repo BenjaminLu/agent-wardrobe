@@ -1,4 +1,5 @@
 const fs=require('node:fs');
+const L=require('./locales.cjs');
 const os=require('node:os');
 const path=require('node:path');
 const {EventEmitter}=require('node:events');
@@ -11,7 +12,7 @@ class CodexServer extends EventEmitter {
     this.initializing=this.connect().catch(error=>{this.stop();throw error;});return this.initializing;
   }
   async connect(){
-    const executable=this.findBinary('codex');if(!executable)throw new Error('Codex CLI is not installed.');
+    const executable=this.findBinary('codex');if(!executable)throw L.error('errors.codexNotInstalled');
     this.cwd=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-codex-'));
     const env={...process.env};delete env.OPENAI_API_KEY;delete env.CODEX_API_KEY;
     const args=['app-server','--stdio','-c','features.shell_tool=false','-c','features.unified_exec=false','-c','features.js_repl=false','-c','features.multi_agent=false','-c','features.hooks=false','-c','features.apps=false','-c','web_search="disabled"','-c','mcp_servers={}'];
@@ -23,7 +24,7 @@ class CodexServer extends EventEmitter {
     child.stderr.on('data',chunk=>{this.stderr=(this.stderr+chunk).slice(-1000);});
     child.stdin.on('error',()=>{});
     child.on('error',error=>this.fail(error));
-    child.on('close',()=>{if(this.child===child){this.fail(new Error('Codex App Server disconnected.'));this.stop();}});
+    child.on('close',()=>{if(this.child===child){this.fail(L.error('errors.codexDisconnected'));this.stop();}});
     await this.request('initialize',{clientInfo:{name:'agent_wardrobe',title:'Agent Wardrobe',version:'0.1.0'},...(this.experimental?{capabilities:{experimentalApi:true}}:{})});
     this.send({method:'initialized',params:{}});
   }
@@ -43,14 +44,14 @@ class CodexServer extends EventEmitter {
   fail(error){for(const entry of this.pending.values()){clearTimeout(entry.timer);entry.reject(error);}this.pending.clear();this.emit('disconnected',error);}
   stop(){const child=this.child;this.child=null;this.initializing=null;this.buffer='';if(child)child.kill();this.fail(new Error('App Server stopped.'));if(this.cwd){fs.rmSync(this.cwd,{recursive:true,force:true});this.cwd=null;}}
   async chat(history,systemPrompt,onEvent=()=>{}){
-    if(!Array.isArray(history)||!history.length||history.at(-1)?.role!=='user')throw new Error('Enter a message first.');
+    if(!Array.isArray(history)||!history.length||history.at(-1)?.role!=='user')throw L.error('errors.enterMessage');
     await this.start();
     const messages=history.slice(-20).filter(m=>['user','assistant'].includes(m?.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,4000)}));
     const result=await this.request('thread/start',{cwd:this.cwd,ephemeral:true,approvalPolicy:'untrusted',sandbox:'read-only',baseInstructions:systemPrompt,developerInstructions:'Chat only. Do not use tools, inspect files, or execute commands.'});
     const threadId=result.thread.id;
     let reply='',turnId=null,finished=false;
     try{return await new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{finish(new Error('Codex reply timed out.'));this.stop();},120000);
+      const timer=setTimeout(()=>{finish(L.error('errors.codexTimeout'));this.stop();},120000);
       const disconnected=error=>finish(error);
       const receive=message=>{
         const params=message.params||{};if(params.threadId!==threadId)return;

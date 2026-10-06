@@ -7,6 +7,7 @@
 //  booru     — Safebooru anime pictures (general rating only): fan art, used only as a reference for Codex to redraw
 // Every result carries its terms: tier 'open' (CC0/CC BY), 'rules' (the owner's own terms) or 'personal' (fan art / non-commercial).
 const fs=require('node:fs');const path=require('node:path');
+const L=require('./locales.cjs');const {t}=L;
 const OSA='https://raw.githubusercontent.com/ToxSam/open-source-avatars/main/data';
 const SAMPLES='https://raw.githubusercontent.com/madjin/vrm-samples/master';
 const VROID='https://hub.vroid.com';
@@ -29,11 +30,12 @@ const SKETCHFAB_LICENSES={'CC0 Public Domain':'CC0','CC Attribution':'CC BY 4.0'
 // VRoid Hub: each model has its author's own conditions; 'default' means the stricter choice.
 function vroidLicense(l={}){
   const personal=l.personal_commercial_use,corporate=l.corporate_commercial_use==='allow',credit=l.credit==='necessary';
-  const parts=[personal==='profit'?'個人營利可':personal==='nonprofit'?'個人非營利可':'個人非商用',corporate?'法人可':null,l.modification==='allow'?'可改造':'不可改造',credit?'需標註':null].filter(Boolean);
-  return {id:'vroid',label:`VRoid 條件：${parts.join('・')}`,commercial:personal==='profit'||corporate,credit,shareAlike:false,tier:'rules',modification:l.modification==='allow'};
+  const parts=[personal==='profit'?'personalProfit':personal==='nonprofit'?'personalNonprofit':'personalNoCommercial',corporate?'corporate':null,l.modification==='allow'?'modify':'noModify',credit?'credit':null].filter(Boolean);
+  return {id:'vroid',label:t('library.vroid.label',{parts:parts.map(p=>t(`library.vroid.${p}`)).join(t('library.vroid.separator'))}),commercial:personal==='profit'||corporate,credit,shareAlike:false,tier:'rules',modification:l.modification==='allow'};
 }
-const FANART={id:'fanart',label:'同人圖・僅供參考',commercial:false,credit:true,shareAlike:false,tier:'personal'};
-const RULES=(label,commercial,credit=true)=>({id:'rules',label,commercial,credit,shareAlike:false,tier:'rules'});
+// labels are read in the interface language at the moment a result is listed (or a credit line written)
+const FANART={id:'fanart',get label(){return t('library.license.fanart');},commercial:false,credit:true,shareAlike:false,tier:'personal'};
+const RULES=(key,commercial,credit=true)=>({id:'rules',get label(){return t(key);},commercial,credit,shareAlike:false,tier:'rules'});
 
 const credit=(item)=>`Based on "${item.title}"${item.author?` by ${item.author}`:''} (${item.license.label}), ${item.page||item.download}`;
 const decode=s=>String(s).replace(/&amp;/g,'&').replace(/&#039;|&#39;/g,"'").replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
@@ -49,18 +51,18 @@ function translate(q){let rest=String(q);const tags=[];for(const [zh,en] of Obje
 
 // Hand-picked characters. 'vrm' ones download straight away; 'assisted' ones open the official page in the assisted download window.
 // Only the CC0 samples have a bundled thumbnail (library-thumbs/); the others show their preview once downloaded.
-const vroidSample=(file,title,cc0=true)=>({kind:'vrm',source:'VRoid 官方樣本',title,author:'pixiv / VRoid',...(cc0?{thumb:`local:${file}`}:{previewAfterDownload:true}),
-  license:cc0?{...license('CC0'),label:'CC0'}:RULES('VRoid 樣本條款（可商用）',true,false),download:`${SAMPLES}/vroid/${cc0?'beta':'stable'}/${file}.vrm`,
+const vroidSample=(file,title,cc0=true)=>({kind:'vrm',get source(){return t('library.source.vroidSamples');},title,author:'pixiv / VRoid',...(cc0?{thumb:`local:${file}`}:{previewAfterDownload:true}),
+  license:cc0?{...license('CC0'),label:'CC0'}:RULES('library.license.vroidSample',true,false),download:`${SAMPLES}/vroid/${cc0?'beta':'stable'}/${file}.vrm`,
   page:cc0?'https://vroid.pixiv.help/hc/en-us/articles/4402614652569':'https://vroid.pixiv.help/hc/en-us/articles/4402394424089',tags:'anime vroid 3d vtuber'});
 const FEATURED=[
   vroidSample('Sendagaya_Shino','千駄ヶ谷 篠 Shino'),vroidSample('Sendagaya_Shibu','千駄ヶ谷 渋 Shibu'),vroidSample('Sakurada_Fumiriya','桜田 フミリヤ Fumiriya'),
   vroidSample('Vita','Vita'),vroidSample('Vivi','Vivi'),vroidSample('Victoria_Rubin','Victoria Rubin'),vroidSample('Darkness_Shibu','闇の 渋 Darkness Shibu'),
   vroidSample('AvatarSample_A','AvatarSample A',false),vroidSample('AvatarSample_B','AvatarSample B',false),vroidSample('AvatarSample_C','AvatarSample C',false),
-  {kind:'vrm',source:'VRM 官方範例',title:'Seed-san',author:'VirtualCast, Inc.',previewAfterDownload:true,license:RULES('VRM Public License 1.0（需標註）',true),download:`${SAMPLES}/Seed-san/vrm/Seed-san.vrm`,page:'https://vrm.dev/licenses/1.0/',tags:'anime vrm 3d'},
-  {kind:'assisted',site:'unitychan',source:'Unity Technologies Japan',title:'Unity-chan ユニティちゃん',author:'UTJ/UCL',license:RULES('UCL 2.0：個人／小團體可商用，需標示',true),page:'https://unity-chan.com/download/',tags:'game anime 3d unity ユニティちゃん'},
-  {kind:'assisted',site:'zunko',source:'東北ずん子・ずんだもん',title:'ずんだもん Zundamon',author:'SSS合同会社',license:RULES('角色規約：依規約可商用',true),page:'https://zunko.jp/con_illust.html',tags:'vtuber anime 2d live2d voicevox ずんだもん 東北'},
-  {kind:'assisted',site:'live2d',source:'Live2D 官方範例',title:'Hiyori・Mao・Haru 等',author:'Live2D Inc.',license:RULES('Live2D 無償素材ライセンス：個人／小團體可用',true),page:'https://www.live2d.com/en/learn/sample/',tags:'vtuber live2d anime 2d'},
-  {kind:'assisted',site:'alicia',source:'ニコニ立体',title:'アリシア・ソリッド Alicia Solid',author:'dwango',license:RULES('ニコニ立体ちゃん規約',false),page:'https://3d.nicovideo.jp/alicia/',tags:'anime 3d vrm mmd'}
+  {kind:'vrm',get source(){return t('library.source.vrmSamples');},title:'Seed-san',author:'VirtualCast, Inc.',previewAfterDownload:true,license:RULES('library.license.vrmPublic',true),download:`${SAMPLES}/Seed-san/vrm/Seed-san.vrm`,page:'https://vrm.dev/licenses/1.0/',tags:'anime vrm 3d'},
+  {kind:'assisted',site:'unitychan',source:'Unity Technologies Japan',title:'Unity-chan ユニティちゃん',author:'UTJ/UCL',license:RULES('library.license.ucl',true),page:'https://unity-chan.com/download/',tags:'game anime 3d unity ユニティちゃん'},
+  {kind:'assisted',site:'zunko',source:'東北ずん子・ずんだもん',title:'ずんだもん Zundamon',author:'SSS合同会社',license:RULES('library.license.zunko',true),page:'https://zunko.jp/con_illust.html',tags:'vtuber anime 2d live2d voicevox ずんだもん 東北'},
+  {kind:'assisted',site:'live2d',get source(){return t('library.source.live2dSamples');},title:'Hiyori, Mao, Haru…',author:'Live2D Inc.',license:RULES('library.license.live2d',true),page:'https://www.live2d.com/en/learn/sample/',tags:'vtuber live2d anime 2d'},
+  {kind:'assisted',site:'alicia',source:'ニコニ立体',title:'アリシア・ソリッド Alicia Solid',author:'dwango',license:RULES('library.license.alicia',false),page:'https://3d.nicovideo.jp/alicia/',tags:'anime 3d vrm mmd'}
 ];
 
 // IPFS files are reachable through several public gateways; a busy one (429) or a miss is retried on the next.
@@ -74,16 +76,16 @@ function createLibrary({fetchImpl=fetch,now=()=>Date.now(),shrink=null,accounts=
   let active=0;const waiting=[];const slot=()=>new Promise(r=>{if(active<3){active++;r();}else waiting.push(r);});const release=()=>{const next=waiting.shift();if(next)next();else active--;};
   const allowed=url=>{try{const u=new URL(url);return u.protocol==='https:'&&(HOSTS.includes(u.hostname)||HOST_SUFFIXES.some(s=>u.hostname.endsWith(s)));}catch{return false;}};
   async function get(url,{as='json',limit=2e6,timeout=15000,headers={},method='GET',body}={}){
-    if(!allowed(url))throw new Error('不允許的下載來源。');
+    if(!allowed(url))throw L.error('library.error.sourceNotAllowed');
     const referer=Object.entries(REFERERS).find(([host])=>new URL(url).hostname.endsWith(host))?.[1];
     let response,lastError;
     for(const candidate of alternatives(url)){
       try{response=await fetchImpl(candidate,{method,body,redirect:'follow',signal:AbortSignal.timeout(timeout),headers:{'User-Agent':'AgentWardrobe/0.1 (desktop companion; avatar store)',...(referer?{Referer:referer}:{}),...headers}});}
       catch(error){lastError=error;continue;}
-      if(response.ok)break;lastError=Object.assign(new Error(`下載失敗（${response.status}）`),{status:response.status});response=null;
+      if(response.ok)break;lastError=L.error('library.error.downloadFailedStatus',{status:response.status},{status:response.status});response=null;
     }
-    if(!response)throw lastError||new Error('下載失敗');
-    const data=Buffer.from(await response.arrayBuffer());if(data.length>limit)throw new Error('檔案太大。');
+    if(!response)throw lastError||L.error('library.error.downloadFailed');
+    const data=Buffer.from(await response.arrayBuffer());if(data.length>limit)throw L.error('library.error.tooLarge');
     return as==='json'?JSON.parse(data.toString('utf8')):as==='text'?data.toString('utf8'):data;
   }
   async function cached(key,fn,ttl=24*3600e3){const hit=cache.get(key);if(hit&&now()-hit.at<ttl)return hit.value;const value=await fn();cache.set(key,{at:now(),value});return value;}
@@ -105,11 +107,11 @@ function createLibrary({fetchImpl=fetch,now=()=>Date.now(),shrink=null,accounts=
 
   // VRoid Hub: only models whose authors allow other apps to use them, never age-restricted ones.
   const vroidHeaders=token=>({'X-Api-Version':'11',Authorization:`Bearer ${token}`});
-  async function vroidToken(){const token=await accounts.vroid?.token?.();if(!token)throw Object.assign(new Error('VRoid Hub 還沒連結：按「連結 VRoid Hub」登入一次。'),{code:'VROID_LOGIN'});return token;}
+  async function vroidToken(){const token=await accounts.vroid?.token?.();if(!token)throw L.error('library.error.vroidNotConnected',undefined,{code:'VROID_LOGIN'});return token;}
   async function searchVroid(q){
     const token=await vroidToken();
     const url=q?`${VROID}/api/search/character_models?${new URLSearchParams({keyword:q,count:'40'})}`:`${VROID}/api/staff_picks?count=40`;
-    let data;try{data=await get(url,{headers:vroidHeaders(token)});}catch(error){if(error.status===401){await accounts.vroid?.expired?.();throw Object.assign(new Error('VRoid Hub 登入過期了，請再連結一次。'),{code:'VROID_LOGIN'});}throw error;}
+    let data;try{data=await get(url,{headers:vroidHeaders(token)});}catch(error){if(error.status===401){await accounts.vroid?.expired?.();throw L.error('library.error.vroidExpired',undefined,{code:'VROID_LOGIN'});}throw error;}
     return (data.data||[]).filter(m=>m.is_downloadable&&m.is_other_users_available&&!m.age_limit?.is_r18&&!m.age_limit?.is_r15&&!m.age_limit?.is_adult).slice(0,24).map(m=>({
       kind:'vrm',source:'VRoid Hub',vroidId:m.id,title:m.name||m.character?.name||'VRoid',author:m.character?.user?.name||'',license:vroidLicense(m.license),
       thumb:m.portrait_image?.sq300?.url||m.full_body_image?.w300?.url,page:`${VROID}/characters/${m.character?.id}/models/${m.id}`}));
@@ -155,24 +157,24 @@ function createLibrary({fetchImpl=fetch,now=()=>Date.now(),shrink=null,accounts=
     finally{release();}
   }
   async function download(key){
-    const item=results.get(key);if(!item)throw new Error('找不到這個搜尋結果，請重新搜尋。');
-    if(item.kind==='assisted')throw new Error('這個角色要從官方網站下載，請用「AI 輔助下載」。');
+    const item=results.get(key);if(!item)throw L.error('library.error.resultGone');
+    if(item.kind==='assisted')throw L.error('library.error.assistedOnly');
     const big={as:'buffer',limit:80e6,timeout:180000};
     if(item.source==='VRoid Hub'){
       // a download licence is issued for this user, then the hub redirects to the file
       const token=await vroidToken(),headers=vroidHeaders(token);
       const issued=await get(`${VROID}/api/download_licenses`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({character_model_id:item.vroidId})});
       const data=await get(`${VROID}/api/download_licenses/${encodeURIComponent(issued.data.id)}/download`,{...big,headers});
-      if(data.subarray(0,4).toString('latin1')!=='glTF')throw new Error('VRoid Hub 給的不是一般的 VRM 檔，這個模型可能只能在官方認證的 App 使用。');
+      if(data.subarray(0,4).toString('latin1')!=='glTF')throw L.error('library.error.vroidNotVrm');
       return {item,credit:credit(item),data};
     }
     if(item.source==='Sketchfab'){
-      const token=accounts.sketchfab?.token?.();if(!token)throw Object.assign(new Error('下載 Sketchfab 模型要先設定 Sketchfab API token。'),{code:'SKETCHFAB_TOKEN'});
+      const token=accounts.sketchfab?.token?.();if(!token)throw L.error('library.error.sketchfabToken',undefined,{code:'SKETCHFAB_TOKEN'});
       const links=await get(`https://api.sketchfab.com/v3/models/${encodeURIComponent(item.sketchfabId)}/download`,{headers:{Authorization:`Token ${token}`}});
-      const url=links.glb?.url;if(!/^https:\/\//.test(url||''))throw new Error('這個 Sketchfab 模型沒有 GLB 版本可以下載。');
+      const url=links.glb?.url;if(!/^https:\/\//.test(url||''))throw L.error('library.error.sketchfabNoGlb');
       // the link Sketchfab hands back is a signed storage address; it is trusted because it came from the API itself
-      const response=await fetchImpl(url,{redirect:'follow',signal:AbortSignal.timeout(180000)});if(!response.ok)throw new Error(`下載失敗（${response.status}）`);
-      const data=Buffer.from(await response.arrayBuffer());if(data.length>80e6)throw new Error('檔案太大。');
+      const response=await fetchImpl(url,{redirect:'follow',signal:AbortSignal.timeout(180000)});if(!response.ok)throw L.error('library.error.downloadFailedStatus',{status:response.status},{status:response.status});
+      const data=Buffer.from(await response.arrayBuffer());if(data.length>80e6)throw L.error('library.error.tooLarge');
       return {item,credit:credit(item),data};
     }
     return {item,credit:credit(item),data:await get(item.download,item.kind==='vrm'?big:{as:'buffer',limit:8e6,timeout:30000})};

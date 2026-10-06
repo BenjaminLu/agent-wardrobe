@@ -1,3 +1,4 @@
+require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');
 const audio=require('../voice-audio.cjs');const {speechLike,speechWav}=require('./fixtures/voice/make-audio.cjs');
 const {createSidecar}=require('../voice-engines/sidecar.cjs');const cosyvoice=require('../voice-engines/cosyvoice.cjs');
@@ -157,4 +158,12 @@ test('jobs: cancel aborts the run and ends as cancelled; a failure ends as error
   assert.equal(jobs.cancel(job.id),false,'only a running job can be cancelled');
   const bad=jobs.start({kind:'x',title:'Y',stages:[{id:'a'}],run:async()=>{throw new Error('boom');}});await jobs.wait(bad.id);
   assert.deepEqual([jobs.get(bad.id).state,jobs.get(bad.id).error],['error','boom']);
+});
+test('quality notes and consent errors carry their locale key, so a screen in another language can show them',()=>{
+  const L=require('../locales.cjs');
+  const q=audio.qualityCheck({duration:1,speechSeconds:0,peakDb:-90,speechDb:-90,clippedRatio:0,speechRatio:0});
+  assert.deepEqual([q.issues[0].key,q.issues[0].message],['voiceLab.quality.silent','幾乎沒有聲音：麥克風有收到嗎？']);
+  assert.match(L.t.in('en')(q.issues[0].key,q.issues[0].vars),/microphone/);
+  let error;try{lab.requireConsent({person:'小明'});}catch(e){error=e;}
+  assert.equal(error.code,'CONSENT_REQUIRED');assert.match(L.messageIn(error,'ja'),/同意/);assert.match(L.messageIn(error,'en'),/agreed/);
 });

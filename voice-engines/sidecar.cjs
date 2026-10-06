@@ -5,7 +5,8 @@
 //                   {"id":n, "ok":true, ...result} or {"id":n, "ok":false, "error":"message"}
 //   app → sidecar:  {"id":n, "op":"speak", ...}, {"op":"cancel","id":n}, {"op":"quit"}
 // Nothing listens on a port, so no other app or web page can reach the model. The process stops after a quiet spell.
-const {spawn}=require('node:child_process');
+const {spawn}=require('node:child_process');const L=require('../locales.cjs');
+const cancelled=key=>L.error(key||'voiceEngines.cancelled',null,{name:'AbortError'});
 
 const PREFIX='@voice ';
 function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTimeout=10*60*1000,idleMs=10*60*1000,spawnImpl=spawn}){
@@ -14,18 +15,18 @@ function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTime
   const fail=(error)=>{for(const p of pending.values())p.reject(error);pending.clear();};
   function onMessage(message,resolveReady,rejectReady){
     if(message.ready){info=message;resolveReady(message);return;}
-    if(message.fatal){rejectReady(new Error(`${name} 無法啟動：${message.fatal}`));return;}
+    if(message.fatal){rejectReady(L.error('voiceEngines.sidecar.cannotStart',{name,error:message.fatal}));return;}
     const p=pending.get(message.id);if(!p)return;
     if(message.progress!==undefined&&message.ok===undefined){p.onProgress?.(message.progress,message);return;}
     pending.delete(message.id);armIdle();
-    if(message.ok)p.resolve(message);else p.reject(new Error(message.error||`${name} 失敗`));
+    if(message.ok)p.resolve(message);else p.reject(message.error?new Error(message.error):L.error('voiceEngines.sidecar.failed',{name}));
   }
   function start(){
     if(ready)return ready;
     ready=new Promise((resolveReady,rejectReady)=>{
       const proc=spawnImpl(command,args,{cwd,env:{...process.env,PYTHONUNBUFFERED:'1',...env},stdio:['pipe','pipe','pipe']});child=proc;
       let buffer='';
-      const timer=setTimeout(()=>{rejectReady(new Error(`${name} 啟動逾時。`));stop({now:true});},readyTimeout);
+      const timer=setTimeout(()=>{rejectReady(L.error('voiceEngines.sidecar.timeout',{name}));stop({now:true});},readyTimeout);
       const done=fn=>value=>{clearTimeout(timer);fn(value);};
       const okReady=done(resolveReady),badReady=done(error=>{rejectReady(error);});
       proc.stdout.on('data',chunk=>{buffer+=chunk;let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i).trim();buffer=buffer.slice(i+1);
@@ -33,11 +34,11 @@ function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTime
         let message;try{message=JSON.parse(line.slice(PREFIX.length));}catch{continue;}onMessage(message,okReady,badReady);}});
       proc.stderr.on('data',chunk=>{log=(log+chunk).slice(-4000);});
       proc.stdin.on('error',()=>{});
-      proc.on('error',error=>{badReady(new Error(`${name} 無法啟動：${error.message}`));});
+      proc.on('error',error=>{badReady(L.error('voiceEngines.sidecar.cannotStart',{name,error:error.message}));});
       proc.on('exit',code=>{
         if(child===proc){child=null;ready=null;clearTimeout(idleTimer);}
         const tail=log.trim().split('\n').slice(-2).join(' ').slice(0,300);
-        const error=new Error(`${name} 結束了（${code??'signal'}）${tail?`：${tail}`:''}`);
+        const error=L.error(tail?'voiceEngines.sidecar.exitedLog':'voiceEngines.sidecar.exited',{name,code:code??'signal',log:tail});
         badReady(error);fail(error);
       });
     });
@@ -46,13 +47,13 @@ function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTime
   }
   function armIdle(){clearTimeout(idleTimer);if(!pending.size&&idleMs)idleTimer=setTimeout(()=>stop(),idleMs);idleTimer?.unref?.();}
   async function request(op,data={},{signal,onProgress}={}){
-    if(signal?.aborted)throw Object.assign(new Error('已取消。'),{name:'AbortError'});
+    if(signal?.aborted)throw cancelled();
     await start();clearTimeout(idleTimer);
     // cancelled while the process was still starting (a slow start, e.g. on Windows): never sent
-    if(signal?.aborted){armIdle();throw Object.assign(new Error('已取消。'),{name:'AbortError'});}
+    if(signal?.aborted){armIdle();throw cancelled();}
     const id=nextId++;
     return new Promise((resolve,reject)=>{
-      const onAbort=()=>{if(!pending.has(id))return;pending.delete(id);send({op:'cancel',id});armIdle();reject(Object.assign(new Error('已取消。'),{name:'AbortError'}));};
+      const onAbort=()=>{if(!pending.has(id))return;pending.delete(id);send({op:'cancel',id});armIdle();reject(cancelled());};
       pending.set(id,{resolve:v=>{signal?.removeEventListener('abort',onAbort);resolve(v);},reject:e=>{signal?.removeEventListener('abort',onAbort);reject(e);},onProgress});
       signal?.addEventListener('abort',onAbort,{once:true});
       send({...data,id,op});
@@ -66,7 +67,7 @@ function createSidecar({command,args=[],cwd,env={},name='voice engine',readyTime
     try{proc.stdin.write(JSON.stringify({op:'quit'})+'\n');proc.stdin.end();}catch{}
     const term=setTimeout(()=>{try{proc.kill('SIGTERM');}catch{}},now?0:1000),kill=setTimeout(()=>{try{proc.kill('SIGKILL');}catch{}},4000);term.unref?.();kill.unref?.();
     proc.once('exit',()=>{clearTimeout(term);clearTimeout(kill);});
-    fail(Object.assign(new Error('已停止。'),{name:'AbortError'}));
+    fail(cancelled('voiceEngines.stopped'));
   }
   return {request,start,stop,get running(){return Boolean(child);},get info(){return info;},get pid(){return child?.pid;}};
 }

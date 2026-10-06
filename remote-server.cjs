@@ -1,7 +1,7 @@
 // Phone remote: a small HTTPS-fronted web app for chatting with the character from a phone.
 // The server listens on 127.0.0.1 only; Tailscale Serve publishes it inside the user's tailnet (never the internet).
 // A phone pairs once with a 6-digit code shown on the Mac and then uses its own device token; devices can be revoked.
-const {ON_HERE}=require('./platform.cjs');
+const L=require('./locales.cjs');
 const http=require('node:http');const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 
 const hash=token=>crypto.createHash('sha256').update(token).digest('hex');
@@ -12,10 +12,10 @@ class DeviceStore{
   // A pairing code lives five minutes and allows five tries.
   newCode(){this.code={value:String(crypto.randomInt(0,1e6)).padStart(6,'0'),expires:this.now()+5*60*1000};this.attempts=0;return this.code;}
   pair(code,name='Phone'){
-    if(!this.code||this.now()>this.code.expires)throw Object.assign(new Error(`配對碼已過期，請在${ON_HERE}重新產生。`),{status:410});
-    if(++this.attempts>5){this.code=null;throw Object.assign(new Error(`嘗試太多次，請在${ON_HERE}重新產生配對碼。`),{status:429});}
+    if(!this.code||this.now()>this.code.expires)throw L.error('remote.error.codeExpired',undefined,{status:410});
+    if(++this.attempts>5){this.code=null;throw L.error('remote.error.tooManyTries',undefined,{status:429});}
     const a=Buffer.from(String(code)),b=Buffer.from(this.code.value);
-    if(a.length!==b.length||!crypto.timingSafeEqual(a,b))throw Object.assign(new Error('配對碼不對。'),{status:401});
+    if(a.length!==b.length||!crypto.timingSafeEqual(a,b))throw L.error('remote.error.wrongCode',undefined,{status:401});
     this.code=null;const token=crypto.randomBytes(32).toString('hex'),data=this.read();
     const device={id:crypto.randomUUID(),name:String(name).slice(0,60)||'Phone',hash:hash(token),created:new Date(this.now()).toISOString(),lastSeen:null};
     data.devices.push(device);this.write(data);return {token,device:{id:device.id,name:device.name}};
@@ -35,11 +35,15 @@ function createRemote({root,store,getState,chat,modAsset,subscribe,routes={},all
   // The phone page and the shared avatar renderer; nothing else on disk is reachable.
   const FILES={'/remote/':'remote/index.html','/remote/index.html':'remote/index.html','/remote/app.js':'remote/app.js','/remote/style.css':'remote/style.css',
     '/remote/manifest.webmanifest':'remote/manifest.webmanifest','/remote/sw.js':'remote/sw.js','/remote/icon.png':'build/icon-256.png',
-    '/remote/avatars.js':'avatars.js','/remote/avatar.css':'avatar.css','/remote/vendor/vrm-kit.js':'vendor/vrm-kit.js','/remote/vendor/live2d-kit.js':'vendor/live2d-kit.js'};
+    '/remote/avatars.js':'avatars.js','/remote/i18n.js':'i18n.js','/remote/avatar.css':'avatar.css','/remote/vendor/vrm-kit.js':'vendor/vrm-kit.js','/remote/vendor/live2d-kit.js':'vendor/live2d-kit.js'};
   // Live2D's Cubism Core is only served once the user has downloaded it on the Mac (see live2d-core.cjs); WebAssembly needs 'wasm-unsafe-eval'.
   const CSP="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self' blob: data:; frame-ancestors 'none'";
   const streams=new Set();let port=0;
   const send=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers});res.end(JSON.stringify(body));};
+  // An error for the phone: in the phone's language (X-UI-Language) when it is keyed, with the key and vars so the page can
+  // translate it itself; other errors as they are.
+  const fail=(req,res,status,error)=>{const lang=L.LANGS.includes(req.headers['x-ui-language'])?req.headers['x-ui-language']:L.language;
+    send(res,status,{error:L.messageIn(error,lang),...(error?.i18nKey?{key:error.i18nKey,vars:error.i18nVars}:{})});};
   const server=http.createServer(async(req,res)=>{
     try{
       // Only the loopback address and the tailnet name are accepted, so other sites cannot reach this server by DNS rebinding.
@@ -55,13 +59,19 @@ function createRemote({root,store,getState,chat,modAsset,subscribe,routes={},all
         const file=core||path.join(root,FILES[url.pathname]);
         res.writeHead(200,{'Content-Type':TYPES[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY',
           'Content-Security-Policy':CSP});
-        if(req.method==='HEAD'){res.end();return;}fs.createReadStream(file).pipe(res);return;
+        if(req.method==='HEAD'){res.end();return;}
+        // the installed app's name follows the computer's interface language
+        if(url.pathname==='/remote/manifest.webmanifest'){res.end(JSON.stringify({...JSON.parse(fs.readFileSync(file,'utf8')),name:L.t('remote.title')}));return;}
+        fs.createReadStream(file).pipe(res);return;
       }
       if(req.method==='GET'&&url.pathname==='/'){res.writeHead(302,{Location:'/remote/'});res.end();return;}
       const readBody=async(limit=8192)=>{let body='';for await(const chunk of req){body+=chunk;if(body.length>limit)throw Object.assign(new Error('Too large'),{status:413});}return body?JSON.parse(body):{};};
+      // the interface text, before pairing too (the pairing screen needs it; nothing in it is secret):
+      // mac is the computer's language, lang the one asked for (or the computer's)
+      if(req.method==='GET'&&url.pathname==='/api/i18n'){const asked=url.searchParams.get('lang'),lang=L.LANGS.includes(asked)?asked:L.language,{dict,platform}=L.bundle(lang);send(res,200,{mac:L.language,lang,dict,platform});return;}
       if(req.method==='POST'&&url.pathname==='/api/pair'){const data=await readBody(1024);send(res,200,store.pair(data.code,data.name));return;}
       const device=store.verify(String(req.headers.authorization||'').replace(/^Bearer /,''));
-      if(!device){send(res,401,{error:'請重新配對這支手機。'});return;}
+      if(!device){fail(req,res,401,L.error('remote.error.repair'));return;}
       if(req.method==='GET'&&url.pathname==='/api/state'){send(res,200,getState());return;}
       if(req.method==='GET'&&url.pathname==='/api/mod-asset'){const data=await modAsset(url.searchParams.get('mod'),url.searchParams.get('file'));res.writeHead(200,{'Content-Type':'application/octet-stream','Cache-Control':'private, max-age=3600'});res.end(Buffer.from(data));return;}
       if(req.method==='POST'&&url.pathname==='/api/chat'){const data=await readBody(8192);send(res,200,await chat(String(data.text||''),device,{auto:data.auto===true}));return;}
@@ -75,7 +85,7 @@ function createRemote({root,store,getState,chat,modAsset,subscribe,routes={},all
         req.on('close',()=>{clearInterval(ping);streams.delete(stream);});return;
       }
       send(res,404,{error:'Not found'});
-    }catch(error){if(!res.headersSent)send(res,error.status||500,{error:error.message});else res.end();}
+    }catch(error){if(!res.headersSent)fail(req,res,error.status||500,error);else res.end();}
   });
   // A phone already shows its own conversation, so its turns are sent only to the other screens.
   const unsubscribe=subscribe?.((type,data)=>{const {from,...body}=data||{};for(const {res,device} of streams)if(!from||from!==device.id)res.write(`event: ${type}\ndata: ${JSON.stringify(body)}\n\n`);});

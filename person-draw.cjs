@@ -45,20 +45,24 @@ ${JSON.stringify({rig:annie.rig,face:annie.face,mouth:annie.mouth,outfitExample:
 Reply with JSON only, matching the given schema.`;}
 
 const binary=()=>[process.env.CODEX_BIN].find(p=>p&&fs.existsSync(p))||require('./cli.cjs').binary('codex');
-// schema: the JSON shape Codex must answer in (the character drawing by default); words: the messages for a timeout / no answer / bad JSON
-const DRAW_WORDS={slow:'Codex 畫太久了，請再試一次。',none:'Codex 沒有畫出結果',bad:'Codex 回傳的不是完整的角色資料，請再試一次。'};
+// schema: the JSON shape Codex must answer in (the character drawing by default); words: the locale keys (or plain
+// messages) for a timeout / no answer / bad JSON
+const L=require('./locales.cjs');
+const DRAW_WORDS={slow:'person.draw.slow',none:'person.draw.none',bad:'person.draw.bad'};
+const isKey=word=>/^[a-z][\w-]*(\.[\w-]+)+$/.test(word);
+const wordError=(word,detail)=>{const message=isKey(word)?L.t(word):word;return detail?L.error('person.draw.withDetail',{message,detail}):isKey(word)?L.error(word):new Error(word);};
 function runCodex({prompt,images=[],dir,schema=SCHEMA,words=DRAW_WORDS,timeoutMs=8*60*1000,onEvent=()=>{}}){
   return new Promise((resolve,reject)=>{
-    const bin=binary();if(!bin)return reject(new Error('找不到 Codex：請先在「設定 → AI 大腦」安裝並登入 Codex。'));
+    const bin=binary();if(!bin)return reject(L.error('person.draw.noCodex'));
     const schemaFile=path.join(dir,'schema.json');fs.writeFileSync(schemaFile,JSON.stringify(schema));
     const args=['exec','--ephemeral','--skip-git-repo-check','-s','read-only','-C',dir,'--output-schema',schemaFile,'--json',...images.flatMap(i=>['-i',i]),'-'];
     const child=launch(bin,args,{stdio:['pipe','pipe','pipe'],windowsHide:true});let buffer='',last=null,err='';
-    const timer=setTimeout(()=>{child.kill();reject(new Error(words.slow));},timeoutMs);
+    const timer=setTimeout(()=>{child.kill();reject(wordError(words.slow));},timeoutMs);
     child.stdout.on('data',data=>{buffer+=data;let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+1);let event;try{event=JSON.parse(line);}catch{continue;}
       onEvent(event);if(event.type==='item.completed'&&event.item?.type==='agent_message')last=event.item.text;}});
     child.stderr.on('data',d=>{err=(err+d).slice(-2000);});
-    child.on('close',code=>{clearTimeout(timer);if(!last)return reject(new Error(`${words.none}${code?`（${err.trim().split('\n').slice(-1)[0]||code}）`:''}`));
-      try{resolve(JSON.parse(last.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')));}catch{reject(new Error(words.bad));}});
+    child.on('close',code=>{clearTimeout(timer);if(!last)return reject(wordError(words.none,code?String(err.trim().split('\n').slice(-1)[0]||code):''));
+      try{resolve(JSON.parse(last.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')));}catch{reject(wordError(words.bad));}});
     child.stdin.end(prompt);
   });
 }
@@ -79,7 +83,7 @@ async function drawCharacter({photo,annie,validate,render,rounds=2,instruction=n
       // a drawing that breaks the rules goes back once with the error
       for(let attempt=0;;attempt++){
         try{mod=validate(reply);drawing=reply;break;}
-        catch(error){if(attempt>=1)throw new Error(`Codex 畫的圖沒通過檢查：${error.message}`);progress('fix',error.message);
+        catch(error){if(attempt>=1)throw L.error('person.draw.rejected',{error:error.message});progress('fix',error.message);
           reply=await runCodex({prompt:`${base}\n\nYour drawing (JSON):\n${JSON.stringify(reply)}\nThe app rejected it: ${error.message}\nFix exactly that and return the full JSON.`,images:photo?[photo]:[],dir});}
       }
       feedback=null;

@@ -1,11 +1,12 @@
 const fs=require('node:fs');const path=require('node:path');const {randomUUID}=require('node:crypto');
+const L=require('./locales.cjs');
 const {conversationText}=require('./conversation-text.cjs');
 const MAX_MESSAGES=2000;
 class ConversationStore{
   constructor(file){
     this.file=file;this.data={version:1,messages:[],legacyImported:false};
     try{const data=JSON.parse(fs.readFileSync(file,'utf8'));if(data.version!==1||!Array.isArray(data.messages))throw new Error('Invalid conversation memory');this.data={version:1,messages:data.messages.filter(m=>['user','assistant'].includes(m?.role)&&typeof m.content==='string'&&typeof m.id==='string').slice(-MAX_MESSAGES),legacyImported:data.legacyImported===true};}
-    catch(error){if(error.code!=='ENOENT')throw new Error('Conversation memory could not be loaded; existing file was left unchanged.');}
+    catch(error){if(error.code!=='ENOENT')throw L.error('errors.memoryUnreadable');}
   }
   save(){fs.mkdirSync(path.dirname(this.file),{recursive:true});const temp=this.file+'.tmp';fs.writeFileSync(temp,JSON.stringify(this.data)+'\n',{mode:0o600});fs.renameSync(temp,this.file);}
   append(role,content,meta={}){

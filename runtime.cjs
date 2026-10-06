@@ -1,4 +1,5 @@
 const { EventEmitter } = require('node:events');
+const L = require('./locales.cjs');
 const mods = require('./mods.cjs');
 const {randomUUID}=require('node:crypto');
 const DEFAULT_MOD='annie';
@@ -29,7 +30,7 @@ class Runtime extends EventEmitter {
     this.state.modId=candidate.modId; this.state.skinId=candidate.skinId; this.state.personaId=candidate.personaId;
     return this.publish();
   }
-  provider(value) { if(!['codex','claude','local'].includes(value))throw new Error('Unknown provider'); if(this.state.activity==='working'||this.state.activity==='waiting_for_approval')throw new Error('Wait for the current reply before switching engines'); this.state.provider=value; this.state.activity='idle'; this.state.emotion='neutral'; return this.publish(); }
+  provider(value) { if(!['codex','claude','local'].includes(value))throw new Error('Unknown provider'); if(this.state.activity==='working'||this.state.activity==='waiting_for_approval')throw L.error('errors.switchBrainBusy'); this.state.provider=value; this.state.activity='idle'; this.state.emotion='neutral'; return this.publish(); }
   activity(value,emotion='neutral') { if(!mods.STATES.includes(value)||value==='speaking')throw new Error('Invalid activity'); this.state.activity=value; this.state.emotion=['neutral','smug','happy','surprised','nervous','sad'].includes(emotion)?emotion:'neutral'; return this.publish(); }
   speaking(on) { this.state.speaking=Boolean(on); return this.publish(); }
 }

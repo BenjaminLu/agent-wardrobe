@@ -1,4 +1,5 @@
 const {spawn}=require('node:child_process');
+const L=require('./locales.cjs');
 const {EventEmitter}=require('node:events');
 const path=require('node:path');
 const {StringDecoder}=require('node:string_decoder');
@@ -12,11 +13,11 @@ function argumentsFor({mode,text,id,persona,setup=false,mcpConfig=null}) {
 class AgentSession extends EventEmitter {
   constructor(){super();this.child=null;this.buffer='';this.output='';this.id=null;}
   start(options){
-    if(this.child)throw new Error('操作工作階段仍開啟，請先在操作視窗停止，或直接在該視窗繼續對話。');
+    if(this.child)throw L.error('tasks.sessionOpen');
     // agent-pty.py gives Claude Code a real terminal through Python's pty module, which Windows does not have
-    if(process.platform==='win32')throw new Error('Windows 版還不能用 Claude 執行電腦／瀏覽器任務（需要終端機 pty）。請改用 Codex 或本機模型，或只用 Claude 聊天。');
+    if(process.platform==='win32')throw L.error('tasks.claudeWindowsUnsupported');
     const args=argumentsFor(options);const claude=binary('claude'),python=binary('python3');
-    if(!claude||!python)throw new Error('需要 Claude CLI 與 Python 3。');
+    if(!claude||!python)throw L.error('tasks.needClaudePython');
     const env={...process.env,PATH:`${path.dirname(claude)}:${process.env.PATH||''}`};
     for(const key of ['ANTHROPIC_API_KEY','OPENAI_API_KEY','CODEX_API_KEY','CLAUDECODE'])delete env[key];
     // A launch from inside Claude Code leaks CLAUDE_CODE_* session markers (e.g. CHILD_SESSION disables transcripts).

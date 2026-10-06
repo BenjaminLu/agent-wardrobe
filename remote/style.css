@@ -1,5 +1,6 @@
 :root{--bg:#eaf6fd;--card:#ffffff;--ink:#172c47;--muted:#5d7a8e;--accent:#1c8fe1;--line:#d3e7ef}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1c29;--card:#172a3b;--ink:#e6f1f9;--muted:#93b0c3;--accent:#4aa9f0;--line:#29435a}}
+body:lang(zh-Hans){font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}body:lang(ja){font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
 *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 #pair{max-width:420px;margin:15vh auto 0;text-align:center}#pair p{color:var(--muted);line-height:1.6}#pair-form{display:flex;gap:8px;justify-content:center}
 #pair-code{width:9em;font-size:24px;letter-spacing:.2em;text-align:center;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--card);color:var(--ink)}

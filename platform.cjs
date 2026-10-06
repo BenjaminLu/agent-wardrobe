@@ -71,10 +71,9 @@ function transparencySupported({platform=PLATFORM,env=process.env}={}){
   if(env.WAYLAND_DISPLAY||env.XDG_SESSION_TYPE==='wayland')return true;
   return /gnome|kde|plasma|cinnamon|budgie|pantheon|deepin|unity|ubuntu|cosmic|xfce/i.test(`${env.XDG_CURRENT_DESKTOP||''}:${env.DESKTOP_SESSION||''}`)&&!/i3|openbox|fluxbox|awesome|dwm/i.test(env.DESKTOP_SESSION||'');
 }
-// Names shown in the interface: 這台 Mac / 這台電腦.
-const HERE=MAC?'這台 Mac':'這台電腦',HERE_ON=MAC?'這台 Mac 上':'這台電腦上',ON_HERE=MAC?' Mac 上':'電腦上',MACHINE=MAC?' Mac ':'電腦';
-const SYSTEM_VOICE_LABEL={darwin:{zh:'macOS 內建語音',en:'macOS voice'},win32:{zh:'Windows 內建語音',en:'Windows voice'},linux:{zh:'Linux 系統語音（espeak-ng）',en:'Linux voice (espeak-ng)'}};
-const systemName=(platform=PLATFORM)=>({darwin:'Mac',win32:'Windows',linux:'Linux'})[platform]||'電腦';
+// Interface text says 這台 Mac / this Mac in locales/; t() rewrites it per platform (i18n.js).
+const L=require('./locales.cjs');
+const systemName=(platform=PLATFORM)=>({darwin:'Mac',win32:'Windows',linux:'Linux'})[platform]||L.t('platform.computer');
 // Shortcut text: ⌘⇧S on a Mac, Ctrl+Shift+S elsewhere.
 function shortcutText(text,platform=PLATFORM){if(platform==='darwin')return text;return String(text).replace(/⌘⇧([A-Z0-9]|Return|Enter|↩)/g,'Ctrl+Shift+$1').replace(/⌘\s?＋?/g,'Ctrl+').replace(/⇧/g,'Shift+').replace(/Ctrl\+\+/g,'Ctrl+');}
 // Windows briefly locks a freshly written file or folder (antivirus scans, handles still closing): a rename then fails with
@@ -82,4 +81,4 @@ function shortcutText(text,platform=PLATFORM){if(platform==='darwin')return text
 function renameRetry(from,to,{tries=20,delay=150}={}){
   for(let attempt=1;;attempt++){try{return fs.renameSync(from,to);}catch(error){if(attempt>=tries||!['EPERM','EBUSY','EACCES'].includes(error.code))throw error;Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,delay);}}
 }
-module.exports={renameRetry,transparencySupported,HERE,HERE_ON,ON_HERE,MACHINE,PLATFORM,MAC,WIN,LINUX,toolDirs,which,shimTarget,cmdArg,launch,killTree,tarCommand,bsdtar,venvPython,venvSitePackages,SYSTEM_VOICE_LABEL,systemName,shortcutText};
+module.exports={renameRetry,transparencySupported,PLATFORM,MAC,WIN,LINUX,toolDirs,which,shimTarget,cmdArg,launch,killTree,tarCommand,bsdtar,venvPython,venvSitePackages,systemName,shortcutText};

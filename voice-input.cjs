@@ -1,5 +1,6 @@
 // Hands-free input: a local wake word ("嘿安妮" / "Hey Annie"), then local speech recognition of what follows.
 const {renameRetry}=require('./platform.cjs');
+const L=require('./locales.cjs');
 // Audio is processed in memory on this Mac and never stored or sent anywhere.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 const {pinyin}=require('pinyin-pro');
@@ -20,14 +21,14 @@ function loadEnglish(file){const map=new Map();for(const line of fs.readFileSync
 function keywordLine(phrase,ctx){return keywordLines(phrase,{...ctx,tones:false})[0];}
 // All spellings of a phrase the spotter should accept; tone variants are capped to keep the graph small.
 function keywordLines(phrase,{tokens,english,tones=true}){
-  const text=String(phrase).trim();if(!text||text.length>30)throw new Error('喚醒詞需要 1–30 個字');
+  const text=String(phrase).trim();if(!text||text.length>30)throw L.error('wake.phraseLength');
   const out=[];
   for(const part of text.match(/[㐀-鿿]+|[A-Za-z']+/g)||[]){
-    if(/[A-Za-z]/.test(part)){const phones=english.get(part.toUpperCase());if(!phones)throw new Error(`喚醒詞裡的英文字「${part}」不在辨識字典裡`);out.push(...phones.split(' '));}
+    if(/[A-Za-z]/.test(part)){const phones=english.get(part.toUpperCase());if(!phones)throw L.error('wake.unknownEnglishWord',{word:part});out.push(...phones.split(' '));}
     else for(const syllable of pinyin(part,{type:'array'}))out.push(...syllableTokens(syllable));
   }
-  if(!out.length)throw new Error('喚醒詞要包含中文或英文字');
-  const missing=out.filter(token=>!tokens.has(token));if(missing.length)throw new Error(`喚醒詞含模型不支援的音：${missing.join(' ')}`);
+  if(!out.length)throw L.error('wake.needLetters');
+  const missing=out.filter(token=>!tokens.has(token));if(missing.length)throw L.error('wake.unsupportedSounds',{sounds:missing.join(' ')});
   const label=`@${text.replace(/\s+/g,'_')}`;
   let variants=[[]];
   for(const token of out){const forms=tones?toneForms(token,tokens):[token];const next=[];for(const v of variants)for(const f of forms)next.push([...v,f]);variants=next.length>200?variants.map(v=>[...v,token]):next;}
@@ -90,11 +91,11 @@ async function installAsr(dir,{onProgress=()=>{},files=ASR_FILES,fetchImpl=fetch
   for(const file of files){
     const target=path.join(temp,file.name);
     if(!(fs.existsSync(target)&&fs.statSync(target).size===file.size)){
-      const response=await fetchImpl(file.url,{redirect:'follow'});if(!response.ok)throw new Error(`語音辨識模型下載失敗（${file.name}，${response.status}）`);
+      const response=await fetchImpl(file.url,{redirect:'follow'});if(!response.ok)throw L.error('speech.asrDownloadFailed',{name:file.name,status:response.status});
       const out=fs.createWriteStream(target);for await(const chunk of response.body){out.write(chunk);done+=chunk.length;onProgress(Math.min(1,done/total));}
       await new Promise((resolve,reject)=>out.end(error=>error?reject(error):resolve()));
     }else{done+=file.size;onProgress(done/total);}
-    if(file.sha256){const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(target))hash.update(chunk);if(hash.digest('hex')!==file.sha256){fs.rmSync(temp,{recursive:true,force:true});throw new Error(`${file.name} 檔案驗證失敗，請重新下載。`);}}
+    if(file.sha256){const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(target))hash.update(chunk);if(hash.digest('hex')!==file.sha256){fs.rmSync(temp,{recursive:true,force:true});throw L.error('speech.verifyFailed',{name:file.name});}}
   }
   fs.writeFileSync(path.join(temp,'.complete'),'ok');fs.rmSync(dir,{recursive:true,force:true});renameRetry(temp,dir);
 }

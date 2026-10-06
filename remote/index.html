@@ -1,83 +1,84 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#eaf6fd"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Agent Wardrobe">
-<title>Agent Wardrobe 遙控</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon.png">
+<title data-i18n="remote.title">Agent Wardrobe</title><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="avatar.css"><link rel="stylesheet" href="style.css"></head>
 <body>
 <section id="pair" hidden>
-  <h1>連到你的 Mac</h1>
-  <p>在 Mac 的角色「設定 → 手機遙控」按「配對新手機」，輸入畫面上的 6 位數配對碼（或直接掃 QR code）。</p>
-  <form id="pair-form"><input id="pair-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required><button>配對</button></form>
+  <h1 data-i18n="remote.pair.heading"></h1>
+  <p data-i18n="remote.pair.intro"></p>
+  <form id="pair-form"><input id="pair-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required><button data-i18n="remote.pair.button"></button></form>
   <p id="pair-error" class="error"></p>
 </section>
 <main id="app" hidden>
-  <header><b id="name">Agent Wardrobe</b><span id="link" title="連線狀態">●</span><button id="voice" type="button" aria-pressed="false" title="用手機念出回覆">🔇</button></header>
+  <header><b id="name" translate="no">Agent Wardrobe</b><span id="link" data-i18n-title="remote.header.link">●</span><button id="voice" type="button" aria-pressed="false" data-i18n-title="remote.header.voice">🔇</button></header>
   <div id="pet"></div>
-  <div id="task-bar" hidden><span id="task-state"></span><button id="task-stop" type="button">■ 停止</button></div>
+  <div id="task-bar" hidden><span id="task-state"></span><button id="task-stop" type="button" data-i18n="remote.task.stop"></button></div>
   <section class="tab" id="tab-chat">
-    <div id="dev-bar" hidden><span id="dev-label"></span><button id="dev-stop" type="button">■ 停下來</button><button id="dev-leave" type="button">離開</button></div>
-    <div id="dev-pick-row" hidden><button id="dev-pick" type="button">🧑‍💻 接入開發工作階段</button></div>
+    <div id="dev-bar" hidden><span id="dev-label"></span><button id="dev-stop" type="button" data-i18n="remote.dev.stop"></button><button id="dev-leave" type="button" data-i18n="remote.dev.leave"></button></div>
+    <div id="dev-pick-row" hidden><button id="dev-pick" type="button" data-i18n="remote.dev.pick"></button></div>
     <div id="dev-list" hidden></div>
-    <div id="log" aria-live="polite"></div>
-    <button id="stop-speech" type="button" class="stop-speech" hidden>⏹ 停止 Mac 朗讀</button>
-    <form id="chat"><select id="mode" aria-label="模式"><option value="chat">聊天</option><option value="auto">自動判斷</option><option value="browser">瀏覽器任務</option><option value="computer">電腦任務</option><option value="files">整理存檔</option></select>
-      <input id="text" autocomplete="off" placeholder="跟我說點什麼…" maxlength="2000"><button>送出</button></form>
+    <div id="log" aria-live="polite" translate="no"></div>
+    <button id="stop-speech" type="button" class="stop-speech" hidden data-i18n="remote.chat.stopSpeech"></button>
+    <form id="chat"><select id="mode" data-i18n-aria-label="remote.chat.mode"><option value="chat" data-i18n="remote.mode.chat"></option><option value="auto" data-i18n="remote.mode.auto"></option><option value="browser" data-i18n="remote.mode.browser"></option><option value="computer" data-i18n="remote.mode.computer"></option><option value="files" data-i18n="remote.mode.files"></option></select>
+      <input id="text" autocomplete="off" maxlength="2000"><button data-i18n="remote.chat.send"></button></form>
   </section>
   <section class="tab" id="tab-characters" hidden>
-    <div class="photo-make"><label class="button-like">📷 拍照做新角色<input id="char-photo" type="file" accept="image/*" capture="environment" hidden></label>
-      <p class="hint">拍朋友（先跟對方說一聲）就畫成新角色；要換衣服，按角色卡上的「拍照換造型」。照片交給 Codex 畫，畫完就刪掉。</p></div>
+    <div class="photo-make"><label class="button-like"><span data-i18n="remote.characters.photo"></span><input id="char-photo" type="file" accept="image/*" capture="environment" hidden></label>
+      <p class="hint" data-i18n="remote.characters.photoHint"></p></div>
     <input id="outfit-photo" type="file" accept="image/*" capture="environment" hidden>
     <div id="char-list"></div>
   </section>
   <section class="tab" id="tab-store" hidden>
-    <form id="lib-form"><input id="lib-q" type="search" placeholder="例如 貓耳、女僕、魔法少女、vtuber"><button>搜尋</button></form>
-    <div class="lib-sources"><label><input type="checkbox" value="featured" checked> 精選</label><label><input type="checkbox" value="vroid" checked> VRoid Hub</label><label><input type="checkbox" value="vrm" checked> OSA</label><label><input type="checkbox" value="sketchfab" checked> Sketchfab</label><label><input type="checkbox" value="booru" checked> 動漫圖</label></div>
-    <div class="assist"><span>在 Mac 上用 AI 輔助下載找：</span><button type="button" data-site="booth">Booth</button><button type="button" data-site="nizima">nizima</button><button type="button" data-site="aplaybox">模之屋</button><button type="button" data-site="nico3d">ニコニ立体</button><button type="button" data-site="bowlroll">BowlRoll</button></div>
+    <form id="lib-form"><input id="lib-q" type="search" data-i18n-placeholder="remote.store.placeholder"><button data-i18n="remote.store.search"></button></form>
+    <div class="lib-sources"><label><input type="checkbox" value="featured" checked> <span data-i18n="remote.store.sourceFeatured"></span></label><label><input type="checkbox" value="vroid" checked> VRoid Hub</label><label><input type="checkbox" value="vrm" checked> OSA</label><label><input type="checkbox" value="sketchfab" checked> Sketchfab</label><label><input type="checkbox" value="booru" checked> <span data-i18n="remote.store.sourceBooru"></span></label></div>
+    <div class="assist"><span data-i18n="remote.store.assist"></span><button type="button" data-site="booth" translate="no">Booth</button><button type="button" data-site="nizima" translate="no">nizima</button><button type="button" data-site="aplaybox" translate="no">模之屋</button><button type="button" data-site="nico3d" translate="no">ニコニ立体</button><button type="button" data-site="bowlroll" translate="no">BowlRoll</button></div>
     <p id="assist-status" class="hint"></p>
     <p id="lib-status" class="hint"></p><div id="lib-results"></div>
   </section>
-  <section class="tab" id="tab-files" hidden><div id="files"></div><article id="viewer" hidden><button id="viewer-back" type="button">← 檔案列表</button><h3 id="viewer-name"></h3><div id="viewer-body"></div></article></section>
+  <section class="tab" id="tab-files" hidden><div id="files"></div><article id="viewer" hidden><button id="viewer-back" type="button" data-i18n="remote.files.back"></button><h3 id="viewer-name" translate="no"></h3><div id="viewer-body" translate="no"></div></article></section>
   <section class="tab" id="tab-settings" hidden>
-    <label>角色<select id="s-mod"></select></label><label>造型<select id="s-skin"></select></label><label>個性<select id="s-persona"></select></label>
-    <label>AI 大腦<select id="s-brain"><option value="codex">Codex</option><option value="claude">Claude</option><option value="builtin">本機模型 · 內建</option><option value="local">LM Studio</option></select></label>
-    <label id="s-model-row" hidden>內建模型<select id="s-model"></select></label>
-    <label>AI 回覆語言<select id="s-reply"><option value="auto">自動</option><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="en">English</option><option value="ja">日本語</option></select></label>
-    <label class="check"><input type="checkbox" id="s-speak"> Mac 念出回覆（取消勾選＝靜音，選好的聲音不變）</label>
-    <label>預設語音（沒有專屬聲音的角色都用這個）<select id="s-voice"><option value="edge">Edge 線上語音</option><option value="kokoro">Kokoro 本機語音</option><option value="openai">OpenAI 語音</option><option value="system">macOS 內建</option><option value="off">關閉</option></select></label>
+    <label><span data-i18n="remote.settings.phoneLanguage"></span><select id="s-lang"><option value="mac" data-i18n="remote.settings.followMac"></option><option value="zh-Hant" translate="no">繁體中文</option><option value="zh-Hans" translate="no">简体中文</option><option value="en" translate="no">English</option><option value="ja" translate="no">日本語</option></select></label>
+    <label><span data-i18n="remote.settings.character"></span><select id="s-mod" translate="no"></select></label><label><span data-i18n="remote.settings.skin"></span><select id="s-skin" translate="no"></select></label><label><span data-i18n="remote.settings.persona"></span><select id="s-persona" translate="no"></select></label>
+    <label><span data-i18n="remote.settings.brain"></span><select id="s-brain"><option value="codex">Codex</option><option value="claude">Claude</option><option value="builtin" data-i18n="remote.settings.brainBuiltin"></option><option value="local">LM Studio</option></select></label>
+    <label id="s-model-row" hidden><span data-i18n="remote.settings.builtinModel"></span><select id="s-model" translate="no"></select></label>
+    <label><span data-i18n="remote.settings.replyLanguage"></span><select id="s-reply"><option value="auto" data-i18n="remote.settings.replyAuto"></option><option value="zh-Hant" translate="no">繁體中文</option><option value="zh-Hans" translate="no">简体中文</option><option value="en" translate="no">English</option><option value="ja" translate="no">日本語</option></select></label>
+    <label class="check"><input type="checkbox" id="s-speak"> <span data-i18n="remote.settings.speak"></span></label>
+    <label><span data-i18n="remote.settings.voice"></span><select id="s-voice"><option value="edge" data-i18n="remote.settings.voiceEdge"></option><option value="kokoro" data-i18n="remote.settings.voiceKokoro"></option><option value="openai" data-i18n="remote.settings.voiceOpenai"></option><option value="system" data-i18n="remote.settings.voiceSystem"></option><option value="off" data-i18n="remote.settings.voiceOff"></option></select></label>
     <p id="s-note" class="hint"></p>
-    <h3 class="sub">🎤 專屬聲音（優先於預設語音）</h3><p id="v-note" class="hint"></p><div id="v-list"></div>
-    <button id="rec-open" type="button" class="rec-open">🎙 錄音做聲音</button>
+    <h3 class="sub" data-i18n="remote.settings.ownVoices"></h3><p id="v-note" class="hint"></p><div id="v-list"></div>
+    <button id="rec-open" type="button" class="rec-open" data-i18n="remote.settings.recOpen"></button>
   </section>
   <article id="rec" hidden>
-    <div class="ed-head"><b>🎙 錄音做聲音</b><button id="rec-close" type="button">✕</button></div>
+    <div class="ed-head"><b data-i18n="remote.settings.recOpen"></b><button id="rec-close" type="button">✕</button></div>
     <div id="rec-consent">
-      <p class="rec-q">這是誰的聲音？對方同意嗎？</p>
-      <p class="hint">複製真人的聲音前一定要先問過本人。做好的聲音只存在你的 Mac，只給你自己用，不能匯出。</p>
-      <input id="rec-person" maxlength="60" placeholder="例如：我自己、小明">
-      <label class="rec-check"><input id="rec-agreed" type="checkbox"> 我已經問過本人，他／她同意用這段聲音做 AI 聲音，只在我的 Mac 上自己使用。</label>
-      <button id="rec-next" type="button" disabled>同意，下一步</button>
+      <p class="rec-q" data-i18n="remote.rec.question"></p>
+      <p class="hint" data-i18n="remote.rec.consentHint"></p>
+      <input id="rec-person" maxlength="60" data-i18n-placeholder="remote.rec.personPlaceholder">
+      <label class="rec-check"><input id="rec-agreed" type="checkbox"> <span data-i18n="remote.rec.agree"></span></label>
+      <button id="rec-next" type="button" disabled data-i18n="remote.rec.next"></button>
     </div>
     <div id="rec-record" hidden>
-      <label class="rec-row">方式<select id="rec-engine"><option value="cosyvoice">⚡ 快速複製（Mac 本機 CosyVoice）</option><option value="elevenlabs">☁️ 雲端（ElevenLabs）</option></select></label>
+      <label class="rec-row"><span data-i18n="remote.rec.method"></span><select id="rec-engine"><option value="cosyvoice" data-i18n="remote.rec.engineCosy"></option><option value="elevenlabs" data-i18n="remote.rec.engineEleven"></option></select></label>
       <p id="rec-engine-note" class="hint"></p>
-      <p class="hint">按下開始後念這段（約 10 秒），念完按停止：</p><blockquote id="rec-prompt"></blockquote>
-      <div class="rec-row"><button id="rec-another" type="button">換一句</button><button id="rec-btn" type="button" class="rec">● 開始錄音</button><span id="rec-on" class="mic-on" hidden>● 錄音中</span><span id="rec-time"></span></div>
+      <p class="hint" data-i18n="remote.rec.readThis"></p><blockquote id="rec-prompt" translate="no"></blockquote>
+      <div class="rec-row"><button id="rec-another" type="button" data-i18n="remote.rec.another"></button><button id="rec-btn" type="button" class="rec" data-i18n="remote.rec.start"></button><span id="rec-on" class="mic-on" hidden data-i18n="remote.rec.on"></span><span id="rec-time"></span></div>
       <audio id="rec-play" controls hidden></audio>
-      <input id="rec-name" maxlength="40" placeholder="聲音名字">
-      <label class="rec-check"><input id="rec-bind" type="checkbox" checked> 綁定到目前角色</label>
-      <button id="rec-send" type="button" disabled>做成聲音</button>
+      <input id="rec-name" maxlength="40" data-i18n-placeholder="remote.rec.namePlaceholder">
+      <label class="rec-check"><input id="rec-bind" type="checkbox" checked> <span data-i18n="remote.rec.bind"></span></label>
+      <button id="rec-send" type="button" disabled data-i18n="remote.rec.send"></button>
       <p id="rec-status" class="hint"></p>
     </div>
   </article>
   <article id="editor" hidden>
-      <div class="ed-head"><b id="ed-title">修改角色</b><button id="ed-close" type="button">✕</button></div>
+      <div class="ed-head"><b id="ed-title" data-i18n="remote.editor.title"></b><button id="ed-close" type="button">✕</button></div>
       <div id="ed-pet"></div><div id="ed-looks"></div>
       <p id="ed-status" class="hint"></p>
-      <button id="ed-redraw" type="button" hidden>請 Codex 重畫成可編輯版本</button>
-      <form id="ed-revise-form" hidden><input id="ed-revise" placeholder="想怎麼改？例如：頭髮再短一點"><button>請 Codex 修改</button></form>
-      <form id="ed-save-form" hidden><input id="ed-name" maxlength="24" placeholder="角色名字"><button>儲存並換上</button></form>
+      <button id="ed-redraw" type="button" hidden data-i18n="remote.editor.redraw"></button>
+      <form id="ed-revise-form" hidden><input id="ed-revise" data-i18n-placeholder="remote.editor.revisePlaceholder"><button data-i18n="remote.editor.revise"></button></form>
+      <form id="ed-save-form" hidden><input id="ed-name" maxlength="24" data-i18n-placeholder="remote.editor.namePlaceholder"><button data-i18n="remote.editor.save"></button></form>
     </article>
-  <nav id="tabs"><button data-tab="chat" class="on">💬 聊天</button><button data-tab="characters">🎭 角色</button><button data-tab="store">🛍 商店</button><button data-tab="files">📁 檔案</button><button data-tab="settings">⚙ 設定</button></nav>
+  <nav id="tabs"><button data-tab="chat" class="on" data-i18n="remote.tabs.chat"></button><button data-tab="characters" data-i18n="remote.tabs.characters"></button><button data-tab="store" data-i18n="remote.tabs.store"></button><button data-tab="files" data-i18n="remote.tabs.files"></button><button data-tab="settings" data-i18n="remote.tabs.settings"></button></nav>
 </main>
-<script src="avatars.js"></script><script src="app.js"></script>
+<script src="i18n.js"></script><script src="avatars.js"></script><script src="app.js"></script>
 </body></html>

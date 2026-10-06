@@ -1,4 +1,5 @@
-const test=require('node:test');const assert=require('node:assert/strict');const http=require('node:http');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const assert=require('node:assert/strict');const http=require('node:http');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {Secrets,openaiSpeech,OPENAI_VOICES,OPENAI_MODELS,looksLikeOpenAIKey}=require('../tts.cjs');
 
 // stand-in for Electron safeStorage: reversible, but never the plain text
@@ -16,7 +17,7 @@ test('API keys are stored encrypted, owner-only, and can be removed',()=>{
   secrets.clear('openai');assert.equal(secrets.has('openai'),false);
 });
 test('keys are refused when the OS cannot encrypt them',()=>{
-  assert.throws(()=>new Secrets(tmp(),{...fakeSafe,isEncryptionAvailable:()=>false}).set('openai','sk-x'),/encrypt/i);
+  assert.throws(()=>new Secrets(tmp(),{...fakeSafe,isEncryptionAvailable:()=>false}).set('openai','sk-x'),/加密/);
 });
 test('only plausible OpenAI keys are accepted',()=>{
   for(const ok of ['sk-proj-abcdefghijklmnopqrstuvwxyz0123','sk-abcdefghijklmnopqrstuvwx','sk-proj-'+'Ab9_-'.repeat(32),'sk-svcacct-'+'x'.repeat(150)])assert.ok(looksLikeOpenAIKey(ok));

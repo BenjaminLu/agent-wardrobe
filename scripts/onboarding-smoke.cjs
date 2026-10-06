@@ -18,8 +18,9 @@ async function run({win}){
   await click('input[name=ob-voice][value=off]');await click('#ob-next');
   assert.match(await js(`document.querySelector('#ob-wake-word').textContent`),/嘿|Hey/);
   await js(`document.querySelector('#ob-wake').checked=false;document.querySelector('#ob-asr').checked=false;true`);await click('#ob-next');
-  assert.equal(await js(`document.querySelector('#ob-next').textContent`),await js(`settings.language.startsWith('zh')`)?'開始使用':'Get started');
-  if(!await js(`settings.language.startsWith('zh')`))for(let step=0;step<4;step++){const han=await js(`(()=>{const page=document.querySelector('.ob-page[data-step="${step}"]').cloneNode(true);page.querySelector('#ob-wake-word')?.remove();return [...(page.textContent+document.querySelector('.ob-nav').textContent).matchAll(/[\u4e00-\u9fff]+/g)].map(m=>m[0])})()`);assert.deepEqual(han,[],`step ${step} is fully translated`);}assert.equal(await js(`document.querySelector('#ob-skip').hidden`),true);
+  assert.equal(await js(`document.querySelector('#ob-next').textContent`),await js(`t('onboarding.getStarted')`));
+  // in English no Chinese is left in the guide (the wake word is the user's own)
+  if(await js(`i18n.lang==='en'`))for(let step=0;step<4;step++){const han=await js(`(()=>{const page=document.querySelector('.ob-page[data-step="${step}"]').cloneNode(true);page.querySelector('#ob-wake-word')?.remove();return [...(page.textContent+document.querySelector('.ob-nav').textContent).matchAll(/[\u4e00-\u9fff]+/g)].map(m=>m[0])})()`);assert.deepEqual(han,[],`step ${step} is fully translated`);}assert.equal(await js(`document.querySelector('#ob-skip').hidden`),true);
   await click('#ob-back');await click('#ob-next');await click('#ob-next');
   await wait(()=>js(`document.querySelector('#onboarding').hidden && getComputedStyle(document.querySelector('#panel')).display!=='none'`));
   const saved=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'bula-settings.json'),'utf8'));

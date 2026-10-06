@@ -6,6 +6,9 @@ const {createVoices,boundProfile}=require('./voices.cjs');
 const {createKokoroMix,PRESETS}=require('./voice-engines/kokoro-mix.cjs');
 const {createVoicevox,isJapanese}=require('./voice-engines/voicevox.cjs');
 const kokoro=require('./kokoro.cjs');
+const L=require('./locales.cjs');const {t}=L;
+// a preview line in the interface language; VOICEVOX speaks only Japanese, so its line is always the Japanese one
+const sampleLine=(key,engine,vars)=>(engine==='voicevox'?t.in('ja'):t)(key,vars);
 
 function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRuntime,speech,secrets,kokoroDir,sherpa,remoteEvent=()=>{}}){
   const root=path.join(app.getPath('userData'),'voices');
@@ -23,22 +26,22 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
       replyLanguage:getSettings().replyLanguage,presets:PRESETS,kokoroVoices:kokoro.VOICES.filter(v=>v.lang==='zh')};
   }
   function bind(profileId,modId=worn()){
-    if(profileId!=null&&!voices.get(profileId))throw new Error('找不到這個聲音。');
+    if(profileId!=null&&!voices.get(profileId))throw L.error('voices.error.notFound');
     const map=bindings();if(profileId)map[modId]=profileId;else delete map[modId];persist();remoteEvent('voices',{});warmBound();return snapshot();
   }
   function remove(id){voices.remove(id);const map=bindings();for(const [mod,pid] of Object.entries(map))if(pid===id)delete map[mod];persist();remoteEvent('voices',{});return snapshot();}
   // a draft from the sliders is checked like a saved profile but not written anywhere
-  const draft=data=>({id:'v-draft-0',name:String(data?.name||'試聽').slice(0,40)||'試聽',engine:String(data?.engine||''),params:data?.params||{},files:[],license:{label:'draft',commercial:false,credit:null,tier:'personal'},consent:null,modId:null,createdAt:new Date().toISOString()});
+  const draft=data=>({id:'v-draft-0',name:String(data?.name||t('voices.previewName')).slice(0,40)||t('voices.previewName'),engine:String(data?.engine||''),params:data?.params||{},files:[],license:{label:'draft',commercial:false,credit:null,tier:'personal'},consent:null,modId:null,createdAt:new Date().toISOString()});
   function preview(data){
     const name=getRuntime()?.snapshot().mod.name||'Annie';
     const engine=data?.profileId?voices.get(data.profileId)?.engine:data?.engine;
-    const text=String(data?.text||(engine==='voicevox'?`こんにちは、${name}です！この声、どうかな？`:`嗨，我是 ${name}！這是我的新聲音，喜歡嗎？`)).slice(0,300);
-    if(data?.profileId){if(!voices.get(data.profileId))throw new Error('找不到這個聲音。');speech.speak(text,{voiceProfile:data.profileId,volume:true,voiceProvider:'profile'});return true;}
-    const d=draft(data);if(!voices.engine(d.engine))throw new Error('不認得這個聲音引擎。');voices.engine(d.engine).validate?.(d.params);
+    const text=String(data?.text||sampleLine('voices.preview.sample',engine,{name})).slice(0,300);
+    if(data?.profileId){if(!voices.get(data.profileId))throw L.error('voices.error.notFound');speech.speak(text,{voiceProfile:data.profileId,volume:true,voiceProvider:'profile'});return true;}
+    const d=draft(data);if(!voices.engine(d.engine))throw L.error('voices.error.unknownEngine');voices.engine(d.engine).validate?.(d.params);
     speech.speak(text,{voiceDraft:d,volume:true,voiceProvider:'profile'});return true;
   }
   async function save(data){
-    const engine=String(data?.engine||'');if(!['kokoro-mix','voicevox'].includes(engine))throw new Error('這裡只能新增萌系混音或 VOICEVOX 聲音。');
+    const engine=String(data?.engine||'');if(!['kokoro-mix','voicevox'].includes(engine))throw L.error('voices.error.saveEngine');
     const profile=await voices.save({name:data?.name,engine,params:data?.params||{}});
     if(data?.bind)bind(profile.id);remoteEvent('voices',{});return {profile:summary(profile),...await snapshot()};
   }
@@ -47,7 +50,7 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   handle('bula:voice-preview',preview);
   handle('bula:voice-bind',id=>bind(id==null?null:String(id)));
   // a voice's speaking speed (and, for cloned CosyVoice voices, fast or best quality), kept in its profile; each engine clamps it
-  async function setSpeed(id,speed,quality){const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const value=Math.max(.7,Math.min(1.5,Number(speed)||p.params?.speed||1));
+  async function setSpeed(id,speed,quality){const p=voices.get(String(id));if(!p)throw L.error('voices.error.notFound');const value=Math.max(.7,Math.min(1.5,Number(speed)||p.params?.speed||1));
     const saved=await voices.save({...p,params:{...p.params,speed:Math.round(value*100)/100,...(quality?{quality:quality==='best'?'best':'fast'}:{})}});remoteEvent('voices',{});warmBound();return {id:saved.id,speed:saved.params.speed,quality:saved.params.quality||null};}
   // the worn character's own voice is prepared in the background, so its first sentence doesn't wait for the engine to start
   let warming=null;
@@ -55,16 +58,16 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
   {let lastMod=null;getRuntime()?.on?.('change',s=>{if(s.modId!==lastMod){lastMod=s.modId;warmBound();}});setTimeout(warmBound,3000).unref?.();}
   handle('bula:voice-speed',(id,speed,quality)=>setSpeed(id,speed,quality));
   handle('bula:voice-remove',id=>remove(String(id)));
-  handle('bula:voice-policy',id=>{const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const file=p.files.includes('policy.md')?path.join(root,p.id,'policy.md'):null;return {license:p.license,policy:file?fs.readFileSync(file,'utf8').slice(0,64*1024):null};});
+  handle('bula:voice-policy',id=>{const p=voices.get(String(id));if(!p)throw L.error('voices.error.notFound');const file=p.files.includes('policy.md')?path.join(root,p.id,'policy.md'):null;return {license:p.license,policy:file?fs.readFileSync(file,'utf8').slice(0,64*1024):null};});
   handle('bula:voice-export',async id=>{
-    const p=voices.get(String(id));if(!p)throw new Error('找不到這個聲音。');const pack=voices.exportPack(p.id);  // a cloned voice is refused here, before any dialog
-    const result=await dialog.showSaveDialog(getWin(),{title:'匯出聲音包',defaultPath:path.join(app.getPath('downloads'),`${p.name.replace(/[\\/:*?"<>|]/g,'_')}.voice.zip`),filters:[{name:'聲音包',extensions:['zip']}]});
+    const p=voices.get(String(id));if(!p)throw L.error('voices.error.notFound');const pack=voices.exportPack(p.id);  // a cloned voice is refused here, before any dialog
+    const result=await dialog.showSaveDialog(getWin(),{title:t('voices.pack.exportTitle'),defaultPath:path.join(app.getPath('downloads'),`${p.name.replace(/[\\/:*?"<>|]/g,'_')}.voice.zip`),filters:[{name:t('voices.pack.filter'),extensions:['zip']}]});
     if(result.canceled||!result.filePath)return {canceled:true};fs.writeFileSync(result.filePath,pack);return {saved:result.filePath};
   });
   handle('bula:voice-import',async()=>{
-    const result=await dialog.showOpenDialog(getWin(),{title:'匯入聲音包',properties:['openFile'],filters:[{name:'聲音包',extensions:['zip']}]});
+    const result=await dialog.showOpenDialog(getWin(),{title:t('voices.pack.importTitle'),properties:['openFile'],filters:[{name:t('voices.pack.filter'),extensions:['zip']}]});
     if(result.canceled||!result.filePaths?.[0])return {canceled:true};
-    const file=result.filePaths[0];if(fs.statSync(file).size>200*1024*1024)throw new Error('聲音包太大。');
+    const file=result.filePaths[0];if(fs.statSync(file).size>200*1024*1024)throw L.error('voices.error.packSize');
     const profile=await voices.importPack(fs.readFileSync(file));remoteEvent('voices',{});return {profile:summary(profile),...await snapshot()};
   });
   handle('bula:voicevox-status',()=>voicevox.status());
@@ -83,26 +86,26 @@ function createVoiceService({app,handle,dialog,getWin,getSettings,persist,getRun
     // Without an own voice the phone uses its built-in speech instead ({voice:null}).
     'POST /api/voices/say':async({body})=>{
       const id=boundProfile(bindings(),worn(),voices);if(!id)return {voice:null};
-      const text=String(body.text||'').trim().slice(0,400);if(!text)throw new Error('沒有要念的文字。');
-      const out=await voices.speak(id,text);if(out.audio.length>6*1024*1024)throw new Error('這句太長了。');
+      const text=String(body.text||'').trim().slice(0,400);if(!text)throw L.error('voices.error.noText');
+      const out=await voices.speak(id,text);if(out.audio.length>6*1024*1024)throw L.error('voices.error.tooLong');
       return {voice:id,mime:out.mime,audio:out.audio.toString('base64')};
     },
     'POST /api/voices/preview':async({body})=>{
-      const p=voices.get(String(body.id||''));if(!p)throw new Error('找不到這個聲音。');
-      const name=getRuntime()?.snapshot().mod.name||'Annie',text=p.engine==='voicevox'?`こんにちは、${name}です！`:`嗨，我是 ${name}！這是我的聲音。`;
+      const p=voices.get(String(body.id||''));if(!p)throw L.error('voices.error.notFound');
+      const name=getRuntime()?.snapshot().mod.name||'Annie',text=sampleLine('voices.preview.short',p.engine,{name});
       if(body.where==='mac'){speech.speak(text,{voiceProfile:p.id,volume:true,voiceProvider:'profile'});return {played:'mac'};}
-      const out=await voices.speak(p.id,text);if(out.audio.length>4*1024*1024)throw new Error('試聽太長了。');
+      const out=await voices.speak(p.id,text);if(out.audio.length>4*1024*1024)throw L.error('voices.error.previewTooLong');
       return {played:'phone',mime:out.mime,audio:out.audio.toString('base64')};
     },
     // 錄音做聲音 (voice-lab.cjs): reading prompts and which engines are ready, then one recording — a WAV the phone
     // built from its MediaRecorder take — with the same consent step → a CosyVoice or ElevenLabs voice
     'GET /api/voices/record':async()=>{const l=needLab();return {prompts:require('./voice-lab.cjs').PROMPTS.short,engines:{cosyvoice:await voices.engine('cosyvoice').available(),elevenlabs:await voices.engine('elevenlabs').available()},modName:getRuntime()?.snapshot().mod.name,ready:Boolean(l)};},
     'POST /api/voices/record':{limit:16e6,fn:async({body})=>{
-      const result=await needLab().fromPhone({wav:body.audio,engine:String(body.engine||''),name:String(body.name||'').slice(0,40)||'我的聲音',transcript:String(body.transcript||'').slice(0,300),lang:String(body.lang||''),consent:body.consent,bind:body.bind===true});
+      const result=await needLab().fromPhone({wav:body.audio,engine:String(body.engine||''),name:String(body.name||'').slice(0,40)||t('voiceLab.finish.fallbackName'),transcript:String(body.transcript||'').slice(0,300),lang:String(body.lang||''),consent:body.consent,bind:body.bind===true});
       if(!result.ok)return result;remoteEvent('voices',{});return {ok:true,profile:summary(result.profile),bound:result.bound,quality:result.quality};
     }}
   };
-  let lab=null;const needLab=()=>lab||(()=>{throw new Error('這版 App 還沒有錄音複製。');})();
+  let lab=null;const needLab=()=>lab||(()=>{throw L.error('voices.error.noLab');})();
   return {voices,voicevox,mix,routes,snapshot,bind,attachLab:value=>{lab=value;},stop:()=>voicevox.stop(),warnLanguage:text=>!isJapanese(text)};
 }
 module.exports={createVoiceService};

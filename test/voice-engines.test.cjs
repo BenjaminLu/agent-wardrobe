@@ -1,3 +1,4 @@
+require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');
 const eleven=require('../voice-engines/elevenlabs.cjs');const sovits=require('../voice-engines/sovits.cjs');const {pickleGlobals,scanCheckpoint}=require('../voice-engines/pickle-scan.cjs');
 const {createJobs}=require('../voice-engines/jobs.cjs');const {makeZip}=require('./fixtures/zip.cjs');const {speechWav}=require('./fixtures/voice/make-audio.cjs');

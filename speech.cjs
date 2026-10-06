@@ -3,6 +3,7 @@
 // Audio plays inside the companion window (WebAudio, renderer.js) on every platform: main sends 'bula:audio-play' with the bytes,
 // the page answers through 'bula:audio-done'. Only macOS's say and Linux's spd-say speak straight to the speakers.
 // Lip-sync follows the 'bula:speaking' events and runtime.speaking(); stop() ends any voice at once.
+const L = require('./locales.cjs'); const { t } = L;
 const { spawn } = require('node:child_process');
 const { shell } = require('electron');
 const tts = require('./tts.cjs');
@@ -78,8 +79,8 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
     getRuntime().speaking(true);
     let error = '';
     child.stderr.on('data', chunk => { error += chunk.toString(); });
-    child.on('error', () => finish('系統語音未能啟動。'));
-    child.on('close', code => finish(code ? `語音失敗：${error.slice(0, 100)}` : null));
+    child.on('error', () => finish(t('speech.systemVoiceFailed')));
+    child.on('close', code => finish(code ? t('speech.failed', { error: error.slice(0, 100) }) : null));
     if (input != null) { child.stdin.on('error', () => {}); child.stdin.end(input); }
     function finish(message) {
       if (speech !== child) return;
@@ -103,7 +104,7 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
     const error = await clip.done;
     if (speech !== clip) return; speech = null; if (!getWin() || getWin().isDestroyed()) return;
     getWin().webContents.send('bula:speaking', false); getRuntime().speaking(false);
-    if (error && error !== 'stopped') getWin().webContents.send('bula:notice', '無法播放語音。');
+    if (error && error !== 'stopped') getWin().webContents.send('bula:notice', t('speech.playFailed'));
   }
   
   // Kokoro, Edge, voice profiles and the Windows / Linux system voice: synthesize the next sentence while the current one plays.
@@ -126,7 +127,7 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
         const clip = player.play(audio, type === 'mp3' ? 'audio/mpeg' : 'audio/wav'); speech = clip;
         const failed = await clip.done;
         if (abort.signal.aborted || speech !== clip) return;
-        if (failed && failed !== 'stopped' && i === 0) notice('無法播放語音。');
+        if (failed && failed !== 'stopped' && i === 0) notice(t('speech.playFailed'));
         speech = null;
       }
       if (speechAbort === abort) speechAbort = null;
@@ -152,13 +153,13 @@ function createSpeech({ app, handle, getWin, getRuntime, getSettings, getSecrets
   handle('bula:set-openai-key', async key => {
     // Remove whitespace a copy/paste can add, including inside the key.
     key = String(key || '').replace(/\s+/g, '');
-    if (!tts.looksLikeOpenAIKey(key)) throw new Error('這看起來不是 OpenAI API key（應以 sk- 開頭，中間不含空格）。');
+    if (!tts.looksLikeOpenAIKey(key)) throw L.error('speech.notOpenAIKey');
     // Verify with the permission the App actually needs: a one-word speech request (a fraction of a cent).
     try { await tts.openaiSpeech({ key, text: 'ok', voice: 'alloy', model: 'tts-1', base: openaiBase() }); }
     catch (error) {
       // 429 means OpenAI accepted the key; keep it so it works as soon as the account has credit.
-      if (error.code) { getSecrets().set('openai', key); return { hasOpenAIKey: true, warning: `${error.message} key 已驗證並保存。` }; }
-      throw new Error(`${error.message.replace(/請到 AI 設定重新輸入。/g, '')} key 尚未儲存。`);
+      if (error.code) { getSecrets().set('openai', key); return { hasOpenAIKey: true, warning: t('speech.keySavedWarning', { message: error.message }) }; }
+      throw L.error('speech.keyNotSaved', { message: error.i18nKey === 'tts.openai.invalidKey' ? t('speech.invalidKeyShort') : error.message });
     }
     getSecrets().set('openai', key);
     return { hasOpenAIKey: true };

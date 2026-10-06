@@ -1,6 +1,8 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {createRemote,DeviceStore}=require('../remote-server.cjs');const tailscale=require('../tailscale.cjs');
 const tmp=()=>path.join(fs.mkdtempSync(path.join(os.tmpdir(),'remote-')),'devices.json');
+// the messages below are checked in the source language
+const L=require('../locales.cjs');L.setLanguage('zh-Hant');
 test('pairing codes expire, allow five tries, and issue revocable device tokens',()=>{
   let now=1000;const store=new DeviceStore(tmp(),{now:()=>now});
   assert.throws(()=>store.pair('000000'),/過期/);
@@ -51,4 +53,26 @@ test('a tailnet name learned after start is accepted, other hosts are not',async
   const get=host=>new Promise(resolve=>require('node:http').get({host:'127.0.0.1',port,path:'/remote/',headers:{Host:host}},res=>{res.resume();resolve(res.statusCode);}));
   try{assert.equal(await get('mac.tail1234.ts.net:8443'),200);assert.equal(await get('other.tail9999.ts.net'),403);assert.equal(await get('evil.example'),403);}
   finally{await remote.close();}
+});
+test('the phone gets the interface text before pairing, and keyed errors come back with their key',async()=>{
+  const store=new DeviceStore(tmp());
+  const remote=createRemote({root:path.join(__dirname,'..'),store,getState:()=>({}),chat:async()=>({}),modAsset:async()=>Buffer.from(''),subscribe:()=>()=>{},
+    routes:{'GET /api/boom':()=>{throw L.error('remote.error.wrongCode');}}});
+  const port=await remote.listen(0),base=`http://127.0.0.1:${port}`;
+  try{
+    const mac=await (await fetch(`${base}/api/i18n`)).json();
+    assert.equal(mac.mac,'zh-Hant');assert.equal(mac.lang,'zh-Hant');assert.equal(mac.dict['remote.pair.button'],'配對');
+    const en=await (await fetch(`${base}/api/i18n?lang=en`)).json();assert.equal(en.lang,'en');assert.equal(en.mac,'zh-Hant');assert.equal(en.dict['remote.pair.button'],'Pair');
+    assert.equal((await (await fetch(`${base}/api/i18n?lang=xx`)).json()).lang,'zh-Hant','an unknown language falls back to the computer\'s');
+    assert.equal((await fetch(`${base}/remote/i18n.js`)).status,200);
+    // pairing errors carry their key; the message is in the language the phone asks for
+    store.newCode();
+    const wrong=await fetch(`${base}/api/pair`,{method:'POST',headers:{'X-UI-Language':'en'},body:JSON.stringify({code:'abcdef'})});
+    assert.equal(wrong.status,401);assert.deepEqual(await wrong.json(),{error:'That pairing code is wrong.',key:'remote.error.wrongCode'});
+    const unpaired=await (await fetch(`${base}/api/state`)).json();assert.equal(unpaired.key,'remote.error.repair');assert.match(unpaired.error,/重新配對/);
+    // a route's keyed error (main-process handlers throw L.error too)
+    const code=store.newCode().value;const {token}=await (await fetch(`${base}/api/pair`,{method:'POST',body:JSON.stringify({code})})).json();
+    const boom=await fetch(`${base}/api/boom`,{headers:{Authorization:`Bearer ${token}`,'X-UI-Language':'ja'}});
+    assert.equal(boom.status,500);assert.deepEqual(await boom.json(),{error:'ペアリングコードが違います。',key:'remote.error.wrongCode'});
+  }finally{await remote.close();}
 });

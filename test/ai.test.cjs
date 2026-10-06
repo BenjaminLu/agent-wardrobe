@@ -1,4 +1,5 @@
-const test=require('node:test');const assert=require('node:assert/strict');const http=require('node:http');
+const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const assert=require('node:assert/strict');const http=require('node:http');
 const {localBase,parseReply,chat}=require('../ai.cjs');const {decode}=require('../cli.cjs');
 test('local endpoint rejects external hosts and embedded credentials',()=>{for(const value of ['https://example.com/v1','http://localhost.evil/v1','http://user:password@localhost/v1','file:///tmp'])assert.throws(()=>localBase(value));assert.equal(localBase('http://127.0.0.1:1234/v1/?secret=yes'),'http://127.0.0.1:1234/v1');});
 test('provider replies parse JSON without treating model output as markup',()=>{assert.deepEqual(parseReply('```json\n{"text":"<script>alert(1)</script>","emotion":"happy"}\n```'),{text:'<script>alert(1)</script>',emotion:'happy'});assert.equal(parseReply('{"text":"hello","emotion":"invalid"}').emotion,'neutral');assert.throws(()=>parseReply(''));assert.equal(decode('claude','{"result":"hello"}').text,'hello');});
