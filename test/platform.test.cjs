@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const zlib=require('node:zlib');
-const platform=require('../platform.cjs');const systemVoice=require('../system-voice.cjs');const archive=require('../archive.cjs');
+const platform=require('../src/main/platform.cjs');const systemVoice=require('../src/main/system-voice.cjs');const archive=require('../src/main/archive.cjs');
 const tmp=prefix=>fs.mkdtempSync(path.join(os.tmpdir(),prefix));
 
 test('tools are found on PATH and in the usual install folders, with Windows extensions',()=>{

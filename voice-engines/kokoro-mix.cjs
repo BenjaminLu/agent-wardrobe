@@ -3,7 +3,7 @@
 // speaker count, so a mix is a copy of voices.bin with speaker 0's style replaced by the weighted blend, spoken as sid 0.
 // Pitch is shifted afterwards on the PCM in pure JS (WSOLA time-stretch, then resampling back to the original length).
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
-const kokoro=require('../kokoro.cjs');const L=require('../locales.cjs');const {t}=L;
+const kokoro=require('../src/main/kokoro.cjs');const L=require('../src/main/locales.cjs');const {t}=L;
 
 const ROWS=510,DIM=256,PER=ROWS*DIM;
 // a preset's name is read in the interface language (a getter, so a copy sent to a page carries the current one)

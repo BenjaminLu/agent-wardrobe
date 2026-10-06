@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
-const {build}=require('../scripts/make-sample-vrm.cjs');const mods=require('../mods.cjs');
+const {build}=require('../scripts/make-sample-vrm.cjs');const mods=require('../src/main/mods.cjs');
 const FILE=path.join(__dirname,'..','mods','vrm-sample','sample.vrm');
 const REQUIRED=['hips','spine','head','leftUpperArm','leftLowerArm','leftHand','rightUpperArm','rightLowerArm','rightHand','leftUpperLeg','leftLowerLeg','leftFoot','rightUpperLeg','rightLowerLeg','rightFoot'];
 const json=data=>JSON.parse(data.subarray(20,20+data.readUInt32LE(12)).toString('utf8'));

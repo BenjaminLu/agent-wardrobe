@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {app}=require('electron');
-const {RUNTIME}=require('../local-llm.cjs');
+const {RUNTIME}=require('../src/main/local-llm.cjs');
 // Watch mode end to end: the character plays Pikachu Volleyball in one window (stand-in decisions) while watch mode looks at that
 // window with the built-in vision model (LLM_MODEL_SRC, linked like the built-in smoke) and comments. Needs the network.
 async function run({win}){

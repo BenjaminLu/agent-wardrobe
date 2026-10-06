@@ -1,10 +1,10 @@
 // VOICEVOX characters (Japanese only) through a local VOICEVOX ENGINE: /audio_query + /synthesis, /speakers, /speaker_info.
-const {renameRetry}=require('../platform.cjs');
+const {renameRetry}=require('../src/main/platform.cjs');
 // Uses an engine that is already running (the VOICEVOX app starts one on 50021), the engine inside VOICEVOX.app, or the official
 // VOICEVOX ENGINE build downloaded once into userData (pinned version, size and SHA-256 checked) and run as a child process.
 // Every character has its own terms; the credit ("VOICEVOX:ずんだもん") and the policy text are kept with the profile.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const {spawn,spawnSync}=require('node:child_process');
-const L=require('../locales.cjs');const {t}=L;const {detectGpu}=require('./python-env.cjs');
+const L=require('../src/main/locales.cjs');const {t}=L;const {detectGpu}=require('./python-env.cjs');
 
 const VERSION='0.25.2';
 // Official release assets: .vvpp is a zip of the engine; sizes and digests from the GitHub release. The NVIDIA builds are one
@@ -125,7 +125,7 @@ function createVoicevox({dir,fetchImpl=fetch,spawnImpl=spawn,appEngine=APP_ENGIN
           const unpack=spawnSync('/usr/bin/ditto',['-x','-k',archive,path.join(temp,'engine')],{encoding:'utf8',timeout:20*60000});
           if(unpack.status!==0)throw L.error('voiceEngines.voicevox.unpack',{error:String(unpack.stderr).trim().slice(0,120)});
         }else{
-          try{await require('../archive.cjs').unzipLarge(archive,path.join(temp,'engine'),{links:true});}
+          try{await require('../src/main/archive.cjs').unzipLarge(archive,path.join(temp,'engine'),{links:true});}
           catch(error){throw L.error('voiceEngines.voicevox.unpack',{error:error.message.slice(0,120)});}
         }
         fs.rmSync(archive,{force:true});if(release.args?.includes('--use_gpu'))fs.writeFileSync(path.join(temp,'.gpu'),'nvidia');

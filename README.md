@@ -242,19 +242,19 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | Windows, settings and IPC |
-| `platform.cjs`, `platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
-| `i18n.js`, `locales.cjs`, `locales/*.json` | Interface languages (zh-Hant source, zh-Hans, en, ja): `t()` in pages and the main process, `data-i18n*` attributes in HTML; `scripts/i18n-lint.cjs` keeps hard-coded text out |
+| `src/main/main.cjs` | Windows, settings and IPC |
+| `src/main/platform.cjs`, `platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
+| `i18n.js`, `src/main/locales.cjs`, `locales/*.json` | Interface languages (zh-Hant source, zh-Hans, en, ja): `t()` in pages and the main process, `data-i18n*` attributes in HTML; `scripts/i18n-lint.cjs` keeps hard-coded text out |
 | `renderer.js` | Companion UI |
 | `avatars.js` | Character rendering: SVG / PNG / VRM / glTF / Live2D / MMD |
-| `mods.cjs`, `mod-assets.cjs` | Mod validation |
-| `person-service.cjs`, `person-draw.cjs` | Drawing characters with Codex |
-| `asset-library.cjs`, `assisted.cjs`, `archive.cjs`, `model-formats.cjs` | Avatar store, assisted download, model import |
-| `voices.cjs`, `voice-engines/`, `voice-service.cjs`, `voice-lab.*` | Voices and voice cloning |
-| `speech.cjs`, `wake-service.cjs` | Voice output, wake word and dictation |
-| `local-llm.cjs`, `cli-setup.cjs` | Built-in model; Codex / Claude setup |
-| `remote-server.cjs`, `remote/` | Phone remote |
-| `dev-sessions.cjs`, `dev-session.cjs`, `dev-companion.cjs`, `dev-speech.cjs`, `permission-mcp.cjs` | 開發夥伴: session discovery, Claude Code / Codex adapters, the permission prompt tool |
+| `src/main/mods.cjs`, `src/main/mod-assets.cjs` | Mod validation |
+| `src/main/person-service.cjs`, `src/main/person-draw.cjs` | Drawing characters with Codex |
+| `src/main/asset-library.cjs`, `src/main/assisted.cjs`, `src/main/archive.cjs`, `src/main/model-formats.cjs` | Avatar store, assisted download, model import |
+| `src/main/voices.cjs`, `voice-engines/`, `src/main/voice-service.cjs`, `src/main/voice-lab.cjs`, `voice-lab.*` | Voices and voice cloning |
+| `src/main/speech.cjs`, `src/main/wake-service.cjs` | Voice output, wake word and dictation |
+| `src/main/local-llm.cjs`, `src/main/cli-setup.cjs` | Built-in model; Codex / Claude setup |
+| `src/main/remote-server.cjs`, `remote/` | Phone remote |
+| `src/main/dev-sessions.cjs`, `src/main/dev-session.cjs`, `src/main/dev-companion.cjs`, `src/main/dev-speech.cjs`, `src/main/permission-mcp.cjs` | 開發夥伴: session discovery, Claude Code / Codex adapters, the permission prompt tool |
 
 ## Privacy
 

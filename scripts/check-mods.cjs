@@ -2,7 +2,7 @@
 // Usage: node scripts/check-mods.cjs [mods/<id> ...]
 const fs = require('node:fs');
 const path = require('node:path');
-const mods = require('../mods.cjs');
+const mods = require('../src/main/mods.cjs');
 const root = process.env.MODS_ROOT || path.join(__dirname, '..', 'mods');
 const only = new Set(process.argv.slice(2).map(arg => path.basename(path.resolve(arg))));
 const ALLOWED = /\.(json|png|webp|vrm|md|txt)$/i;

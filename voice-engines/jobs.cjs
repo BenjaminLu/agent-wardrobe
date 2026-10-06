@@ -1,6 +1,6 @@
 // Background jobs for long voice work (GPT-SoVITS training, engine installs): stages with weights, overall progress,
 // a time estimate that starts from a guess and follows the measured pace, and cancel through an AbortSignal.
-const crypto=require('node:crypto');const L=require('../locales.cjs');const {t}=L;
+const crypto=require('node:crypto');const L=require('../src/main/locales.cjs');const {t}=L;
 // A stage's label: its locale key (stage.key) in the interface language, or a plain label.
 const stageLabel=s=>s?(s.key?t(s.key):s.label||''):'';
 

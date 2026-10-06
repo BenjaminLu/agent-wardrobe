@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {typelessStatus,SpeechEnd}=require('../typeless.cjs');
+const {typelessStatus,SpeechEnd}=require('../src/main/typeless.cjs');
 const chunk=(level,ms=100)=>{const n=ms*16,a=new Float32Array(n);for(let i=0;i<n;i++)a[i]=level*Math.sin(i/3);return a;};
 test('a pause after speech ends the question; silence alone gives up',()=>{
   let end=new SpeechEnd();for(let i=0;i<5;i++)assert.equal(end.accept(chunk(.003)),null);

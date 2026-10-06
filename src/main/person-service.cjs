@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // "Make a character from a photo": a small window takes a photo (camera or file), Codex draws a brand-new chibi character
 // of that person in Annie's style (SVG that animates like Annie), the user asks for changes, and a private Mod is saved.
 // The photo stays in memory; it is written only to a private temporary folder while Codex looks at it, then deleted.
@@ -30,7 +31,7 @@ function modFiles(drawing,{name,id,annie,personas,credit=null,origin='photo',bas
 }
 function writeMod(root,files){const dir=path.join(root,files.manifest.id);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'mod.json'),JSON.stringify(files.manifest,null,1));fs.writeFileSync(path.join(dir,'parts.json'),JSON.stringify(files.parts));return dir;}
 
-function createPerson({app,handle,ipcMain,systemPreferences,catalog,onSaved,root=__dirname,draw=drawCharacter,live2dCore=null}){
+function createPerson({app,handle,ipcMain,systemPreferences,catalog,onSaved,root=ROOT,draw=drawCharacter,live2dCore=null}){
   const userRoot=()=>path.join(app.getPath('userData'),'my-mods'),annieDir=path.join(root,'mods','annie');
   const annie=()=>JSON.parse(fs.readFileSync(path.join(annieDir,'parts.json'),'utf8')),personas=()=>JSON.parse(fs.readFileSync(path.join(annieDir,'mod.json'),'utf8')).personas;
   let window=null,windowEditor=null;

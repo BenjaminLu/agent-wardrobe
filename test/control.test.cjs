@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');
-const {Runtime}=require('../runtime.cjs');const {loadCatalog}=require('../mods.cjs');const {startControl}=require('../control-server.cjs');
+const {Runtime}=require('../src/main/runtime.cjs');const {loadCatalog}=require('../src/main/mods.cjs');const {startControl}=require('../src/main/control-server.cjs');
 test('local control authenticates writes, isolates origins, and validates selection',async()=>{
   const catalog=loadCatalog(),runtime=new Runtime(catalog);
   const control=await startControl({runtime,catalog,language:'en',onSelect:v=>runtime.select(v),onProvider:v=>runtime.provider(v)});
@@ -14,7 +14,7 @@ test('local control authenticates writes, isolates origins, and validates select
   }finally{await control.close();}
 });
 test('web wardrobe gets the interface language from the desktop app and hears when it changes',async()=>{
-  const L=require('../locales.cjs');const before=L.language;L.setLanguage('zh-Hant');
+  const L=require('../src/main/locales.cjs');const before=L.language;L.setLanguage('zh-Hant');
   const catalog=loadCatalog(),runtime=new Runtime(catalog);
   const control=await startControl({runtime,catalog,language:'en',onSelect:v=>runtime.select(v),onProvider:v=>runtime.provider(v)});
   const headers={Authorization:`Bearer ${control.token}`};

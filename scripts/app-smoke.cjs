@@ -3,9 +3,9 @@
 const { app, BrowserWindow, screen, globalShortcut } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Runtime } = require('../runtime.cjs');
-const { startControl } = require('../control-server.cjs');
-const { loadIdentity } = require('../control-identity.cjs');
+const { Runtime } = require('../src/main/runtime.cjs');
+const { startControl } = require('../src/main/control-server.cjs');
+const { loadIdentity } = require('../src/main/control-identity.cjs');
 const appRoot = path.join(__dirname, '..');
 async function agentSmokeTest(ctx){
   const assert=require('node:assert/strict');

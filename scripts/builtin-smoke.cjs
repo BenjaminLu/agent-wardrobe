@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const {app}=require('electron');
-const {RUNTIME}=require('../local-llm.cjs');
+const {RUNTIME}=require('../src/main/local-llm.cjs');
 // Built-in brain with a real model: LLM_MODEL_SRC holds llama-<tag>/ and qwen3.5-2b/ (model.gguf, mmproj.gguf), linked in, not copied.
 async function run({win}){
   const src=process.env.LLM_MODEL_SRC,root=path.join(app.getPath('userData'),'models','llm');fs.mkdirSync(path.join(root,'qwen3.5-2b'),{recursive:true});

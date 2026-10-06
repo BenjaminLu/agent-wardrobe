@@ -1,6 +1,6 @@
 const test=require('node:test');const assert=require('node:assert/strict');
-require('../locales.cjs').setLanguage('zh-Hant');
-const {createLibrary,license,translate,vroidLicense}=require('../asset-library.cjs');const {fetchFixture}=require('./fixtures/library/make.cjs');
+require('../src/main/locales.cjs').setLanguage('zh-Hant');
+const {createLibrary,license,translate,vroidLicense}=require('../src/main/asset-library.cjs');const {fetchFixture}=require('./fixtures/library/make.cjs');
 test('only licences that allow reuse and changes are accepted, with credit noted',()=>{
   assert.deepEqual(license('CC0'),{id:'cc0',label:'CC0',commercial:true,credit:false,shareAlike:false,tier:'open'});
   assert.equal(license('Public domain').id,'cc0');assert.equal(license('CC BY 4.0').credit,true);assert.equal(license('CC-BY-SA 3.0').shareAlike,true);assert.equal(license('OGA-BY 3.0').id,'oga-by');
@@ -54,7 +54,7 @@ test('a rate-limited IPFS gateway is retried on the next one, and big previews a
   assert.equal(seen.filter(u=>u.includes('elf.png')).length,2);
 });
 test('bundled store thumbnails are only the CC0 VRoid samples; the others show their preview after download',async()=>{
-  const fs=require('node:fs');const path=require('node:path');const {FEATURED}=require('../asset-library.cjs');
+  const fs=require('node:fs');const path=require('node:path');const {FEATURED}=require('../src/main/asset-library.cjs');
   const dir=path.join(__dirname,'..','library-thumbs');const local=FEATURED.filter(i=>i.thumb?.startsWith('local:'));
   assert.ok(local.length&&local.every(i=>i.license.label==='CC0'),'only CC0 entries carry a bundled thumbnail');
   assert.deepEqual(fs.readdirSync(dir).filter(f=>f!=='README.md').sort(),local.map(i=>`${i.thumb.slice(6)}.png`).sort(),'library-thumbs/ holds exactly those');

@@ -1,9 +1,9 @@
-require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');
-const audio=require('../voice-audio.cjs');const {speechLike,speechWav}=require('./fixtures/voice/make-audio.cjs');
+const audio=require('../src/main/voice-audio.cjs');const {speechLike,speechWav}=require('./fixtures/voice/make-audio.cjs');
 const {createSidecar}=require('../voice-engines/sidecar.cjs');const cosyvoice=require('../voice-engines/cosyvoice.cjs');
-const {createJobs}=require('../voice-engines/jobs.cjs');const lab=require('../voice-lab.cjs');
-const {createVoices}=require('../voices.cjs');
+const {createJobs}=require('../voice-engines/jobs.cjs');const lab=require('../src/main/voice-lab.cjs');
+const {createVoices}=require('../src/main/voices.cjs');
 const STANDIN=path.join(__dirname,'fixtures','voice','standin-sidecar.cjs');
 const tmp=prefix=>fs.mkdtempSync(path.join(os.tmpdir(),prefix));
 const standin={command:process.execPath,args:[STANDIN]};
@@ -160,7 +160,7 @@ test('jobs: cancel aborts the run and ends as cancelled; a failure ends as error
   assert.deepEqual([jobs.get(bad.id).state,jobs.get(bad.id).error],['error','boom']);
 });
 test('quality notes and consent errors carry their locale key, so a screen in another language can show them',()=>{
-  const L=require('../locales.cjs');
+  const L=require('../src/main/locales.cjs');
   const q=audio.qualityCheck({duration:1,speechSeconds:0,peakDb:-90,speechDb:-90,clippedRatio:0,speechRatio:0});
   assert.deepEqual([q.issues[0].key,q.issues[0].message],['voiceLab.quality.silent','幾乎沒有聲音：麥克風有收到嗎？']);
   assert.match(L.t.in('en')(q.issues[0].key,q.issues[0].vars),/microphone/);

@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // Hands-free input: microphone chunks from the page -> wake word -> dictation -> text sent back to the chat.
 // Audio stays in memory; only levels and detection state go to wake-diagnostics.json.
 const fs = require('node:fs');
@@ -22,7 +23,7 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
   }
   let wake = null, dictation = null, listenMode = 'wake', listenTimer = null, listenStarted = 0, wakeError = null, speechEnd = null;
   const useTypeless = () => getSettings().dictationEngine === 'typeless' && typelessStatus().supported;
-  const tapFn = () => new Promise((resolve, reject) => execFile(path.join(__dirname, 'bin', 'native-input'), [JSON.stringify({ action: 'fn' })], { timeout: 4000 }, (error, _out, stderr) => error ? reject(String(stderr || error.message).includes('Accessibility') ? L.error('wake.typelessAccessibility') : L.error('wake.typelessFailed', { error: String(stderr || error.message) })) : resolve()));
+  const tapFn = () => new Promise((resolve, reject) => execFile(path.join(ROOT, 'bin', 'native-input'), [JSON.stringify({ action: 'fn' })], { timeout: 4000 }, (error, _out, stderr) => error ? reject(String(stderr || error.message).includes('Accessibility') ? L.error('wake.typelessAccessibility') : L.error('wake.typelessFailed', { error: String(stderr || error.message) })) : resolve()));
   // Wake -> bring the chat box forward -> Fn starts Typeless -> a pause ends the question -> Fn again; Typeless pastes the text.
   async function startTypeless() {
     const win = getWin(); listenMode = 'typeless'; speechEnd = new SpeechEnd();
@@ -43,7 +44,7 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
     wakeError = null;
     // repair a sentence saved as a wake word by an earlier version (Typeless pasting into the field)
     const saved = splitPhrases(getSettings().wakePhrases); if (saved.some(badPhrase)) { getSettings().wakePhrases = saved.filter(p => !badPhrase(p)).join(', '); persist(); }
-    try { wake ||= new voiceInput.WakeWord(path.join(__dirname, 'models', 'kws'), { keywordsFile: path.join(app.getPath('userData'), 'wake-keywords.txt') }); wake.configure(wakePhrases(), getSettings().wakeSensitivity); }
+    try { wake ||= new voiceInput.WakeWord(path.join(ROOT, 'models', 'kws'), { keywordsFile: path.join(app.getPath('userData'), 'wake-keywords.txt') }); wake.configure(wakePhrases(), getSettings().wakeSensitivity); }
     catch (error) { wake = null; wakeError = error.message; }
     return { phrases: wakePhrases(), error: wakeError };
   }

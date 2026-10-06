@@ -1,6 +1,6 @@
-const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const test=require('node:test');require('../src/main/locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {createLive2dCore,SOURCE}=require('../live2d-core.cjs');const {createRemote,DeviceStore}=require('../remote-server.cjs');
+const {createLive2dCore,SOURCE}=require('../src/main/live2d-core.cjs');const {createRemote,DeviceStore}=require('../src/main/remote-server.cjs');
 const {STANDIN_CORE}=require('./fixtures/models/make.cjs');
 const tmp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'live2d-core-'));
 

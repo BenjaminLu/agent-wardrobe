@@ -4,7 +4,7 @@
 // Endpoints (docs checked 2026-10): POST /v1/voices/add, POST /v1/text-to-voice/design, POST /v1/text-to-voice,
 // POST /v1/text-to-speech/{voice_id}, DELETE /v1/voices/{voice_id}, GET /v1/user.
 // Params: {voiceId, model, stability, similarity, style, speed, source: 'clone'|'design'}
-const L=require('../locales.cjs');const {t}=L;
+const L=require('../src/main/locales.cjs');const {t}=L;
 const BASE='https://api.elevenlabs.io';
 // eleven_v4 (Sep 2026) is the most expressive multilingual model; multilingual_v2 is the long-standing default.
 const MODELS=['eleven_v4','eleven_multilingual_v2','eleven_flash_v2_5','eleven_v3'];

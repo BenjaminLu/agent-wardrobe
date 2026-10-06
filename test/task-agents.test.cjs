@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const http=require('node:http');const {EventEmitter}=require('node:events');
-const {runLocal,runCodex}=require('../task-agents.cjs');const {specs,validate}=require('../operation-tools.cjs');
+const {runLocal,runCodex}=require('../src/main/task-agents.cjs');const {specs,validate}=require('../src/main/operation-tools.cjs');
 test('tool input blocks unknown modes, protocol injection, invalid values and cross-mode access',()=>{
   assert.throws(()=>validate('browser_open',{url:'file:///private'},'browser'));
   assert.throws(()=>validate('browser_open',{url:'https://u:p@example.com'},'browser'));

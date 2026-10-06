@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const pat
 // without a reload, to en, ja, zh-Hans and back to zh-Hant. In English no Chinese or Japanese text may be visible; in
 // Japanese and Simplified Chinese no Traditional-only characters; Mod / user content (translate="no") is not counted.
 // Screenshots: evidence/i18n-<lang>.png (settings | marketplace | phone side by side).
-const L=require('../locales.cjs');
+const L=require('../src/main/locales.cjs');
 // characters that only Traditional Chinese uses (Japanese and Simplified Chinese write them differently)
 const TRADITIONAL_ONLY='這們說會來對還沒裡點關聲體從應發實處擇據錄頁圖檔單變與將當讓區轉獨聽號';
 // for Simplified Chinese also the ones Japanese happens to share

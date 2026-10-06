@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 const { Notification, app, BrowserWindow, WebContentsView, session, ipcMain, Menu, Tray, nativeImage, screen, globalShortcut, dialog, systemPreferences, shell, desktopCapturer, clipboard, safeStorage } = require('electron');
 const platform=require('./platform.cjs');const L=require('./locales.cjs');const {t}=L;
 const tts = require('./tts.cjs');
@@ -81,12 +82,12 @@ agentSession.on('event',data=>{
 async function openAgentConsole({automatic=false}={}){
   consoleAutomatic=automatic;
   if(agentWindow&&!agentWindow.isDestroyed()){agentWindow.show();agentWindow.focus();return;}
-  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:t('console.windowTitle'),backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(__dirname,'agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:t('console.windowTitle'),backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(ROOT,'agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   agentWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   agentWindow.webContents.on('will-navigate',event=>event.preventDefault());
   agentWindow.once('ready-to-show',()=>{agentWindow.show();agentWindow.focus();});
   agentWindow.on('closed',()=>{taskEvent(taskFeedback.cancel());agentSession.stop();agentWindow=null;});
-  await agentWindow.loadFile('agent-console.html');
+  await agentWindow.loadFile(path.join(ROOT,'agent-console.html'));
 }
 ipcMain.handle('agent-console:ready',event=>{
   if(event.sender!==agentWindow?.webContents)throw new Error('Unknown console');
@@ -119,7 +120,7 @@ if (process.argv.includes('--smoke-test')) {
   shell.showItemInFolder = target => { opened.push(target); };
   shell.openExternal = async url => { opened.push(url); };
 }
-if (process.argv.includes('--smoke-test')) app.setPath('userData', __dirname.includes('.app/Contents/Resources/') || app.isPackaged ? path.join(app.getPath('temp'), 'agent-wardrobe-smoke') : process.env.AGENT_WARDROBE_SMOKE_USERDATA || path.join(__dirname, '.smoke-userdata'));
+if (process.argv.includes('--smoke-test')) app.setPath('userData', ROOT.includes('.app/Contents/Resources/') || app.isPackaged ? path.join(app.getPath('temp'), 'agent-wardrobe-smoke') : process.env.AGENT_WARDROBE_SMOKE_USERDATA || path.join(ROOT, '.smoke-userdata'));
 if (!app.requestSingleInstanceLock()) app.exit(0);
 let win, marketWindow, filesWindow, tray, runtime, control, streaming = false, chatBusy = false;
 // Skipped Mods are logged and shown once in the companion; the rest still load.
@@ -157,7 +158,7 @@ async function watchModel() {
   const info = await llm.ensure(id); ai.setKey(info.base, info.key); return { base: info.base, model: info.model, headers: ai.authHeader(info.base), structured: true };
 }
 // Live2D's Cubism Core, downloaded into userData only after the user agrees in a window (smoke runs use an offline stand-in).
-const live2dCore = require('./live2d-core.cjs').createLive2dCore({ dir: path.join(app.getPath('userData'), 'live2d'), ...(process.argv.includes('--smoke-test') && process.env.LIVE2D_CORE_FIXTURE ? { fetchImpl: async () => new Response(fs.readFileSync(require('./test/fixtures/models/make.cjs').STANDIN_CORE)) } : {}) });
+const live2dCore = require('./live2d-core.cjs').createLive2dCore({ dir: path.join(app.getPath('userData'), 'live2d'), ...(process.argv.includes('--smoke-test') && process.env.LIVE2D_CORE_FIXTURE ? { fetchImpl: async () => new Response(fs.readFileSync(require('../../test/fixtures/models/make.cjs').STANDIN_CORE)) } : {}) });
 handle('bula:live2d-core', () => live2dCore.url());
 handle('bula:live2d-core-install', () => live2dCore.install().then(() => live2dCore.url()));
 // Characters drawn by Codex from a photo of someone (private Mods in userData/my-mods), in Annie's style.
@@ -171,7 +172,7 @@ handle('bula:person-delete', id => { if (runtime.state.modId === id) selectMod({
 let libraryAccounts = null;
 const accountsFor = () => libraryAccounts ||= require('./library-accounts.cjs').createAccounts({ secrets, BrowserWindow });
 const libraryLinks = { vroid: { token: () => accountsFor().vroid.token(), expired: () => accountsFor().vroid.expired() }, sketchfab: { token: () => accountsFor().sketchfab.token() } };
-const library = require('./asset-library.cjs').createLibrary(process.argv.includes('--smoke-test') && process.env.LIBRARY_FIXTURE ? { fetchImpl: require('./test/fixtures/library/make.cjs').fetchFixture(), accounts: { vroid: { token: async () => 'fixture-token' }, sketchfab: { token: () => 'f'.repeat(32) } } } : { accounts: libraryLinks, shrink: data => { const image = nativeImage.createFromBuffer(data); return image.isEmpty() ? null : image.resize({ width: 256, quality: 'good' }).toPNG(); } });
+const library = require('./asset-library.cjs').createLibrary(process.argv.includes('--smoke-test') && process.env.LIBRARY_FIXTURE ? { fetchImpl: require('../../test/fixtures/library/make.cjs').fetchFixture(), accounts: { vroid: { token: async () => 'fixture-token' }, sketchfab: { token: () => 'f'.repeat(32) } } } : { accounts: libraryLinks, shrink: data => { const image = nativeImage.createFromBuffer(data); return image.isEmpty() ? null : image.resize({ width: 256, quality: 'good' }).toPNG(); } });
 // a picture becomes the reference for Codex, which redraws it as an editable character in Annie's style
 async function openRedraw({ data, name, credit, target = 'window' }) {
   const image = nativeImage.createFromBuffer(data); if (image.isEmpty()) throw L.error('errors.imageUnreadable');
@@ -190,7 +191,7 @@ async function installCharacter({ name, author, description, license, renderer, 
   let reason = null, mod;
   try {
     const { model, motions = [] } = await write(dir);
-    const persona = JSON.parse(fs.readFileSync(path.join(__dirname, 'mods', 'annie', 'mod.json'), 'utf8')).personas;
+    const persona = JSON.parse(fs.readFileSync(path.join(ROOT, 'mods', 'annie', 'mod.json'), 'utf8')).personas;
     const kind = { vrm: '3D', gltf: '3D', mmd: '3D', live2d: 'Live2D' }[renderer] || '';
     fs.writeFileSync(path.join(dir, 'mod.json'), JSON.stringify({ schemaVersion: 2, id, name: title, description, author, license,
       identity: `A ${kind ? `${kind} ` : ''}desktop companion called ${title}. Friendly and playful.`, renderer, defaultSkin: 'default', defaultPersona: persona[0].id,
@@ -263,30 +264,31 @@ async function openWardrobe() {
   const wasStreaming=streaming;
   setStreaming(true);
   marketWindow=new BrowserWindow({width:1060,height:820,minWidth:700,minHeight:600,title:t('marketplace.windowTitle'),show:false,backgroundColor:'#f5f8fc',
-    webPreferences:{preload:path.join(__dirname,'marketplace-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+    webPreferences:{preload:path.join(ROOT,'marketplace-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   const opened=marketWindow;
   opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   opened.webContents.on('will-navigate',event=>event.preventDefault());
   opened.once('ready-to-show',()=>{opened.show();opened.focus();});
   opened.on('closed',()=>{if(marketWindow===opened)marketWindow=null;if(!wasStreaming&&win&&!win.isDestroyed())restore();});
-  await opened.loadFile('marketplace.html');
+  await opened.loadFile(path.join(ROOT,'marketplace.html'));
 }
 
 async function openFiles(){
   if(filesWindow&&!filesWindow.isDestroyed()){if(filesWindow.isMinimized())filesWindow.restore();filesWindow.show();filesWindow.focus();filesWindow.webContents.send('files:refresh');return;}
-  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:t('files.windowTitle'),backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(__dirname,'files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
-  const opened=filesWindow;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());opened.once('ready-to-show',()=>opened.show());opened.on('closed',()=>{if(filesWindow===opened)filesWindow=null;});await opened.loadFile('files.html');
+  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:t('files.windowTitle'),backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(ROOT,'files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  const opened=filesWindow;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());opened.once('ready-to-show',()=>opened.show());opened.on('closed',()=>{if(filesWindow===opened)filesWindow=null;});await opened.loadFile(path.join(ROOT,'files.html'));
 }
 
 app.whenReady().then(async () => {
-  if (app.dock && !__dirname.includes('.app/Contents/Resources/')) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png'));  // dev runs show Annie in the Dock too
+  if (app.dock && !ROOT.includes('.app/Contents/Resources/')) app.dock.setIcon(path.join(ROOT, 'build', 'icon.png'));  // dev runs show Annie in the Dock too
   secrets = new tts.Secrets(path.join(app.getPath('userData'), 'secrets.json'), safeStorage);
   // voice profiles; the voices smoke speaks through a stand-in for sherpa-onnx's Kokoro
   voiceService = createVoiceService({ app, handle, dialog, getWin: () => win, getSettings: () => settings, persist, getRuntime: () => runtime, speech: voice, secrets, kokoroDir, remoteEvent: (type, data) => remoteEvent(type, data),
-    sherpa: process.argv.includes('--smoke-test') && process.env.VOICES_SMOKE_STANDIN ? require('./scripts/voices-smoke.cjs').standinSherpa : undefined });
+    sherpa: process.argv.includes('--smoke-test') && process.env.VOICES_SMOKE_STANDIN ? require('../../scripts/voices-smoke.cjs').standinSherpa : undefined });
   try { registerVoiceEngines(); } catch (error) { console.error(`Voice cloning engines: ${error.message}`); }  // CosyVoice, GPT-SoVITS, ElevenLabs; never blocks start-up
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) }; ai.localBase(settings.base); }
   catch { settings.base = 'http://127.0.0.1:1234/v1'; }
+  if(settings.claudeProject)console.log('Claude hooks refresh:',hooks.refreshProject({project:settings.claudeProject,executable:process.execPath,client:path.join(__dirname,'hook-client.cjs'),bridge:path.join(app.getPath('userData'),'claude-bridge.json')}));
   // Smoke suites start from empty data; only the onboarding smoke should meet the first-run guide.
   if (process.argv.includes('--smoke-test') && !process.argv.includes('--onboarding-smoke')) settings.onboarded = true;
   llm=new LocalLlm(path.join(app.getPath('userData'),'models','llm'));
@@ -331,7 +333,7 @@ app.whenReady().then(async () => {
     frame: false, transparent: transparentWindow, backgroundColor: transparentWindow ? '#00000000' : '#eef7fd', alwaysOnTop: true,
     resizable: false, hasShadow: false, show: false, title: 'Agent Wardrobe',
     // keeps listening for the wake word and running reminders while hidden in the background
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
+    webPreferences: { preload: path.join(ROOT, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
   });
   win.setAlwaysOnTop(true, 'floating');
   // Closing the companion sends it to the background; only Quit (menu bar / tray, ⌘Q) ends the app.
@@ -350,7 +352,7 @@ app.whenReady().then(async () => {
     && (details?.mediaTypes ? details.mediaTypes.length > 0 && details.mediaTypes.every(type => type === 'audio') : details?.mediaType !== 'video');
   win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(micAllowed(contents, permission, details)));
   win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => permission === 'media' && micAllowed(contents, permission, details));
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon-256.png')).resize(process.platform === 'darwin' ? { width: 20, height: 20, quality: 'best' } : { width: 32, height: 32, quality: 'best' });
+  const icon = nativeImage.createFromPath(path.join(ROOT, 'build', 'icon-256.png')).resize(process.platform === 'darwin' ? { width: 20, height: 20, quality: 'best' } : { width: 32, height: 32, quality: 'best' });
   tray = new Tray(icon);
   tray.setToolTip('Agent Wardrobe');
   buildMenus();
@@ -361,14 +363,14 @@ app.whenReady().then(async () => {
   if(!globalShortcut.register('CommandOrControl+Shift+X',emergencyStop))console.warn('Emergency shortcut unavailable; use the red emergency-stop buttons.');
   if (!globalShortcut.register('CommandOrControl+Shift+S', openWardrobe)) console.warn('Skin shortcut unavailable; use the application menu.');
   win.once('ready-to-show', () => win.show());
-  await win.loadFile('index.html', transparentWindow ? {} : { query: { opaque: '1' } });
+  await win.loadFile(path.join(ROOT,'index.html'), transparentWindow ? {} : { query: { opaque: '1' } });
   warmLocal();
   // learn this Mac's tailnet name first, or phones would be refused as an unknown host after a restart
   if (settings.remoteEnabled && !process.argv.includes('--smoke-test')) remoteStatus().then(startRemote).then(port => tailscale.serve(port)).catch(error => console.error(`Phone remote: ${error.message}`));
   if (modErrors.length) win.webContents.send('bula:notice', t('mods.loadFailed', { count: modErrors.length, list: modErrors.map(e => t('mods.loadFailedItem', { id: e.id, message: e.message })).join(t('mods.listSeparator')) }));
   if (process.argv.includes('--open-wardrobe') && !process.argv.includes('--smoke-test')) await openWardrobe();
   if (process.argv.includes('--smoke-test')) {
-    try { if(process.argv.includes('--i18n-smoke'))await require('./scripts/i18n-smoke.cjs').run({win,startRemote,getMarketWindow:()=>marketWindow});else if(process.argv.includes('--devsession-smoke'))await require('./scripts/devsession-smoke.cjs').run({win,runtime,devCompanion,startRemote,getSettings:()=>settings});else if(process.argv.includes('--voicelab-smoke'))await require('./scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('./scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('./scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('./scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('./scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('./scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('./scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('./scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('./scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('./scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('./scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('./scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('./scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('./scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('./scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('./scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('./scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('./scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('./scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(__dirname,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('./scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('./scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('./scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('./scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('./scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('./scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('./scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('./scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('./scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('./scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
+    try { if(process.argv.includes('--i18n-smoke'))await require('../../scripts/i18n-smoke.cjs').run({win,startRemote,getMarketWindow:()=>marketWindow});else if(process.argv.includes('--devsession-smoke'))await require('../../scripts/devsession-smoke.cjs').run({win,runtime,devCompanion,startRemote,getSettings:()=>settings});else if(process.argv.includes('--voicelab-smoke'))await require('../../scripts/voicelab-smoke.cjs').run({win,openVoiceLab,getVoiceLab:()=>voiceLab,voices:voiceService.voices,startRemote,getSettings:()=>settings,runtime});else if(process.argv.includes('--models-smoke'))await require('../../scripts/models-smoke.cjs').run({win,runtime,catalog,personService});else if(process.argv.includes('--assisted-smoke'))await require('../../scripts/assisted-smoke.cjs').run({runtime,assisted,extraSites:assistedExtraSites});else if(process.argv.includes('--remote-characters-smoke'))await require('../../scripts/remote-characters-smoke.cjs').run({win,startRemote,runtime});else if(process.argv.includes('--library-smoke'))await require('../../scripts/library-smoke.cjs').run({runtime,openWardrobe,getMarket:()=>marketWindow,personService});else if(process.argv.includes('--person-smoke'))await require('../../scripts/person-smoke.cjs').run({win,personService,runtime,openWardrobe,getMarket:()=>marketWindow});else if(process.argv.includes('--chat-size-smoke'))await require('../../scripts/chat-size-smoke.cjs').run({win});else if(process.argv.includes('--remote-smoke'))await require('../../scripts/remote-smoke.cjs').run({win,startRemote});else if(process.argv.includes('--background-smoke'))await require('../../scripts/background-smoke.cjs').run({win});else if(process.argv.includes('--watch-smoke'))await require('../../scripts/watch-smoke.cjs').run({win});else if(process.argv.includes('--pikachu-smoke'))await require('../../scripts/pikachu-smoke.cjs').run({gameService,win});else if(process.argv.includes('--typeless-smoke'))await require('../../scripts/typeless-smoke.cjs').run({win});else if(process.argv.includes('--game-smoke'))await require('../../scripts/game-smoke.cjs').run({gameService,runtime,win});else if(process.argv.includes('--builtin-smoke'))await require('../../scripts/builtin-smoke.cjs').run({win});else if(process.argv.includes('--onboarding-smoke'))await require('../../scripts/onboarding-smoke.cjs').run({win});else if(process.argv.includes('--wake-smoke'))await require('../../scripts/wake-smoke.cjs').run({win});else if(process.argv.includes('--kokoro-smoke'))await require('../../scripts/kokoro-smoke.cjs').run({win,runtime});else if(process.argv.includes('--voices-smoke'))await require('../../scripts/voices-smoke.cjs').run({win,runtime,voiceService,startRemote});else if(process.argv.includes('--voice-smoke'))await require('../../scripts/voice-smoke.cjs').run({win,runtime});else if(process.argv.includes('--mods-smoke')){const evidence=path.join(ROOT,'evidence');fs.mkdirSync(evidence,{recursive:true});await require('../../scripts/mods-smoke.cjs').run({win,runtime,evidence});}else if(process.argv.includes('--auto-smoke'))await require('../../scripts/auto-smoke.cjs').run({win,getToolTask:()=>toolTask});else if(process.argv.includes('--computer-smoke'))await require('../../scripts/computer-smoke.cjs').run();else if(process.argv.includes('--native-input-smoke'))await require('../../scripts/native-input-smoke.cjs').run();else if(process.argv.includes('--files-smoke'))await require('../../scripts/files-smoke.cjs').run({win,outputs,openFiles,getFilesWindow:()=>filesWindow});else if(process.argv.includes('--output-smoke')||process.argv.includes('--output-restore-smoke'))await require('../../scripts/output-smoke.cjs').run({win,agentSession,getToolTask:()=>toolTask,restoreOnly:process.argv.includes('--output-restore-smoke')});else if(process.argv.includes('--memory-smoke-write')||process.argv.includes('--memory-smoke-read'))await require('../../scripts/memory-smoke.cjs').run({win,read:process.argv.includes('--memory-smoke-read')});else if(process.argv.includes('--task-smoke'))await require('../../scripts/task-smoke.cjs').run({win,runtime,agentSession,getAgentWindow:()=>agentWindow,getToolTask:()=>toolTask,openAgentConsole,emergencyStop});else if(process.argv.includes('--agent-smoke'))await require('../../scripts/app-smoke.cjs').agentSmokeTest(smokeContext);else await require('../../scripts/app-smoke.cjs').smokeTest(smokeContext); app.quit(); }
     catch(error) { console.error('POC_SMOKE_FAILED',error); app.exit(1); }
   }
 }).catch(error=>{
@@ -463,7 +465,7 @@ handle('bula:catalog', () => catalog);
 function modAsset(modId,file){
   const mod=catalog.find(item=>item.id===modId);
   if(typeof file!=='string'||!mod?.assets?.includes(file))throw new Error('Unknown Mod asset');
-  const dir=path.join(mod.root||path.join(__dirname,'mods'),mod.id),target=path.resolve(dir,file);
+  const dir=path.join(mod.root||path.join(ROOT,'mods'),mod.id),target=path.resolve(dir,file);
   if(!target.startsWith(dir+path.sep)||fs.lstatSync(target).isSymbolicLink())throw new Error('Unknown Mod asset');
   return fs.readFileSync(target);
 }
@@ -683,11 +685,11 @@ const elevenKey = () => voiceService.voices.secrets?.get('elevenlabs') || null;
 function voiceEngines() {
   if (voiceEnginesInstance) return voiceEnginesInstance;
   const dir = path.join(app.getPath('userData'), 'voice-engines');
-  const standin = voiceSmoke && process.env.VOICE_SIDECAR_FIXTURE ? { command: process.execPath, args: [path.join(__dirname, 'test', 'fixtures', 'voice', 'standin-sidecar.cjs')], env: { ELECTRON_RUN_AS_NODE: '1' } } : null;
+  const standin = voiceSmoke && process.env.VOICE_SIDECAR_FIXTURE ? { command: process.execPath, args: [path.join(ROOT, 'test', 'fixtures', 'voice', 'standin-sidecar.cjs')], env: { ELECTRON_RUN_AS_NODE: '1' } } : null;
   return voiceEnginesInstance = {
-    cosyvoice: require('./voice-engines/cosyvoice.cjs').create({ dir: path.join(dir, 'cosyvoice'), sidecar: standin }),
-    sovits: require('./voice-engines/sovits.cjs').create({ dir: path.join(dir, 'sovits'), sidecar: standin, transcribe: voiceTranscriber() }),
-    elevenlabs: require('./voice-engines/elevenlabs.cjs').create({ getKey: elevenKey, ...(voiceSmoke && process.env.AGENT_WARDROBE_ELEVENLABS_BASE ? { base: process.env.AGENT_WARDROBE_ELEVENLABS_BASE } : {}) })
+    cosyvoice: require('../../voice-engines/cosyvoice.cjs').create({ dir: path.join(dir, 'cosyvoice'), sidecar: standin }),
+    sovits: require('../../voice-engines/sovits.cjs').create({ dir: path.join(dir, 'sovits'), sidecar: standin, transcribe: voiceTranscriber() }),
+    elevenlabs: require('../../voice-engines/elevenlabs.cjs').create({ getKey: elevenKey, ...(voiceSmoke && process.env.AGENT_WARDROBE_ELEVENLABS_BASE ? { base: process.env.AGENT_WARDROBE_ELEVENLABS_BASE } : {}) })
   };
 }
 function registerVoiceEngines() { for (const engine of Object.values(voiceEngines())) voiceService.voices.registerEngine(engine); voiceService.attachLab(studio()); }
@@ -712,7 +714,7 @@ const deviceStore = new DeviceStore(path.join(app.getPath('userData'), 'remote-d
 function remoteEvent(type, data) { remoteListener?.(type, data); }
 async function startRemote() {
   if (!remote) {
-    remote = createRemote({ root: __dirname, store: deviceStore, allowedHosts: () => remoteHost ? [remoteHost] : [], refreshHosts: async () => { await remoteStatus(); },
+    remote = createRemote({ root: ROOT, store: deviceStore, allowedHosts: () => remoteHost ? [remoteHost] : [], refreshHosts: async () => { await remoteStatus(); },
       getState: () => ({ state: runtime.snapshot(), history: conversations.snapshot().slice(-20).map(({ role, content }) => ({ role, content })) }),
       chat: async (text, device, { auto } = {}) => { if (auto || devCompanion.attached) requireRemoteTasks(); const result = await chatTurn(text, { auto }, { speakAloud: false, from: device.id }); if (result.ok && !result.dev) win?.webContents.send('bula:remote-chat', { device: device.name, text, reply: result.text, emotion: result.emotion }); return result; },
       modAsset: async (modId, file) => modAsset(modId, file), live2dCore: () => live2dCore.installed() ? live2dCore.file : null,

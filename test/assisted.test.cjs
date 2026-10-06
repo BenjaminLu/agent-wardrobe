@@ -1,8 +1,8 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const zlib=require('node:zlib');
 const {spawnSync}=require('node:child_process');
-const archive=require('../archive.cjs');const assisted=require('../assisted.cjs');const mods=require('../mods.cjs');
+const archive=require('../src/main/archive.cjs');const assisted=require('../src/main/assisted.cjs');const mods=require('../src/main/mods.cjs');
 const {makeZip,sjis}=require('./fixtures/zip.cjs');
-require('../locales.cjs').setLanguage('zh-Hant');  // the license / record texts below are checked in the source language
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the license / record texts below are checked in the source language
 const temp=t=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assisted-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;};
 const write=(file,data)=>{fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,data);};
 const SAMPLE_VRM=path.join(__dirname,'..','mods','vrm-sample','sample.vrm');
@@ -48,11 +48,11 @@ test('zip: size limits, including a deflate stream bigger than it claims',t=>{
   assert.throws(()=>archive.unpack(zip,path.join(dir,'o4')),e=>e.code==='ZIP_PASSWORD');
 });
 
-test('single files are used as they are; 7z / rar go through bsdtar, which drops links',{skip:process.platform==='win32'||!require('../platform.cjs').bsdtar()},t=>{
+test('single files are used as they are; 7z / rar go through bsdtar, which drops links',{skip:process.platform==='win32'||!require('../src/main/platform.cjs').bsdtar()},t=>{
   const dir=temp(t),vrm=path.join(dir,'download.vrm');fs.copyFileSync(SAMPLE_VRM,vrm);
   assert.equal(archive.unpack(vrm,path.join(dir,'single'),{name:'ずんだもん.vrm'}).kind,'file');assert.ok(fs.existsSync(path.join(dir,'single','ずんだもん.vrm')));
   const src=path.join(dir,'src');write(path.join(src,'readme.txt'),'hello');fs.symlinkSync('/etc/passwd',path.join(src,'link'));
-  const tarFile=path.join(dir,'a.tar');assert.equal(spawnSync(require('../platform.cjs').tarCommand(),['-cf',tarFile,'-C',src,'.']).status,0);
+  const tarFile=path.join(dir,'a.tar');assert.equal(spawnSync(require('../src/main/platform.cjs').tarCommand(),['-cf',tarFile,'-C',src,'.']).status,0);
   const out=path.join(dir,'untar');fs.mkdirSync(out);const result=archive.untar(tarFile,out);
   assert.ok(fs.existsSync(path.join(out,'readme.txt')));assert.ok(!fs.existsSync(path.join(out,'link')));assert.ok(result.skipped.some(s=>s.endsWith('link')));
   assert.throws(()=>archive.untar(tarFile,path.join(dir,'small'),{limit:2}),e=>e.code==='TOO_BIG');
@@ -135,7 +135,7 @@ test('sites: only allow-listed hosts over https; search pages; sign-in hosts',()
   const fixture={fixture:{name:'Fixture',hosts:[],auth:[],origins:['http://127.0.0.1:4321'],search:()=>'http://127.0.0.1:4321/'}};
   assert.equal(assisted.siteFor('http://127.0.0.1:4321/item',fixture),'fixture');assert.equal(assisted.siteFor('http://127.0.0.1:9999/item',fixture),null);
   // every featured 'assisted' item opens on an allowed page of its own site
-  for(const item of require('../asset-library.cjs').FEATURED.filter(i=>i.kind==='assisted'))assert.equal(assisted.siteFor(item.page,S,{auth:false}),assisted.siteId(item.site),item.title);
+  for(const item of require('../src/main/asset-library.cjs').FEATURED.filter(i=>i.kind==='assisted'))assert.equal(assisted.siteFor(item.page,S,{auth:false}),assisted.siteId(item.site),item.title);
 });
 
 test('askTerms: one Codex call with the terms schema; the texts are fenced as data',async()=>{

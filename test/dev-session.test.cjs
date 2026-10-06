@@ -2,7 +2,7 @@
 // permission-mcp.cjs + the app's socket bridge), and Codex approval requests with a stand-in app-server.
 const test = require('node:test'); const assert = require('node:assert/strict');
 const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path'); const net = require('node:net');
-const { ClaudeAdapter, CodexAdapter, PermissionBridge, mapClaude, claudeArgs } = require('../dev-session.cjs');
+const { ClaudeAdapter, CodexAdapter, PermissionBridge, mapClaude, claudeArgs } = require('../src/main/dev-session.cjs');
 const { fakeBin } = require('../scripts/fake-bin.cjs');
 
 function setup(t) {
@@ -93,7 +93,7 @@ test('the permission bridge only accepts its own token and denies when the app i
   // the MCP helper with the app unreachable: an explicit deny, never an allow
   bridge.close();
   const { spawn } = require('node:child_process');
-  const helper = spawn(process.execPath, [path.join(__dirname, '..', 'permission-mcp.cjs'), file], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const helper = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'main', 'permission-mcp.cjs'), file], { stdio: ['pipe', 'pipe', 'inherit'] });
   const answer = await new Promise(resolve => { let out = ''; helper.stdout.on('data', d => { out += d; if (out.includes('\n')) resolve(JSON.parse(out.split('\n')[0])); }); helper.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'approve', arguments: { tool_name: 'Bash', input: { command: 'rm -rf /' } } } }) + '\n'); });
   helper.kill();
   assert.equal(JSON.parse(answer.result.content[0].text).behavior, 'deny');

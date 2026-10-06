@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 const {spawn}=require('node:child_process');
 const L=require('./locales.cjs');
 const {EventEmitter}=require('node:events');
@@ -24,7 +25,7 @@ class AgentSession extends EventEmitter {
     for(const key of Object.keys(env))if(key.startsWith('CLAUDE_CODE_'))delete env[key];
     this.output='';this.buffer='';this.id=options.id;
     const decoder=new StringDecoder('utf8');
-    const child=spawn(python,[path.join(__dirname,'native','agent-pty.py'),claude,...args],{cwd:options.cwd,env,stdio:['pipe','pipe','pipe'],shell:false});this.child=child;
+    const child=spawn(python,[path.join(ROOT,'native','agent-pty.py'),claude,...args],{cwd:options.cwd,env,stdio:['pipe','pipe','pipe'],shell:false});this.child=child;
     child.stdin.on('error',()=>{});
     child.stdout.on('data',chunk=>{
       this.buffer+=chunk.toString();const lines=this.buffer.split('\n');this.buffer=lines.pop();

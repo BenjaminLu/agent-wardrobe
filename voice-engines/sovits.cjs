@@ -8,8 +8,8 @@
 // degrades quality). Profile files: gpt.ckpt, sovits.pth, reference.wav, reference.txt.
 // Params: {version, refText, refLang, textLang, speed, topK, temperature, source: 'trained'|'pack'}
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const {createPythonEnv,fetchToFile,run,torchIndex,detectGpu}=require('./python-env.cjs');const {venvSitePackages,tarCommand}=require('../platform.cjs');const {createSidecar,PREFIX}=require('./sidecar.cjs');
-const {scanCheckpoint}=require('./pickle-scan.cjs');const L=require('../locales.cjs');const {t}=L;const audio=require('../voice-audio.cjs');
+const {createPythonEnv,fetchToFile,run,torchIndex,detectGpu}=require('./python-env.cjs');const {venvSitePackages,tarCommand}=require('../src/main/platform.cjs');const {createSidecar,PREFIX}=require('./sidecar.cjs');
+const {scanCheckpoint}=require('./pickle-scan.cjs');const L=require('../src/main/locales.cjs');const {t}=L;const audio=require('../src/main/voice-audio.cjs');
 
 const SOURCE={commit:'48b1a0169a28582a8984402f82cf438d3bfa6aca',url:'https://codeload.github.com/RVC-Boss/GPT-SoVITS/tar.gz/48b1a0169a28582a8984402f82cf438d3bfa6aca'};
 // requirements.txt at that commit with versions pinned, minus the web UI, FunASR / faster-whisper (the app transcribes
@@ -92,7 +92,7 @@ function create({dir,fetchImpl=fetch,sidecar=null,trainer=null,transcribe=null,i
       const file=path.join(dir,'downloads',extra.file);await fetchToFile(`${EXTRAS_REPO}/${extra.file}`,file,{fetchImpl,signal});
       const into=path.join(dir,extra.into);fs.mkdirSync(into,{recursive:true});
       // zips with the app's own reader (GNU tar on Linux cannot read them), the dictionary tarball with the system tar
-      if(file.endsWith('.zip'))await require('../archive.cjs').unzipLarge(file,into);else await run(tarCommand(),['-xf',file,'-C',into,'--no-same-owner'],{signal});fs.rmSync(file,{force:true});
+      if(file.endsWith('.zip'))await require('../src/main/archive.cjs').unzipLarge(file,into);else await run(tarCommand(),['-xf',file,'-C',into,'--no-same-owner'],{signal});fs.rmSync(file,{force:true});
     }
     onProgress({stage:'done',progress:1,detail:t('voiceEngines.install.done')});return {ok:true};
   }

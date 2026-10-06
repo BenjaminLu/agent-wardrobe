@@ -5,7 +5,7 @@
 //                   {"id":n, "ok":true, ...result} or {"id":n, "ok":false, "error":"message"}
 //   app → sidecar:  {"id":n, "op":"speak", ...}, {"op":"cancel","id":n}, {"op":"quit"}
 // Nothing listens on a port, so no other app or web page can reach the model. The process stops after a quiet spell.
-const {spawn}=require('node:child_process');const L=require('../locales.cjs');
+const {spawn}=require('node:child_process');const L=require('../src/main/locales.cjs');
 const cancelled=key=>L.error(key||'voiceEngines.cancelled',null,{name:'AbortError'});
 
 const PREFIX='@voice ';

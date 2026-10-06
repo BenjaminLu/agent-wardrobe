@@ -1,6 +1,6 @@
-const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const test=require('node:test');require('../src/main/locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const formats=require('../model-formats.cjs');const mods=require('../mods.cjs');
+const formats=require('../src/main/model-formats.cjs');const mods=require('../src/main/mods.cjs');
 const {mmdFolder,live2dFolder,pmx,vmd,png}=require('./fixtures/models/make.cjs');
 const tmp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'model-formats-'));
 const states={idle:'neutral',working:'smug',waiting_for_approval:'surprised',speaking:'neutral',success:'happy',error:'nervous'};
@@ -62,7 +62,7 @@ test('a Live2D reference that climbs out of the archive is refused',()=>{
   assert.throws(()=>formats.install({srcDir:src,entry,renderer:'live2d',destDir:path.join(tmp(),'x')}),/缺少檔案/);
 });
 test('the assisted download (archive.cjs) lists these models and motions through this module',()=>{
-  const archive=require('../archive.cjs');const dir=tmp();mmdFolder(dir);live2dFolder(dir);fs.writeFileSync(path.join(dir,'Model','idle_loop.vrma'),'x');
+  const archive=require('../src/main/archive.cjs');const dir=tmp();mmdFolder(dir);live2dFolder(dir);fs.writeFileSync(path.join(dir,'Model','idle_loop.vrma'),'x');
   const found=archive.findModels(dir,{formats}).filter(c=>c.available&&['mmd','live2d'].includes(c.kind));
   assert.deepEqual(found.map(c=>[c.kind,c.entry,c.motions.length]).sort(),[['live2d','hiyori/runtime/hiyori.model3.json',2],['mmd','Model/テストモデル.pmx',2]]);
   assert.deepEqual(archive.findMotions(dir,{formats}).map(m=>[m.file,m.name,m.use,m.loop]),[['Model/idle_loop.vrma','idle loop','idle',true],['Model/motion/wave.vmd','wave','react',false],['Model/motion/待機.vmd','待機','idle',true]]);

@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {execFileSync}=require('node:child_process');
-const {script,writeScript,check,open}=require('../cli-setup.cjs');
+const {script,writeScript,check,open}=require('../src/main/cli-setup.cjs');
 test('setup scripts use the official installers and only install when missing',()=>{
   const missing=script('claude',{find:()=>null,home:'/Users/x',plat:'darwin'});
   assert.match(missing,/curl -fsSL https:\/\/claude\.ai\/install\.sh \| bash/);assert.match(missing,/'\/Users\/x\/\.local\/bin\/claude' 'auth' 'login'/);

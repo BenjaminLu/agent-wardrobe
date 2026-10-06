@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const {app,dialog,BrowserWindow}=require('electron');
-const kokoro=require('../kokoro.cjs');const {PER}=require('../voice-engines/kokoro-mix.cjs');
+const kokoro=require('../src/main/kokoro.cjs');const {PER}=require('../voice-engines/kokoro-mix.cjs');
 // 聲音: make a 萌系少女 mix in the settings panel, bind it to Annie, and check her replies are spoken through it; packs; the phone.
 // Kokoro runs as a stand-in for sherpa-onnx (main.cjs passes standinSherpa when VOICES_SMOKE_STANDIN is set) over a fake model folder.
 const calls=[];

@@ -1,6 +1,6 @@
-const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const test=require('node:test');require('../src/main/locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
 const assert=require('node:assert/strict');const http=require('node:http');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {Secrets,openaiSpeech,OPENAI_VOICES,OPENAI_MODELS,looksLikeOpenAIKey}=require('../tts.cjs');
+const {Secrets,openaiSpeech,OPENAI_VOICES,OPENAI_MODELS,looksLikeOpenAIKey}=require('../src/main/tts.cjs');
 
 // stand-in for Electron safeStorage: reversible, but never the plain text
 const fakeSafe={isEncryptionAvailable:()=>true,encryptString:s=>Buffer.from([...Buffer.from(s)].map(b=>b^0x5a)),decryptString:b=>Buffer.from([...b].map(x=>x^0x5a)).toString()};

@@ -1,4 +1,4 @@
-const test=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');const {PassThrough,Writable}=require('node:stream');const {CodexServer}=require('../codex-server.cjs');
+const test=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');const {PassThrough,Writable}=require('node:stream');const {CodexServer}=require('../src/main/codex-server.cjs');
 function fixture(fail=false){
   const calls=[];let child;
   const launch=()=>{child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.kill=()=>{child.killed=true;};

@@ -3,7 +3,7 @@
 const {app,BrowserWindow}=require('electron');const fs=require('node:fs');const path=require('node:path');const {execFileSync}=require('node:child_process');
 const root=path.join(__dirname,'..'),build=path.join(root,'build');
 app.whenReady().then(async()=>{
-  const mod=require('../mods.cjs').loadCatalog().find(m=>m.id==='annie'),skin=mod.skins.find(s=>s.id===mod.defaultSkin);
+  const mod=require('../src/main/mods.cjs').loadCatalog().find(m=>m.id==='annie'),skin=mod.skins.find(s=>s.id===mod.defaultSkin);
   const win=new BrowserWindow({width:1024,height:1024,show:false,transparent:true,frame:false,backgroundColor:'#00000000',useContentSize:true,webPreferences:{offscreen:true,sandbox:true}});
   await win.loadFile(path.join(build,'icon.html'));
   await win.webContents.executeJavaScript(`(()=>{const el=Avatars.mount(document.querySelector('#pet'),${JSON.stringify(mod)},${JSON.stringify(skin)},'icon');

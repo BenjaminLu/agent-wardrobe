@@ -51,7 +51,7 @@ test('packaging helper sources exist under native',()=>{
 });
 
 test('Windows and macOS compilers receive the relocated native source',()=>{
-  for(const [file,compiler,extension] of [['computer-input.cjs','csc','cs'],['scripts/build-native.cjs',"'/usr/bin/xcrun'",'swift']]){
+  for(const [file,compiler,extension] of [['src/main/computer-input.cjs','csc','cs'],['scripts/build-native.cjs',"'/usr/bin/xcrun'",'swift']]){
     const source=fs.readFileSync(path.join(root,file),'utf8');
     const call=source.split('\n').find(line=>line.includes(`execFileSync(${compiler},`));
     assert.ok(call,`${file}: compiler invocation`);
@@ -59,5 +59,84 @@ test('Windows and macOS compilers receive the relocated native source',()=>{
     assert.ok(match,`${file}: compiler source must be under native/`);
     assert.equal(match[2],`native-input.${extension}`);
     assert.ok(fs.statSync(path.join(root,match[1],match[2])).isFile(),`${file}: compiler source exists`);
+  }
+});
+
+const mainModules=[
+  "agent-session.cjs",
+  "ai.cjs",
+  "archive.cjs",
+  "asset-library.cjs",
+  "assisted-window.cjs",
+  "assisted.cjs",
+  "claude-hooks.cjs",
+  "cli-setup.cjs",
+  "cli.cjs",
+  "codex-server.cjs",
+  "computer-input.cjs",
+  "control-identity.cjs",
+  "control-server.cjs",
+  "conversation-store.cjs",
+  "conversation-text.cjs",
+  "dev-companion.cjs",
+  "dev-session.cjs",
+  "dev-sessions.cjs",
+  "dev-speech.cjs",
+  "edge-tts.cjs",
+  "game-service.cjs",
+  "game-watch.cjs",
+  "hook-client.cjs",
+  "kokoro.cjs",
+  "library-accounts.cjs",
+  "live2d-core.cjs",
+  "local-llm.cjs",
+  "locales.cjs",
+  "main.cjs",
+  "mod-assets.cjs",
+  "model-formats.cjs",
+  "mods.cjs",
+  "operation-tools.cjs",
+  "output-store.cjs",
+  "permission-mcp.cjs",
+  "person-draw.cjs",
+  "person-service.cjs",
+  "platform.cjs",
+  "remote-server.cjs",
+  "report-mcp.cjs",
+  "runtime.cjs",
+  "speech.cjs",
+  "system-voice.cjs",
+  "tailscale.cjs",
+  "task-agents.cjs",
+  "task-feedback.cjs",
+  "tts.cjs",
+  "typeless.cjs",
+  "voice-audio.cjs",
+  "voice-input.cjs",
+  "voice-lab.cjs",
+  "voice-service.cjs",
+  "voices.cjs",
+  "wake-service.cjs"
+];
+
+test('all 54 main-process modules live only under src/main',()=>{
+  assert.equal(mainModules.length,54);
+  for(const name of mainModules){
+    assert.equal(fs.existsSync(path.join(root,name)),false,`${name} must leave the root`);
+    assert.ok(fs.statSync(path.join(root,'src','main',name)).isFile(),`src/main/${name} must exist`);
+  }
+  assert.equal(require('../package.json').main,'src/main/main.cjs');
+});
+
+test('main-process paths use ROOT except for existing main-process siblings',()=>{
+  const dir=path.join(root,'src','main');
+  assert.equal(require('../src/main/root.cjs').ROOT,root);
+  for(const name of fs.readdirSync(dir).filter(name=>name.endsWith('.cjs')&&name!=='root.cjs')){
+    const source=fs.readFileSync(path.join(dir,name),'utf8');
+    const rest=source.replace(/\bpath\s*\.\s*join\s*\(\s*__dirname\s*,\s*(['"])([\w-]+\.cjs)\1\s*\)/g,(call,quote,sibling)=>{
+      assert.ok(fs.statSync(path.join(dir,sibling)).isFile(),`${name}: sibling ${sibling} exists`);
+      return '';
+    });
+    assert.doesNotMatch(rest,/\b__dirname\b/,`${name}: paths outside src/main must use ROOT`);
   }
 });

@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');
-const {support,toDevice,fromDevice,keyCode,modifiers,windowsArgs,xdotoolPlan,needsPaste,parseShell,NativeInput}=require('../computer-input.cjs');
+const {support,toDevice,fromDevice,keyCode,modifiers,windowsArgs,xdotoolPlan,needsPaste,parseShell,NativeInput}=require('../src/main/computer-input.cjs');
 test('computer use reports per-platform availability with a reason the UI can show',()=>{
   assert.equal(support({platform:'darwin'}).available,true);
   assert.equal(support({platform:'win32',helper:()=>true}).backend,'windows');

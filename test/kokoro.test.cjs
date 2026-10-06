@@ -1,6 +1,6 @@
-const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const test=require('node:test');require('../src/main/locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');const http=require('node:http');
-const {Kokoro,install,installed,sentences,wav,VOICES,REQUIRED}=require('../kokoro.cjs');
+const {Kokoro,install,installed,sentences,wav,VOICES,REQUIRED}=require('../src/main/kokoro.cjs');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 test('replies are split into sentences so speech can start early',()=>{
   assert.deepEqual(sentences('嗨，我是 Annie！今天想聊什麼？好。'),['嗨，我是 Annie！','今天想聊什麼？','好。']);

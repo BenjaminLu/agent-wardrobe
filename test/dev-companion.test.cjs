@@ -1,9 +1,9 @@
 // 開發夥伴 in the app: messages go to the session, spoken yes / no only while an approval is pending, the character's
 // activity follows the session, replies are spoken in a speakable form, and the attached session is remembered.
 const test = require('node:test'); const assert = require('node:assert/strict');
-require('../locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
 const { EventEmitter } = require('node:events');
-const { createDevCompanion } = require('../dev-companion.cjs');
+const { createDevCompanion } = require('../src/main/dev-companion.cjs');
 
 class FakeAdapter extends EventEmitter {
   constructor(options) { super(); this.options = options; this.sent = []; this.answers = []; this.closed = false; this.interrupted = 0; }

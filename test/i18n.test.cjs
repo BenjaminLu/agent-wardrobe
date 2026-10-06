@@ -74,7 +74,7 @@ test('applyTranslations fills data-i18n text and attributes, keeping child eleme
 });
 
 test('main-process errors carry their key so another screen can show them in its own language',()=>{
-  const L=require('../locales.cjs');
+  const L=require('../src/main/locales.cjs');
   const before=L.language;
   L.setLanguage('zh-Hant');const error=L.error('errors.invalidValue');
   assert.equal(error.message,dicts['zh-Hant']['errors.invalidValue']);

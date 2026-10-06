@@ -1,11 +1,11 @@
 // Shared installer for the local voice engines that run as Python sidecars (CosyVoice, GPT-SoVITS).
-const {renameRetry}=require('../platform.cjs');
+const {renameRetry}=require('../src/main/platform.cjs');
 // Everything lives in one folder under userData: a pinned uv, a Python venv with pinned packages, the engine's
 // source at a pinned commit, and model files from a pinned Hugging Face revision (ModelScope as a fallback).
 // Model files are hash-checked against the LFS sha256 Hugging Face publishes; downloads resume after an interruption.
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const {spawn,execFileSync}=require('node:child_process');
-const {which,killTree,tarCommand,venvPython}=require('../platform.cjs');
-const L=require('../locales.cjs');const {t}=L;
+const {which,killTree,tarCommand,venvPython}=require('../src/main/platform.cjs');
+const L=require('../src/main/locales.cjs');const {t}=L;
 
 // uv 0.12.23 per platform (GitHub release assets and their SHA-256). Tarballs hold uv-<target>/uv; the Windows zips hold uv.exe at the top.
 const uvAsset=(target,sha256)=>({version:'0.12.23',url:`https://github.com/astral-sh/uv/releases/download/0.12.23/uv-${target}.${target.includes('windows')?'zip':'tar.gz'}`,sha256});
@@ -62,7 +62,7 @@ async function ensureUv(dir,{fetchImpl=fetch,signal,uv=UV}={}){
   const archive=path.join(dir,uv.url.endsWith('.zip')?'uv.zip':'uv.tar.gz');await fetchToFile(uv.url,archive,{fetchImpl,signal});
   if(await sha256(archive)!==uv.sha256){fs.rmSync(archive,{force:true});throw L.error('voiceEngines.install.uvHash');}
   fs.mkdirSync(path.dirname(bin),{recursive:true});
-  if(uv.url.endsWith('.zip'))await require('../archive.cjs').unzipLarge(archive,path.dirname(bin));  // Windows: uv.exe at the top of the zip
+  if(uv.url.endsWith('.zip'))await require('../src/main/archive.cjs').unzipLarge(archive,path.dirname(bin));  // Windows: uv.exe at the top of the zip
   else execFileSync(tarCommand(),['-xzf',archive,'-C',path.dirname(bin),'--strip-components=1']);
   fs.rmSync(archive,{force:true});
   return bin;

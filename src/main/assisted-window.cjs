@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // The assisted download window: the app's own toolbar (assisted.html) above the site itself (a WebContentsView in its own
 // persistent, sandboxed session 'persist:assisted'). The user browses and signs in by themselves — the app never types into
 // a page or presses anything on it. Only the allow-listed sites load here; anything else opens in the system browser.
@@ -16,7 +17,7 @@ const cleanTitle=t=>{const s=String(t||'').replace(/\s*[-|｜–—]\s*(BOOTH|ni
 const safeFile=name=>String(name||'download').replace(/[\/\\:\0-\x1f]/g,'_').replace(/^\.+/,'').slice(-120)||'download';
 const PAGE_TEXT=`(()=>{const t=document.body?document.body.innerText:'';return t.slice(0,20000);})()`;
 
-function createAssisted({BrowserWindow,WebContentsView,session,shell,ipcMain,root=__dirname,sites=terms.SITES,askTerms=terms.askTerms,install,formats=loadFormats(),onState=()=>{},limit=archive.LIMIT,tmp=os.tmpdir()}){
+function createAssisted({BrowserWindow,WebContentsView,session,shell,ipcMain,root=ROOT,sites=terms.SITES,askTerms=terms.askTerms,install,formats=loadFormats(),onState=()=>{},limit=archive.LIMIT,tmp=os.tmpdir()}){
   let win=null,view=null,barHeight=104,job=null,sessionReady=false;
   const state={site:'booth',url:'',title:'',status:null,canBack:false,page:null};
   const siteName=id=>sites[id]?.name||t('assisted.site.official');
