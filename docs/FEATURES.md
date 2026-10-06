@@ -83,7 +83,7 @@ npm run smoke -- --all   # adds Kokoro/Edge voices and wake+dictation; needs KOK
 npm run check       # both
 ```
 
-CI: `.github/workflows/app.yml` runs unit tests and the offline smoke set on macOS (Apple Silicon), Windows and Linux runners, uploads smoke screenshots per OS, and reports one aggregate check `test` that passes only when all three pass.
+CI: `.github/workflows/app.yml` runs unit tests and the offline smoke set on macOS (Apple Silicon), Windows and Linux runners, uploads smoke screenshots per OS, and reports one aggregate check `test` that passes only when all three pass. On CI, a failing smoke suite is retried once, and a pass on retry is reported in the job log and summary.
 
 
 ```sh
