@@ -1,6 +1,6 @@
 // Spoken replies: the worn character's own voice profile (voices.cjs) when it has one, otherwise the system voice (system-voice.cjs),
 // OpenAI, local Kokoro or Edge voices, plus the voice settings IPC.
-// Audio plays inside the companion window (WebAudio, renderer.js) on every platform: main sends 'bula:audio-play' with the bytes,
+// Audio plays inside the companion window (WebAudio, src/renderer/companion/renderer.js) on every platform: main sends 'bula:audio-play' with the bytes,
 // the page answers through 'bula:audio-done'. Only macOS's say and Linux's spd-say speak straight to the speakers.
 // Lip-sync follows the 'bula:speaking' events and runtime.speaking(); stop() ends any voice at once.
 const L = require('./locales.cjs'); const { t } = L;

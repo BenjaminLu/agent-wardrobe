@@ -11,8 +11,8 @@ const CJK=/[\u3001-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uf
 // What may stay as it is, and why. A rule names a file and either a region (the bracketed expression that follows the
 // marker text: an object, array, call or template) or a literal pattern. Keep this list short.
 const ALLOW=[
-  {file:'i18n.js',region:'const WORDS=',why:'per-language platform wording rules: patterns that rewrite translated text, not text'},
-  {file:'i18n.js',region:'const KEYS=',why:'shortcut rewriting rules (⌘＋捲動 → Ctrl＋): patterns, not text'},
+  {file:'src/renderer/shared/i18n.js',region:'const WORDS=',why:'per-language platform wording rules: patterns that rewrite translated text, not text'},
+  {file:'src/renderer/shared/i18n.js',region:'const KEYS=',why:'shortcut rewriting rules (⌘＋捲動 → Ctrl＋): patterns, not text'},
   // AI prompts sent to models stay exactly as they are
   {file:'src/main/ai.cjs',region:'const SYSTEM =',why:'AI prompt: the chat system prompt sent to the model'},
   {file:'src/main/ai.cjs',region:'model, messages: ',why:'AI prompt: the messages sent to the local model'},
@@ -25,17 +25,17 @@ const ALLOW=[
   {file:'src/main/voice-lab.cjs',region:'const PROMPTS=',why:'recording scripts people read aloud, one set per language'},
   {file:'voice-engines/cosyvoice.cjs',region:'const WARM_TEXT=',why:'a warm-up sentence the engine synthesises silently, in the voice’s language'},
   {file:'voice-engines/elevenlabs.cjs',region:'const SAMPLES=',why:'sample text a designed voice reads, picked by the description’s language'},
-  {file:'renderer.js',region:'const VOICE_SAMPLES=',why:'preview sentences in a voice’s own language when it differs from the interface (a Mandarin voice cannot read English)'},
+  {file:'src/renderer/companion/renderer.js',region:'const VOICE_SAMPLES=',why:'preview sentences in a voice’s own language when it differs from the interface (a Mandarin voice cannot read English)'},
   // model data
-  {file:'avatars.js',region:'const MORPHS=',why:'MMD morph names inside model files'},
-  {file:'avatars.js',region:'const MMD_BONES=',why:'MMD bone names inside model files'},
+  {file:'src/renderer/shared/avatars.js',region:'const MORPHS=',why:'MMD morph names inside model files'},
+  {file:'src/renderer/shared/avatars.js',region:'const MMD_BONES=',why:'MMD bone names inside model files'},
   // saved data: person Mods record their origin in the description and read it back
   {file:'src/main/person-service.cjs',region:'const ORIGIN=',why:'origin markers saved in a person Mod’s description and parsed back (old saves use them)'},
   {file:'src/main/person-service.cjs',region:'const describe=(name,summary,origin)=>',why:'the saved description format whose punctuation the parser matches'},
   // search data: what people type, matched against tags and names
   {file:'src/main/asset-library.cjs',region:'const WORDS=',why:'search aliases: Chinese words → booru tags'},
   {file:'src/main/asset-library.cjs',region:'const FEATURED=',why:'proper names of featured third-party characters, sources and companies, and their search tags'},
-  {file:'marketplace.js',region:'const aliases=',why:'search aliases: Chinese words people type for Mods and skins'}
+  {file:'src/renderer/marketplace/marketplace.js',region:'const aliases=',why:'search aliases: Chinese words people type for Mods and skins'}
 ];
 
 function files(){

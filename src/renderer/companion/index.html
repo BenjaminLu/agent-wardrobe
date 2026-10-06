@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src blob:"><title>Agent Wardrobe</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="avatar.css"></head>
+<html lang="zh-Hant"><head><base href="../../../"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src blob:"><title>Agent Wardrobe</title><link rel="stylesheet" href="src/renderer/companion/styles.css"><link rel="stylesheet" href="src/renderer/shared/avatar.css"></head>
 <body>
 <main>
   <section id="onboarding" hidden aria-live="polite">
@@ -199,4 +199,4 @@
   <button id="stop-speech" type="button" hidden data-i18n="toolbar.stopSpeech" data-i18n-title="toolbar.stopSpeechTitle"></button>
   <nav id="toolbar"><button id="speak-toggle" type="button" data-i18n-title="toolbar.mute" data-i18n-aria-label="toolbar.mute">🔊</button><button id="mic-toggle" type="button" hidden data-i18n-title="toolbar.stopListening" data-i18n-aria-label="toolbar.stopListening"><span id="mic-indicator"></span></button><button id="wardrobe" data-i18n-title="toolbar.wardrobe">◈ Skin</button><button id="files" data-i18n-title="toolbar.files" data-i18n-aria-label="toolbar.filesAria">📁</button><button id="dev-open" data-i18n-title="toolbar.dev" data-i18n-aria-label="toolbar.devAria">🧑‍💻</button></nav>
   <button id="emergency-stop" data-i18n-title="toolbar.stopTask" data-i18n-aria-label="toolbar.stopTaskAria"><span aria-hidden="true"></span><b data-i18n="toolbar.stop"></b></button>
-</main><script src="i18n.js"></script><script src="platform-text.js"></script><script src="avatars.js"></script><script src="renderer.js"></script></body></html>
+</main><script src="src/renderer/shared/i18n.js"></script><script src="src/renderer/shared/platform-text.js"></script><script src="src/renderer/shared/avatars.js"></script><script src="src/renderer/companion/renderer.js"></script></body></html>

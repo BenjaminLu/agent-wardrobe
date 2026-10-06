@@ -66,7 +66,7 @@ Each `mods/<id>/mod.json` has a versioned identity, a registered model (`cat`, `
 
 - `mods.cjs`: manifest validation, catalog, selection and identity prompt.
 - `runtime.cjs`: shared selection, provider and activity, independent of rendering.
-- `avatars.js` / `avatar.css`: trusted shared SVG rigs and animations used by both desktop and browser.
+- `src/renderer/shared/avatars.js` / `src/renderer/shared/avatar.css`: trusted shared SVG rigs and animations used by both desktop and browser.
 - `control-server.cjs`: loopback-only authenticated control API and event stream; serves a fixed static-file allowlist.
 - `codex-server.cjs`: JSON-RPC adapter; restricted chat and a separate experimental dynamic-tool task session.
 - `claude-hooks.cjs` / `hook-client.cjs`: merge/remove installer and nonblocking observer.

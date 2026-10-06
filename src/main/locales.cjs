@@ -3,7 +3,7 @@ const {ROOT}=require('./root.cjs');
 // Everything the main process and its services show or say goes through t(); errors meant for people are made with
 // error(key, vars), which carries its key so a screen in another language (a phone with its own setting) can show it in its own.
 const fs=require('node:fs');const path=require('node:path');
-const i18n=require('../../i18n.js');
+const i18n=require('../renderer/shared/i18n.js');
 const DIR=path.join(ROOT,'locales');
 const cache={};
 function dict(lang){

@@ -48,6 +48,11 @@ async function smokeTest(ctx) {
   const evidence=path.join(appRoot,'evidence');fs.mkdirSync(evidence,{recursive:true});
   const wait=async condition=>{const started=Date.now(),deadline=started+(process.platform==='linux'&&process.env.CI?20000:6000);while(!(await condition())){if(Date.now()>deadline)throw new Error(`UI sync timed out after ${Date.now()-started} ms: ${condition.toString().slice(0,120)}`);await new Promise(resolve=>setTimeout(resolve,60));}};
   await wait(()=>ctx.win.webContents.executeJavaScript('!!document.querySelector("#bula")'));
+  const gradientFill=await ctx.win.webContents.executeJavaScript(`(()=>{
+    const el=[...document.querySelectorAll('#bula [fill]')].find(el=>/^url\\(#.*-gradient\\)$/.test(el.getAttribute('fill')));
+    return el?getComputedStyle(el).fill:null;
+  })()`);
+  assert.ok(gradientFill?.startsWith('url("#'),'built-in avatar gradient remains a same-document reference');
   assert.equal(globalShortcut.isRegistered('CommandOrControl+Shift+S'),true,'marketplace global shortcut registered');
   ctx.win.show();ctx.win.focus();
   await ctx.win.webContents.executeJavaScript('window.bula.wardrobe()');

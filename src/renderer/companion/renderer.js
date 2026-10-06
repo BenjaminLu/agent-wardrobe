@@ -386,7 +386,7 @@ let mic=null;
 async function startMic(){
   if(mic||micPaused)return;
   const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-  const context=new AudioContext();await context.audioWorklet.addModule('mic-worklet.js');
+  const context=new AudioContext();await context.audioWorklet.addModule('src/renderer/companion/mic-worklet.js');
   const source=context.createMediaStreamSource(stream),node=new AudioWorkletNode(context,'mic-downsampler');
   node.port.onmessage=event=>window.bula.micAudio(event.data);source.connect(node);mic={stream,context};showMicButton();
 }

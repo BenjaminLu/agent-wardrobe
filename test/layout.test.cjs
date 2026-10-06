@@ -140,3 +140,48 @@ test('main-process paths use ROOT except for existing main-process siblings',()=
     assert.doesNotMatch(rest,/\b__dirname\b/,`${name}: paths outside src/main must use ROOT`);
   }
 });
+
+const rendererFiles=[
+  "src/preload/preload.cjs",
+  "src/preload/agent-console-preload.cjs",
+  "src/preload/assisted-preload.cjs",
+  "src/preload/files-preload.cjs",
+  "src/preload/marketplace-preload.cjs",
+  "src/preload/voice-lab-preload.cjs",
+  "src/renderer/companion/index.html",
+  "src/renderer/companion/renderer.js",
+  "src/renderer/companion/styles.css",
+  "src/renderer/companion/mic-worklet.js",
+  "src/renderer/agent-console/agent-console.html",
+  "src/renderer/agent-console/agent-console.js",
+  "src/renderer/agent-console/agent-console.css",
+  "src/renderer/assisted/assisted.html",
+  "src/renderer/assisted/assisted.js",
+  "src/renderer/assisted/assisted.css",
+  "src/renderer/files/files.html",
+  "src/renderer/files/files.js",
+  "src/renderer/files/files.css",
+  "src/renderer/marketplace/marketplace.html",
+  "src/renderer/marketplace/marketplace.js",
+  "src/renderer/marketplace/marketplace.css",
+  "src/renderer/voice-lab/voice-lab.html",
+  "src/renderer/voice-lab/voice-lab.js",
+  "src/renderer/voice-lab/voice-lab.css",
+  "src/renderer/wardrobe/wardrobe.html",
+  "src/renderer/wardrobe/wardrobe.js",
+  "src/renderer/wardrobe/wardrobe.css",
+  "src/renderer/shared/i18n.js",
+  "src/renderer/shared/avatars.js",
+  "src/renderer/shared/avatar.css",
+  "src/renderer/shared/interaction.css",
+  "src/renderer/shared/platform-text.js"
+];
+
+test('all 33 preload and renderer files live only under src',()=>{
+  assert.equal(rendererFiles.length,33);
+  for(const file of rendererFiles){
+    assert.equal(fs.existsSync(path.join(root,path.basename(file))),false,`${file} must leave the root`);
+    assert.ok(fs.statSync(path.join(root,file)).isFile(),`${file} must exist`);
+  }
+  assert.deepEqual(fs.readdirSync(root).filter(name=>/\.(?:html|js|css)$|(?:^|-)preload\.cjs$/.test(name)),[]);
+});

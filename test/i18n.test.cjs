@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
-const i18n=require('../i18n.js');const lint=require('../scripts/i18n-lint.cjs');
+const i18n=require('../src/renderer/shared/i18n.js');const lint=require('../scripts/i18n-lint.cjs');
 const ROOT=path.join(__dirname,'..');
 const load=lang=>JSON.parse(fs.readFileSync(path.join(ROOT,'locales',`${lang}.json`),'utf8'));
 const dicts=Object.fromEntries(i18n.LANGS.map(lang=>[lang,load(lang)]));

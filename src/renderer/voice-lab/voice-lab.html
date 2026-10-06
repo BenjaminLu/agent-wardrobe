@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="UTF-8">
+<html lang="zh-Hant"><head><base href="../../../"><meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'none'">
-<title data-i18n="voiceLab.title"></title><link rel="stylesheet" href="voice-lab.css"></head>
+<title data-i18n="voiceLab.title"></title><link rel="stylesheet" href="src/renderer/voice-lab/voice-lab.css"></head>
 <body>
 <header><h1 data-i18n="voiceLab.heading"></h1><span id="mic-on" class="mic-on" hidden role="status" data-i18n="voiceLab.recording"></span></header>
 <p id="error" class="error" role="alert" hidden></p>
@@ -78,5 +78,5 @@
   <div class="row"><button id="finish-back" type="button" data-i18n="voiceLab.finish.restart"></button><button id="save" type="button" class="primary" data-i18n="voiceLab.finish.save"></button></div>
   <p id="saved" class="ok" hidden></p>
 </section>
-<script src="i18n.js"></script><script src="platform-text.js"></script><script src="voice-lab.js"></script>
+<script src="src/renderer/shared/i18n.js"></script><script src="src/renderer/shared/platform-text.js"></script><script src="src/renderer/voice-lab/voice-lab.js"></script>
 </body></html>

@@ -35,7 +35,7 @@ function createRemote({root,store,getState,chat,modAsset,subscribe,routes={},all
   // The phone page and the shared avatar renderer; nothing else on disk is reachable.
   const FILES={'/remote/':'remote/index.html','/remote/index.html':'remote/index.html','/remote/app.js':'remote/app.js','/remote/style.css':'remote/style.css',
     '/remote/manifest.webmanifest':'remote/manifest.webmanifest','/remote/sw.js':'remote/sw.js','/remote/icon.png':'build/icon-256.png',
-    '/remote/avatars.js':'avatars.js','/remote/i18n.js':'i18n.js','/remote/avatar.css':'avatar.css','/remote/vendor/vrm-kit.js':'vendor/vrm-kit.js','/remote/vendor/live2d-kit.js':'vendor/live2d-kit.js'};
+    '/remote/avatars.js':'src/renderer/shared/avatars.js','/remote/i18n.js':'src/renderer/shared/i18n.js','/remote/avatar.css':'src/renderer/shared/avatar.css','/remote/vendor/vrm-kit.js':'vendor/vrm-kit.js','/remote/vendor/live2d-kit.js':'vendor/live2d-kit.js'};
   // Live2D's Cubism Core is only served once the user has downloaded it on the Mac (see live2d-core.cjs); WebAssembly needs 'wasm-unsafe-eval'.
   const CSP="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self' blob: data:; frame-ancestors 'none'";
   const streams=new Set();let port=0;

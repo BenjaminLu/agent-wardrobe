@@ -1,5 +1,5 @@
 const {ROOT}=require('./root.cjs');
-// The assisted download window: the app's own toolbar (assisted.html) above the site itself (a WebContentsView in its own
+// The assisted download window: the app's own toolbar (src/renderer/assisted/assisted.html) above the site itself (a WebContentsView in its own
 // persistent, sandboxed session 'persist:assisted'). The user browses and signs in by themselves — the app never types into
 // a page or presses anything on it. Only the allow-listed sites load here; anything else opens in the system browser.
 // A download is caught into a private temporary folder, unpacked, searched for characters and its terms are read by the
@@ -53,7 +53,7 @@ function createAssisted({BrowserWindow,WebContentsView,session,shell,ipcMain,roo
   function ensureWindow(){
     if(alive())return;setupSession();
     win=new BrowserWindow({width:1180,height:860,minWidth:760,minHeight:560,title:t('assisted.windowTitle'),backgroundColor:'#f5f8fc',show:false,
-      webPreferences:{preload:path.join(root,'assisted-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+      webPreferences:{preload:path.join(root,'src','preload','assisted-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
     win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());
     view=new WebContentsView({webPreferences:{partition:PARTITION,sandbox:true,contextIsolation:true,nodeIntegration:false,webSecurity:true}});
     win.contentView.addChildView(view);guard(view.webContents);layout();win.on('resize',layout);
@@ -64,7 +64,7 @@ function createAssisted({BrowserWindow,WebContentsView,session,shell,ipcMain,roo
     contents.on('did-fail-load',(_e,code,description,url,isMainFrame)=>{if(isMainFrame&&code!==-3)status('assisted.status.loadFailed',{description});});
     const opened=win;opened.once('ready-to-show',()=>{opened.show();opened.focus();});
     opened.on('closed',()=>{if(!contents.isDestroyed())contents.close();if(win===opened){win=null;view=null;}cleanup();job=null;state.page=null;state.status=null;onState(snapshot());});
-    win.loadFile(path.join(root,'assisted.html'));
+    win.loadFile(path.join(root,'src','renderer','assisted','assisted.html'));
   }
   // site: a SITES key (or an alias); page: a page of an allow-listed site; query: what to search for
   function open({site,query='',page}={}){
