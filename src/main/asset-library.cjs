@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // The avatar store's open libraries, focused on anime, game and VTuber characters:
 //  featured  — hand-picked characters with clear terms (VRoid's own sample models, Seed-san) plus official characters
 //              (Unity-chan, Zundamon, Live2D samples…) that are fetched through the assisted download window
@@ -70,7 +71,7 @@ const IPFS_GATEWAYS=['https://dweb.link','https://ipfs.io','https://gateway.pina
 function alternatives(url){const m=String(url).match(/^https:\/\/(?:dweb\.link|ipfs\.io|gateway\.pinata\.cloud)(\/ipfs\/.+)$/);return m?IPFS_GATEWAYS.map(g=>g+m[1]):[url];}
 
 // accounts: {vroid:{token():Promise<string|null>}, sketchfab:{token():string|null}} — sign-ins kept by the app, never by the window.
-function createLibrary({fetchImpl=fetch,now=()=>Date.now(),shrink=null,accounts={},thumbDir=path.join(__dirname,'library-thumbs')}={}){
+function createLibrary({fetchImpl=fetch,now=()=>Date.now(),shrink=null,accounts={},thumbDir=path.join(ROOT,'library-thumbs')}={}){
   const cache=new Map(),results=new Map(),thumbs=new Map();
   // at most three thumbnails download at once, so hosts do not rate-limit us
   let active=0;const waiting=[];const slot=()=>new Promise(r=>{if(active<3){active++;r();}else waiting.push(r);});const release=()=>{const next=waiting.shift();if(next)next();else active--;};

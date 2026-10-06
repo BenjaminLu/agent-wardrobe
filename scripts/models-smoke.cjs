@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {app,nativeImage}=require('electron');
-const formats=require('../model-formats.cjs');const mods=require('../mods.cjs');const make=require('../test/fixtures/models/make.cjs');
+const formats=require('../src/main/model-formats.cjs');const mods=require('../src/main/mods.cjs');const make=require('../test/fixtures/models/make.cjs');
 // Live2D, MMD and a VRM with a .vrma motion in the real companion window, from tiny models built in code. The Live2D one first
 // asks before downloading Live2D's Cubism Core; the "download" here is an offline stand-in (LIVE2D_CORE_FIXTURE). Each model must
 // draw, play its idle motion (the canvas keeps changing), switch to a reaction, and render a preview picture.

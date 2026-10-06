@@ -1,4 +1,4 @@
-const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {ConversationStore}=require('../conversation-store.cjs');
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {ConversationStore}=require('../src/main/conversation-store.cjs');
 function fixture(fn){const root=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-memory-'));try{return fn(root);}finally{fs.rmSync(root,{recursive:true,force:true});}}
 test('conversation survives process restart, shares brains, stores progress and retrieves old fridge dimensions',()=>fixture(root=>{
   const file=path.join(root,'history.json');const store=new ConversationStore(file);

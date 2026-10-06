@@ -1,6 +1,6 @@
 const test=require('node:test');const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');const path=require('node:path');
-const {argumentsFor}=require('../agent-session.cjs');const {binary}=require('../cli.cjs');
+const {argumentsFor}=require('../src/main/agent-session.cjs');const {binary}=require('../src/main/cli.cjs');
 test('official tasks stay interactive, keep auto permissions, and preserve literal prompts',()=>{
   const text='搜尋 example；$(touch /tmp/not-real)';
   const args=argumentsFor({mode:'browser',text,id:'test-session',persona:'Annie'});

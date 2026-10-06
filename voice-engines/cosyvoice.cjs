@@ -5,7 +5,7 @@
 // Profile files: reference.wav (the reference clip, 24 kHz mono) and reference.txt (what is said in it).
 // Params: {model, refText, lang: 'zh'|'en'|'ja'|'ko', speed: 0.7–1.4}
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const {createPythonEnv,torchIndex,detectGpu}=require('./python-env.cjs');const L=require('../locales.cjs');const {t}=L;const {createSidecar}=require('./sidecar.cjs');
+const {createPythonEnv,torchIndex,detectGpu}=require('./python-env.cjs');const L=require('../src/main/locales.cjs');const {t}=L;const {createSidecar}=require('./sidecar.cjs');
 
 const SOURCE={commit:'074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',url:'https://codeload.github.com/FunAudioLLM/CosyVoice/tar.gz/074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc',
   submodules:[{path:'third_party/Matcha-TTS',url:'https://codeload.github.com/shivammehta25/Matcha-TTS/tar.gz/dd9105b34bf2be2230f4aa1e4769fb586a3c824e'}]};

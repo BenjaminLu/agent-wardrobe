@@ -1,7 +1,7 @@
 // 開發夥伴 session discovery: Claude Code jsonl and Codex rollouts from a fixture home, and the "still open" heuristic.
 const test = require('node:test'); const assert = require('node:assert/strict');
 const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
-const dev = require('../dev-sessions.cjs');
+const dev = require('../src/main/dev-sessions.cjs');
 const { makeHome, IDS } = require('./fixtures/dev/make-home.cjs');
 
 function fixture() { const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-sessions-')); return { root, ...makeHome(root) }; }

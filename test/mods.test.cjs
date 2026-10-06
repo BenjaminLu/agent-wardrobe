@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');
-const mods=require('../mods.cjs');const {Runtime}=require('../runtime.cjs');
+const mods=require('../src/main/mods.cjs');const {Runtime}=require('../src/main/runtime.cjs');
 const catalog=mods.loadCatalog();
 test('distinct characters and complete skin states',()=>{assert.ok(catalog.length>=4);assert.equal(new Set(catalog.map(m=>m.model||m.id)).size,catalog.length);for(const mod of catalog)for(const skin of mod.skins)for(const state of mods.STATES)assert.ok(skin.states[state]);});
 test('palette injection, executable skin fields and missing states are rejected',()=>{
@@ -34,7 +34,7 @@ test('Annie ships as an SVG-parts Mod in her own lace outfit; built-in rigs only
   const whale=structuredClone(cat);whale.model='whale';assert.throws(()=>mods.validate(whale),/Unsupported character model/);
 });
 test('Annie is the default character, and saved choices that are no longer bundled fall back without crashing',()=>{
-  const {restoreSelection}=require('../runtime.cjs');
+  const {restoreSelection}=require('../src/main/runtime.cjs');
   assert.deepEqual(new Runtime(catalog).state.modId,'annie');
   const annieDefault={modId:'annie',skinId:'everyday',personaId:'buddy'};
   assert.deepEqual(restoreSelection(catalog,{modId:'bula',skinId:'ocean',personaId:'skeptic'}),annieDefault,'a removed character becomes Annie with her defaults');

@@ -34,7 +34,7 @@ const suites = [
   { name: 'Kokoro and Edge voices', args: ['--kokoro-smoke'], marker: 'KOKORO_SMOKE', needs: ['KOKORO_MODEL_SRC'], online: true },
   { name: 'game (stand-in decisions)', args: ['--game-smoke'], marker: 'GAME_SMOKE' },
   { name: 'game with Jev (stand-in API, encrypted key)', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_ENGINE: 'jev' } },
-  { name: 'game with Laya', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_REAL: '1' }, file: require('../platform.cjs').venvPython(path.join(root, '.laya', 'venv')), online: true },
+  { name: 'game with Laya', args: ['--game-smoke'], marker: 'GAME_SMOKE', env: { GAME_SMOKE_REAL: '1' }, file: require('../src/main/platform.cjs').venvPython(path.join(root, '.laya', 'venv')), online: true },
   { name: 'built-in local model', args: ['--builtin-smoke'], marker: 'BUILTIN_SMOKE', needs: ['LLM_MODEL_SRC'] },
   { name: 'wake word handing off to Typeless (real app, fake mic)', args: ['--typeless-smoke'], marker: 'TYPELESS_SMOKE', env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: '/Applications/Typeless.app', online: true, only: 'darwin', reason: 'Typeless is a Mac app driven by its Fn shortcut' },
   { name: 'wake word and dictation', args: ['--wake-smoke'], marker: 'WAKE_SMOKE', needs: ['ASR_MODEL_SRC'], env: { AGENT_WARDROBE_FAKE_MIC: fakeMic }, file: fakeMic },

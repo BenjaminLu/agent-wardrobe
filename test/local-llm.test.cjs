@@ -1,6 +1,6 @@
-const test=require('node:test');require('../locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
+const test=require('node:test');require('../src/main/locales.cjs').setLanguage('zh-Hant');  // messages are matched in the source language
 const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {LocalLlm,MODELS,RUNTIME,recommended}=require('../local-llm.cjs');
+const {LocalLlm,MODELS,RUNTIME,recommended}=require('../src/main/local-llm.cjs');
 test('model choice follows the Mac memory and every download is pinned',()=>{
   assert.equal(recommended(8*2**30),'qwen3.5-2b');assert.equal(recommended(16*2**30),'qwen3.5-4b');assert.equal(recommended(64*2**30),'qwen3.5-9b');
   for(const file of [RUNTIME,...MODELS.flatMap(m=>m.files)]){assert.match(file.sha256,/^[0-9a-f]{64}$/);assert.ok(file.size>0);assert.match(file.url,/^https:\/\/(github\.com\/ggml-org|huggingface\.co\/unsloth)\/.+\/(download\/b\d+|resolve\/[0-9a-f]{40})\//);}
@@ -23,7 +23,7 @@ test('the server starts only for a downloaded model, on loopback, with a key',{s
   }finally{llm.stop();}
 });
 test('each platform gets a pinned llama.cpp build: Vulkan where a loader exists, CPU otherwise',()=>{
-  const {RUNTIMES,runtimeFor}=require('../local-llm.cjs');
+  const {RUNTIMES,runtimeFor}=require('../src/main/local-llm.cjs');
   for(const builds of Object.values(RUNTIMES))for(const b of Object.values(builds)){assert.match(b.sha256,/^[0-9a-f]{64}$/);assert.match(b.url,/\/download\/b11378\/llama-b11378-bin-/);assert.equal(b.format,b.file.endsWith('.zip')?'zip':'tgz');}
   assert.match(runtimeFor({platform:'darwin',arch:'arm64'}).file,/macos-arm64\.tar\.gz$/);
   assert.match(runtimeFor({platform:'win32',arch:'x64',vulkan:true}).file,/win-vulkan-x64\.zip$/);assert.match(runtimeFor({platform:'win32',arch:'x64',vulkan:false}).file,/win-cpu-x64\.zip$/);

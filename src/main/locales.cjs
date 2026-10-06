@@ -1,9 +1,10 @@
+const {ROOT}=require('./root.cjs');
 // The main process's interface language: the uiLanguage setting ('auto' follows the system) and the dictionaries in locales/.
 // Everything the main process and its services show or say goes through t(); errors meant for people are made with
 // error(key, vars), which carries its key so a screen in another language (a phone with its own setting) can show it in its own.
 const fs=require('node:fs');const path=require('node:path');
-const i18n=require('./i18n.js');
-const DIR=path.join(__dirname,'locales');
+const i18n=require('../../i18n.js');
+const DIR=path.join(ROOT,'locales');
 const cache={};
 function dict(lang){
   if(cache[lang])return cache[lang];

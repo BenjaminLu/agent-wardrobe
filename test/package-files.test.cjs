@@ -5,7 +5,7 @@ const {copyApp,missingRequires}=require('../scripts/package-common.cjs');
 test('every file the packaged app loads is packaged, on every platform',()=>{
   for(const platform of ['darwin','win32','linux']){
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),'package-files-'));
-    try{copyApp(dir,{platform,runtime:false});assert.deepEqual(missingRequires(dir),[],platform);for(const lang of ['zh-Hant','zh-Hans','en','ja'])assert.ok(fs.existsSync(path.join(dir,'locales',`${lang}.json`)),`locales/${lang}.json`);}
+    try{copyApp(dir,{platform,runtime:false});assert.ok(fs.existsSync(path.join(dir,'src','main','main.cjs')),platform);assert.equal(require(path.join(dir,'src','main','root.cjs')).ROOT,dir,platform);assert.deepEqual(missingRequires(dir),[],platform);for(const lang of ['zh-Hant','zh-Hans','en','ja'])assert.ok(fs.existsSync(path.join(dir,'locales',`${lang}.json`)),`locales/${lang}.json`);}
     finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });

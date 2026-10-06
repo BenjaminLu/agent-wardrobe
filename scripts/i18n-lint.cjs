@@ -14,15 +14,15 @@ const ALLOW=[
   {file:'i18n.js',region:'const WORDS=',why:'per-language platform wording rules: patterns that rewrite translated text, not text'},
   {file:'i18n.js',region:'const KEYS=',why:'shortcut rewriting rules (⌘＋捲動 → Ctrl＋): patterns, not text'},
   // AI prompts sent to models stay exactly as they are
-  {file:'ai.cjs',region:'const SYSTEM =',why:'AI prompt: the chat system prompt sent to the model'},
-  {file:'ai.cjs',region:'model, messages: ',why:'AI prompt: the messages sent to the local model'},
-  {file:'cli.cjs',region:'child.stdin.end',why:'AI prompt: the prompt piped into the Claude / Codex CLI'},
-  {file:'assisted.cjs',region:"function termsPrompt({title='',url='',page='',files='',meta=''}){",why:'AI prompt: Codex reads a model page for its terms (names 利用規約 so Japanese terms files are recognised)'},
-  {file:'game-watch.cjs',region:'keep.push',why:'AI prompt: the 【name】 wiki brief given to the screen-watching model'},
-  {file:'game-watch.cjs',region:'const LANGUAGE_NAMES=',why:'AI prompt: language names inside the "Reply in …" instruction'},
-  {file:'wake-service.cjs',region:'const WAKE_PHRASES =',why:'default wake phrases (嘿安妮…): words people say, matched by the speech recogniser'},
+  {file:'src/main/ai.cjs',region:'const SYSTEM =',why:'AI prompt: the chat system prompt sent to the model'},
+  {file:'src/main/ai.cjs',region:'model, messages: ',why:'AI prompt: the messages sent to the local model'},
+  {file:'src/main/cli.cjs',region:'child.stdin.end',why:'AI prompt: the prompt piped into the Claude / Codex CLI'},
+  {file:'src/main/assisted.cjs',region:"function termsPrompt({title='',url='',page='',files='',meta=''}){",why:'AI prompt: Codex reads a model page for its terms (names 利用規約 so Japanese terms files are recognised)'},
+  {file:'src/main/game-watch.cjs',region:'keep.push',why:'AI prompt: the 【name】 wiki brief given to the screen-watching model'},
+  {file:'src/main/game-watch.cjs',region:'const LANGUAGE_NAMES=',why:'AI prompt: language names inside the "Reply in …" instruction'},
+  {file:'src/main/wake-service.cjs',region:'const WAKE_PHRASES =',why:'default wake phrases (嘿安妮…): words people say, matched by the speech recogniser'},
   // what a voice reads aloud (recording scripts, engine warm-up, voice-design samples): per-language content, not labels
-  {file:'voice-lab.cjs',region:'const PROMPTS=',why:'recording scripts people read aloud, one set per language'},
+  {file:'src/main/voice-lab.cjs',region:'const PROMPTS=',why:'recording scripts people read aloud, one set per language'},
   {file:'voice-engines/cosyvoice.cjs',region:'const WARM_TEXT=',why:'a warm-up sentence the engine synthesises silently, in the voice’s language'},
   {file:'voice-engines/elevenlabs.cjs',region:'const SAMPLES=',why:'sample text a designed voice reads, picked by the description’s language'},
   {file:'renderer.js',region:'const VOICE_SAMPLES=',why:'preview sentences in a voice’s own language when it differs from the interface (a Mandarin voice cannot read English)'},
@@ -30,11 +30,11 @@ const ALLOW=[
   {file:'avatars.js',region:'const MORPHS=',why:'MMD morph names inside model files'},
   {file:'avatars.js',region:'const MMD_BONES=',why:'MMD bone names inside model files'},
   // saved data: person Mods record their origin in the description and read it back
-  {file:'person-service.cjs',region:'const ORIGIN=',why:'origin markers saved in a person Mod’s description and parsed back (old saves use them)'},
-  {file:'person-service.cjs',region:'const describe=(name,summary,origin)=>',why:'the saved description format whose punctuation the parser matches'},
+  {file:'src/main/person-service.cjs',region:'const ORIGIN=',why:'origin markers saved in a person Mod’s description and parsed back (old saves use them)'},
+  {file:'src/main/person-service.cjs',region:'const describe=(name,summary,origin)=>',why:'the saved description format whose punctuation the parser matches'},
   // search data: what people type, matched against tags and names
-  {file:'asset-library.cjs',region:'const WORDS=',why:'search aliases: Chinese words → booru tags'},
-  {file:'asset-library.cjs',region:'const FEATURED=',why:'proper names of featured third-party characters, sources and companies, and their search tags'},
+  {file:'src/main/asset-library.cjs',region:'const WORDS=',why:'search aliases: Chinese words → booru tags'},
+  {file:'src/main/asset-library.cjs',region:'const FEATURED=',why:'proper names of featured third-party characters, sources and companies, and their search tags'},
   {file:'marketplace.js',region:'const aliases=',why:'search aliases: Chinese words people type for Mods and skins'}
 ];
 

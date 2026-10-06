@@ -3,7 +3,7 @@
 // primary-display points; macOS posts them as-is, Windows (bin/native-input.exe, SendInput) and X11 (xdotool) get device pixels.
 const fs=require('node:fs');const path=require('node:path');const {execFile,execFileSync}=require('node:child_process');
 const L=require('./locales.cjs');
-const ROOT=__dirname;
+const {ROOT}=require('./root.cjs');
 const helperPath=(platform=process.platform)=>path.join(ROOT,'bin',platform==='win32'?'native-input.exe':'native-input');
 function onPath(name,env=process.env){for(const dir of String(env.PATH||'').split(path.delimiter).filter(Boolean)){try{fs.accessSync(path.join(dir,name),fs.constants.X_OK);return true;}catch{}}return false;}
 // What the UI and the task runner check before offering or starting a computer task.

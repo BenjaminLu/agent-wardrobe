@@ -1,4 +1,4 @@
-const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {spawnSync}=require('node:child_process');const {randomUUID}=require('node:crypto');const {OutputStore}=require('../output-store.cjs');
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const {spawnSync}=require('node:child_process');const {randomUUID}=require('node:crypto');const {OutputStore}=require('../src/main/output-store.cjs');
 function fixture(fn){const temp=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-outputs-'));try{fn(temp);}finally{fs.rmSync(temp,{recursive:true,force:true});}}
 test('requested report creates an accessible task folder, never overwrites, survives restart and stops accepting writes',()=>fixture(temp=>{
   const root=path.join(temp,'Desktop','Agent Wardrobe'),plans=path.join(temp,'plans');const store=new OutputStore(root,plans),id=randomUUID();store.create(id,'冰箱比較');assert.ok(!fs.existsSync(root),'no empty Desktop folders for tasks that do not save files');
@@ -14,11 +14,11 @@ test('report writing rejects path traversal, executable files, symbolic links an
 test('Claude stdio document tool writes verified reports and exposes no arbitrary filesystem methods',()=>fixture(temp=>{
   const store=new OutputStore(path.join(temp,'Desktop'),path.join(temp,'plans')),id=randomUUID();store.create(id,'MCP report');
   const requests=[{id:1,method:'initialize',params:{protocolVersion:'2024-11-05'}},{id:2,method:'tools/list'},{id:3,method:'tools/call',params:{name:'report_save',arguments:{filename:'report.md',content:'# Test\nVerified data'}}},{id:4,method:'tools/call',params:{name:'report_save',arguments:{filename:'../escape.md',content:'bad'}}}];
-  const result=spawnSync(process.execPath,[path.join(__dirname,'../report-mcp.cjs'),store.planFile(id)],{input:requests.map(JSON.stringify).join('\n')+'\n',encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);const replies=result.stdout.trim().split('\n').map(JSON.parse);assert.equal(replies[1].result.tools[0].name,'report_save');assert.equal(replies[1].result.tools.length,1);const saved=JSON.parse(replies[2].result.content[0].text);assert.equal(fs.readFileSync(saved.path,'utf8'),'# Test\nVerified data');assert.equal(replies[3].result.isError,true);
+  const result=spawnSync(process.execPath,[path.join(__dirname,'../src/main/report-mcp.cjs'),store.planFile(id)],{input:requests.map(JSON.stringify).join('\n')+'\n',encoding:'utf8',timeout:5000});assert.equal(result.status,0,result.stderr);const replies=result.stdout.trim().split('\n').map(JSON.parse);assert.equal(replies[1].result.tools[0].name,'report_save');assert.equal(replies[1].result.tools.length,1);const saved=JSON.parse(replies[2].result.content[0].text);assert.equal(fs.readFileSync(saved.path,'utf8'),'# Test\nVerified data');assert.equal(replies[3].result.isError,true);
 }));
 
 test('document requests route to file tasks while remembering old reports remains ordinary chat',()=>{
-  const {wantsDocument}=require('../output-store.cjs');
+  const {wantsDocument}=require('../src/main/output-store.cjs');
   for(const text of ['請整理冰箱比較資料，存成報告和表格。','幫我製作一份冰箱比較表','冰箱資料放到桌面的資料夾','Save this data as CSV','Please organize the information'])assert.equal(wantsDocument(text),true,text);
   for(const text of ['你記得上次的冰箱報告嗎？','上次報告放在哪裡？','What does the previous report say?','你還記得我的冰箱尺寸嗎'])assert.equal(wantsDocument(text),false,text);
 });

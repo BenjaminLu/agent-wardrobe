@@ -4,7 +4,7 @@ async function run({win,runtime}){
   const js=code=>win.webContents.executeJavaScript(code);
   const wait=async(fn,timeout=15000)=>{const until=Date.now()+timeout;while(!await fn()){if(Date.now()>until)throw new Error('Voice smoke timed out');await new Promise(r=>setTimeout(r,80));}};
   // half a second of tone as the stand-in's "mp3" (the in-app player sniffs the format, like Chromium does)
-  const audio=require('../kokoro.cjs').wav(Float32Array.from({length:12000},(_,i)=>Math.sin(i/24000*2*Math.PI*440)*.2),24000);
+  const audio=require('../src/main/kokoro.cjs').wav(Float32Array.from({length:12000},(_,i)=>Math.sin(i/24000*2*Math.PI*440)*.2),24000);
   const key='sk-test-voice-smoke-0123456789abcdef',seen=[];
   const server=http.createServer(async(req,res)=>{let body='';for await(const c of req)body+=c;seen.push({url:req.url,auth:req.headers.authorization,body:body&&JSON.parse(body)});
     if(req.headers.authorization!==`Bearer ${key}`){res.writeHead(401);res.end('{"error":{"message":"bad"}}');return;}

@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // Experimental: the character plays a game. Laya (an open, non-generative decision model) picks each move
 // in ~20 ms from a short text description the game writes; the character reacts and comments as it plays.
 const fs=require('node:fs');const path=require('node:path');const {launch,venvPython}=require('./platform.cjs');
@@ -48,7 +49,7 @@ async function jevDecide(key,state,questions,{fetchImpl=fetch}={}){
   const data=await response.json();return {answers:data.answers,ms:Date.now()-started,model:data.model};
 }
 
-function createGame({ipcMain,handle,getRuntime,getSettings,getSecrets,persist,speak,root=__dirname}){
+function createGame({ipcMain,handle,getRuntime,getSettings,getSecrets,persist,speak,root=ROOT}){
   let window=null,sidecar=null,lastLine=0,engine='laya',jevKey=null;
   const python=()=>[process.env.LAYA_PYTHON,venvPython(path.join(root,'.laya','venv'))].find(p=>p&&fs.existsSync(p));
   const send=(channel,value)=>{if(window&&!window.isDestroyed())window.webContents.send(channel,value);};

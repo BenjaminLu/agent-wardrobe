@@ -3,7 +3,7 @@
 // GPT-SoVITS loader unpickles fully. So before a pack is accepted, every function or class the pickle refers to is
 // read without running anything, and the pack is refused unless all of them are on a short list of what plain model
 // weights need (tensors, storages, dicts, GPT-SoVITS's own hyper-parameter object).
-const fs=require('node:fs');const L=require('../locales.cjs');
+const fs=require('node:fs');const L=require('../src/main/locales.cjs');
 
 const ALLOWED=new Set([
   'collections.OrderedDict','builtins.set','builtins.frozenset','builtins.object','copyreg._reconstructor','_codecs.encode','argparse.Namespace',

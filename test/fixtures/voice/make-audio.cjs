@@ -1,6 +1,6 @@
 // Generated stand-in "speech" for tests: voiced syllables (a few harmonics, wobbling pitch) with short gaps and a
 // pause every few seconds, so the quality check and the slicer see something shaped like a person reading.
-const {encodeWav}=require('../../../voice-audio.cjs');
+const {encodeWav}=require('../../../src/main/voice-audio.cjs');
 function speechLike(seconds,{rate=24000,level=.3,pauseEvery=2.5,pause=.45,seed=1}={}){
   const out=new Float32Array(Math.round(seconds*rate));let rnd=seed;const random=()=>(rnd=(rnd*16807)%2147483647)/2147483647;
   let t=0,sinceBreak=0;

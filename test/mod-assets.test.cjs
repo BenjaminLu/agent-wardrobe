@@ -1,6 +1,6 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {sanitizeSvg,checkPng,checkVrm,checkGltf,assetName}=require('../mod-assets.cjs');
-const mods=require('../mods.cjs');
+const {sanitizeSvg,checkPng,checkVrm,checkGltf,assetName}=require('../src/main/mod-assets.cjs');
+const mods=require('../src/main/mods.cjs');
 
 test('svg parts keep shapes, classes and palette variables',()=>{
   const ok='<g class="eyes"><ellipse cx="1" cy="2" rx="3" ry="4" fill="var(--ink)" stroke-width="2"/><g class="pupils"><circle cx="1" cy="1" r="2" fill="#3b2420"/></g></g><path d="M1 2 L3 4Z" fill="url(#body-gradient)" transform="rotate(12 1 2)"/>';
@@ -86,7 +86,7 @@ test('a broken Mod is skipped and reported instead of stopping the app',()=>{
   assert.throws(()=>mods.loadCatalog(empty,{onError:()=>{}}),/No Mods available/);
 });
 // --- Live2D and MMD folders and motion files
-const {assetPath,checkModel,checkMotions}=require('../mod-assets.cjs');
+const {assetPath,checkModel,checkMotions}=require('../src/main/mod-assets.cjs');
 const {mmdFolder,live2dFolder,vmd,motion3}=require('./fixtures/models/make.cjs');
 test('model asset paths are relative, inside the folder and of known types',()=>{
   for(const ok of ['tex/Body.PNG','テクスチャ/髪.png','motions/idle.motion3.json','model.pmx','a/b/c.moc3','dance.vrma','readme.txt'])assert.equal(assetPath(ok),ok);

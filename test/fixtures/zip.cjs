@@ -1,5 +1,5 @@
 // A small zip writer for tests: names as raw bytes (e.g. Shift-JIS without the UTF-8 flag), symlinks, and lying sizes.
-const zlib=require('node:zlib');const {crc32}=require('../../archive.cjs');
+const zlib=require('node:zlib');const {crc32}=require('../../src/main/archive.cjs');
 // entries: [{name: string|Buffer, data: Buffer|string, utf8?: true (sets the UTF-8 flag), deflate?: true, symlink?: true, size?: declared size}]
 function makeZip(entries){
   const locals=[],centrals=[];let offset=0;

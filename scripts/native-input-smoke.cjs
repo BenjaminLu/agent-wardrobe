@@ -3,7 +3,7 @@
 // macOS only checks the helper answers: moving the pointer there needs the Accessibility grant (scripts/computer-smoke.cjs covers it).
 // Runs inside the app (npm run smoke) or alone: npx electron scripts/native-input-smoke.cjs   (Linux CI: xvfb-run, --no-sandbox)
 const assert=require('node:assert/strict');const {app,BrowserWindow,screen,desktopCapturer}=require('electron');
-const {OperationTools,computerSupport}=require('../operation-tools.cjs');
+const {OperationTools,computerSupport}=require('../src/main/operation-tools.cjs');
 const PAGE=`<!doctype html><meta charset="utf-8"><body style="margin:0;font:16px sans-serif"><textarea id="t" style="position:absolute;left:20px;top:20px;width:300px;height:120px"></textarea>
 <div id="pad" style="position:absolute;left:340px;top:20px;width:260px;height:300px;overflow:auto;background:#eee"><div style="height:3000px"></div></div>
 <div id="drag" style="position:absolute;left:20px;top:170px;width:300px;height:150px;background:#cde"></div>

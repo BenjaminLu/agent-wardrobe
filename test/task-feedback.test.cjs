@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');
-const {TaskFeedback}=require('../task-feedback.cjs');const {normalize}=require('../claude-hooks.cjs');
+const {TaskFeedback}=require('../src/main/task-feedback.cjs');const {normalize}=require('../src/main/claude-hooks.cjs');
 test('only opted-in owned task hooks carry final replies; external observers stay private',()=>{
   const payload={hook_event_name:'Stop',session_id:'owned',last_assistant_message:'結果：已完成。',prompt:'secret',transcript_path:'/private',background_tasks:[]};
   assert.equal(normalize(payload).result,undefined);

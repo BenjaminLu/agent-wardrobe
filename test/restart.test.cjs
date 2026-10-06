@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {loadIdentity,saveIdentity}=require('../control-identity.cjs');const {startControl}=require('../control-server.cjs');const {Runtime}=require('../runtime.cjs');const {loadCatalog}=require('../mods.cjs');
+const {loadIdentity,saveIdentity}=require('../src/main/control-identity.cjs');const {startControl}=require('../src/main/control-server.cjs');const {Runtime}=require('../src/main/runtime.cjs');const {loadCatalog}=require('../src/main/mods.cjs');
 test('same control URL and authorization work after app runtime restart',async()=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'wardrobe-restart-'));const catalog=loadCatalog();let server;
   const start=async()=>{const runtime=new Runtime(catalog);server=await startControl({runtime,catalog,language:'en',identity:loadIdentity(directory),onSelect:v=>runtime.select(v)});saveIdentity(directory,{port:server.port,token:server.token});return runtime;};

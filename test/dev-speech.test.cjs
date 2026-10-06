@@ -1,7 +1,7 @@
 // 開發夥伴 speech: replies made speakable, tool one-liners, approval questions and spoken answers.
 const test = require('node:test'); const assert = require('node:assert/strict');
-require('../locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
-const { speakable, describeTool, StatusVoice, describeApproval, parseApprovalAnswer, isStopCommand } = require('../dev-speech.cjs');
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the zh-Hant interface text
+const { speakable, describeTool, StatusVoice, describeApproval, parseApprovalAnswer, isStopCommand } = require('../src/main/dev-speech.cjs');
 
 test('code blocks, tables, links and long paths become short notes', () => {
   const reply = '我改好了 `/Users/me/project/src/renderer/main.cjs`，重點如下：\n\n```js\nconst a = 1;\nconsole.log(a);\n```\n\n| 檔案 | 行數 |\n|---|---|\n| a.js | 3 |\n\n詳情看 https://example.com/pr/12 。另外 **記得** 跑 `npm test`。';

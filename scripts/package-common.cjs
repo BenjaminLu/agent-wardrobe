@@ -3,7 +3,7 @@
 // speech-recognition models, Live2D Cubism Core) live in userData and are never bundled; the 8 MB wake-word model is.
 const fs=require('node:fs');const path=require('node:path');
 const root=path.resolve(__dirname,'..');
-const DIRS=['mods','locales','vendor','game','remote','person','library-thumbs','models','voice-engines'];
+const DIRS=['src','mods','locales','vendor','game','remote','person','library-thumbs','models','voice-engines'];
 const RUNTIME_PACKAGES=['sherpa-onnx-node','ws','pinyin-pro','opencc-js','qrcode-generator','ag-psd','base64-js','pako'];
 // sherpa-onnx's prebuilt native libraries come as one optional package per platform.
 const sherpaPackage=(platform,arch)=>`sherpa-onnx-${platform==='win32'?'win':platform}-${arch}`;

@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const {execFile}=require('node:child_process');
-const {app,clipboard,systemPreferences}=require('electron');const {OperationTools}=require('../operation-tools.cjs');
+const {app,clipboard,systemPreferences}=require('electron');const {OperationTools}=require('../src/main/operation-tools.cjs');
 // Drives a real external app (TextEdit) only through the same computer_* tools a model receives.
 async function run(){
   // LaunchServices launches (needed so TCC attributes to Electron, not the terminal) drop stdout, so mirror progress to a file.

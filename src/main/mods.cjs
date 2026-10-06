@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
@@ -85,7 +86,7 @@ function loadParts(mod, dir) {
   return {...parts,images:[...images]};
 }
 // A broken or unsafe Mod is skipped and reported through onError; only an empty catalog stops the app.
-function loadCatalog(root = path.join(__dirname, 'mods'), { onError = (id, error) => { throw error; }, personal = false } = {}) {
+function loadCatalog(root = path.join(ROOT, 'mods'), { onError = (id, error) => { throw error; }, personal = false } = {}) {
   const catalog = [];
   for (const entry of fs.readdirSync(root, { withFileTypes:true }).filter(entry => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
     try {

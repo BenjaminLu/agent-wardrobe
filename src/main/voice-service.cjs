@@ -3,8 +3,8 @@
 // Voice cloning engines (cosyvoice, sovits, elevenlabs) and the recording window plug in through registerEngine() and openVoiceLab.
 const fs=require('node:fs');const path=require('node:path');
 const {createVoices,boundProfile}=require('./voices.cjs');
-const {createKokoroMix,PRESETS}=require('./voice-engines/kokoro-mix.cjs');
-const {createVoicevox,isJapanese}=require('./voice-engines/voicevox.cjs');
+const {createKokoroMix,PRESETS}=require('../../voice-engines/kokoro-mix.cjs');
+const {createVoicevox,isJapanese}=require('../../voice-engines/voicevox.cjs');
 const kokoro=require('./kokoro.cjs');
 const L=require('./locales.cjs');const {t}=L;
 // a preview line in the interface language; VOICEVOX speaks only Japanese, so its line is always the Japanese one

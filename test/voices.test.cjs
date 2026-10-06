@@ -1,7 +1,7 @@
-require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');const crypto=require('node:crypto');
-const {createVoices,validate,boundProfile,zip,unzip,LIMITS}=require('../voices.cjs');
-const mix=require('../voice-engines/kokoro-mix.cjs');const voicevox=require('../voice-engines/voicevox.cjs');const kokoro=require('../kokoro.cjs');
+const {createVoices,validate,boundProfile,zip,unzip,LIMITS}=require('../src/main/voices.cjs');
+const mix=require('../voice-engines/kokoro-mix.cjs');const voicevox=require('../voice-engines/voicevox.cjs');const kokoro=require('../src/main/kokoro.cjs');
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'voices-'));
 const license={label:'Test',commercial:true,credit:null,tier:'open'};
 const fakeEngine=(id='fake',calls=[])=>({id,label:'Fake',available:async()=>({ok:true}),speak:async({text,profile,dir})=>{calls.push({text,profile,dir});return {audio:Buffer.from('RIFF'),mime:'audio/wav'};},validate:p=>{if(p.bad)throw new Error('bad params');}});

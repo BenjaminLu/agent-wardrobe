@@ -1,8 +1,8 @@
-require('../locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
+require('../src/main/locales.cjs').setLanguage('zh-Hant');  // the messages below are asserted in the source language
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const http=require('node:http');
 const eleven=require('../voice-engines/elevenlabs.cjs');const sovits=require('../voice-engines/sovits.cjs');const {pickleGlobals,scanCheckpoint}=require('../voice-engines/pickle-scan.cjs');
 const {createJobs}=require('../voice-engines/jobs.cjs');const {makeZip}=require('./fixtures/zip.cjs');const {speechWav}=require('./fixtures/voice/make-audio.cjs');
-const {createVoices}=require('../voices.cjs');
+const {createVoices}=require('../src/main/voices.cjs');
 const tmp=prefix=>fs.mkdtempSync(path.join(os.tmpdir(),prefix));
 const KEY='sk_'+'a1B2c3'.repeat(8);
 
@@ -137,7 +137,7 @@ test('training runs through its stages with progress and produces a voice',async
   const progress=events.map(e=>e.progress);assert.ok(progress.every((p,i)=>!i||p>=progress[i-1]),'progress only moves forward');
   assert.ok(events.some(e=>e.stage==='gpt'&&/gpt 2\/3/.test(e.detail)));
   assert.equal(fs.readFileSync(path.join(out,'reference.txt'),'utf8'),'今天天氣真好');
-  const ref=require('../voice-audio.cjs').parseWav(fs.readFileSync(path.join(out,'reference.wav')));assert.ok(ref.samples.length/ref.sampleRate>=3&&ref.samples.length/ref.sampleRate<=10.5);
+  const ref=require('../src/main/voice-audio.cjs').parseWav(fs.readFileSync(path.join(out,'reference.wav')));assert.ok(ref.samples.length/ref.sampleRate>=3&&ref.samples.length/ref.sampleRate<=10.5);
   assert.ok(engine.estimateTraining(5)>engine.estimateTraining(1));
 });
 test('cancelling a training stops the trainer process',async()=>{

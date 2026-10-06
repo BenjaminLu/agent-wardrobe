@@ -1,3 +1,4 @@
+const {ROOT}=require('./root.cjs');
 // 聲音工作室 (voice studio): make a voice from recordings of a real person (with their consent), design one with AI,
 // or import a community GPT-SoVITS pack — then save it as a voice profile through the voices registry (voices.cjs).
 // Rules kept here, not only in the page:
@@ -8,7 +9,7 @@
 //  - the microphone only runs while the user holds a recording going, and only in this window (its own session)
 const L=require('./locales.cjs');const {t}=L;
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const crypto=require('node:crypto');
-const audio=require('./voice-audio.cjs');const {createJobs}=require('./voice-engines/jobs.cjs');
+const audio=require('./voice-audio.cjs');const {createJobs}=require('../../voice-engines/jobs.cjs');
 
 const SAMPLE_RATE=24000;
 // Reading prompts: about 10 seconds each for quick cloning; a longer script for training. They are what people read aloud
@@ -104,7 +105,7 @@ function createStudio({getVoices,voicesRoot,engines,getElevenKey,setElevenKey,bi
 }
 
 // The studio window. main.cjs passes Electron pieces and the shared studio.
-function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,studio,engines,getVoices,getElevenKey,setElevenKey,clearElevenKey,currentMod,language=()=>'zh-TW',root=__dirname,tempBase=os.tmpdir(),fakeMic=false}){
+function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,studio,engines,getVoices,getElevenKey,setElevenKey,clearElevenKey,currentMod,language=()=>'zh-TW',root=ROOT,tempBase=os.tmpdir(),fakeMic=false}){
   let win=null,draft=null,decodeId=0;const decoding=new Map();
   // Imported audio → 16-bit mono WAV at `rate`: afconvert on macOS; on Windows and Linux the studio page decodes it with WebAudio.
   function convert(input,output,{rate=SAMPLE_RATE}={}){
@@ -233,7 +234,7 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
     'voicelab:preview':preview,'voicelab:save':saveDraft,
     'voicelab:job-cancel':id=>studio.jobs.cancel(String(id)),
     'voicelab:jobs':()=>studio.jobs.list(),
-    'voicelab:eleven-key':async key=>{key=String(key||'').replace(/\s+/g,'');if(!require('./voice-engines/elevenlabs.cjs').looksLikeKey(key))throw L.error('voiceLab.error.notElevenKey');
+    'voicelab:eleven-key':async key=>{key=String(key||'').replace(/\s+/g,'');if(!require('../../voice-engines/elevenlabs.cjs').looksLikeKey(key))throw L.error('voiceLab.error.notElevenKey');
       await engines.elevenlabs.verifyKey(key);setElevenKey(key);return {hasKey:true};},
     'voicelab:eleven-key-clear':()=>{clearElevenKey();return {hasKey:false};},
     'voicelab:decoded':(id,result)=>{const done=decoding.get(Number(id));if(done){decoding.delete(Number(id));done(result);}return true;},

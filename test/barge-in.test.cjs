@@ -1,13 +1,13 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 // Barge-in and conversation mode, with stand-ins for the speech models: a "loud" chunk counts as speech.
-const voiceInput=require('../voice-input.cjs');
+const voiceInput=require('../src/main/voice-input.cjs');
 const transcripts=[];
 class FakeVad{constructor(){this.on=false;}acceptWaveform(w){this.on=w.some(v=>Math.abs(v)>.1);}isDetected(){return this.on;}}
 class FakeDictation{constructor(){this.sherpa={Vad:FakeVad};this.vadConfig={};}load(){}begin(){this.heard=false;this.got=[];this.quiet=0;}
   accept(s){const loud=s.some(v=>Math.abs(v)>.1);if(loud){this.heard=true;this.quiet=0;this.got.push(s.length);}else if(this.heard&&++this.quiet>=8){return {done:true,text:transcripts.shift()||'下一句'};}return {done:false};}
   finish(){return this.heard?transcripts.shift()||'':''}}
 voiceInput.Dictation=FakeDictation;voiceInput.asrInstalled=()=>true;
-const {createWake}=require('../wake-service.cjs');
+const {createWake}=require('../src/main/wake-service.cjs');
 
 function setup(settings={}){
   transcripts.length=0;  // each test starts with no leftover transcripts

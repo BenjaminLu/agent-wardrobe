@@ -1,8 +1,8 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
-const {createRemote,DeviceStore}=require('../remote-server.cjs');const tailscale=require('../tailscale.cjs');
+const {createRemote,DeviceStore}=require('../src/main/remote-server.cjs');const tailscale=require('../src/main/tailscale.cjs');
 const tmp=()=>path.join(fs.mkdtempSync(path.join(os.tmpdir(),'remote-')),'devices.json');
 // the messages below are checked in the source language
-const L=require('../locales.cjs');L.setLanguage('zh-Hant');
+const L=require('../src/main/locales.cjs');L.setLanguage('zh-Hant');
 test('pairing codes expire, allow five tries, and issue revocable device tokens',()=>{
   let now=1000;const store=new DeviceStore(tmp(),{now:()=>now});
   assert.throws(()=>store.pair('000000'),/過期/);
