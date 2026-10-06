@@ -89,3 +89,6 @@ body.settings #conversation,body.settings #chat-form{display:none}
 
 /* Linux without a compositor: an opaque window, so the character sits on a soft panel instead of the desktop */
 body.opaque{background:linear-gradient(160deg,#f4fbff,#e3f1fa)}body.opaque #panel,body.opaque #onboarding{box-shadow:none}
+#mic-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer}
+#mic-toggle:hover{background:#e4f2fb}#mic-toggle #mic-indicator{margin:0}
+#mic-toggle.paused #mic-indicator{display:none}#mic-toggle.paused::after{content:'🔇';font-size:14px}

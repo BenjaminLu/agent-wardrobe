@@ -357,13 +357,24 @@ pet.addEventListener('wheel',event=>{
 // --- Hands-free: wake word -> dictation -> send. The microphone runs only while wake is enabled.
 let mic=null;
 async function startMic(){
-  if(mic)return;
+  if(mic||micPaused)return;
   const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
   const context=new AudioContext();await context.audioWorklet.addModule('mic-worklet.js');
   const source=context.createMediaStreamSource(stream),node=new AudioWorkletNode(context,'mic-downsampler');
-  node.port.onmessage=event=>window.bula.micAudio(event.data);source.connect(node);mic={stream,context};$('mic-indicator').hidden=false;
+  node.port.onmessage=event=>window.bula.micAudio(event.data);source.connect(node);mic={stream,context};showMicButton();
 }
-function stopMic(){if(!mic)return;mic.stream.getTracks().forEach(track=>track.stop());mic.context.close();mic=null;$('mic-indicator').hidden=true;$('mic-indicator').classList.remove('listening');}
+function stopMic(){if(!mic)return;mic.stream.getTracks().forEach(track=>track.stop());mic.context.close();mic=null;$('mic-indicator').classList.remove('listening');showMicButton();}
+// The mic button next to Skin: listening for the wake word (blue), hearing you (pulsing red), or paused (🔇). A click pauses
+// the microphone altogether, ending any dictation or follow-up listening; another click turns it back on. Esc also ends
+// an active listen.
+let micPaused=false;
+function showMicButton(){const zh=settings?.language?.startsWith('zh')!==false,b=$('mic-toggle');b.hidden=!mic&&!micPaused;b.classList.toggle('paused',micPaused);
+  const label=micPaused?(zh?'監聽已暫停，按一下恢復':'Listening paused; click to resume'):(zh?'停止監聽':'Stop listening');b.title=label;b.setAttribute('aria-label',label);}
+$('mic-toggle').onclick=async event=>{event.stopPropagation();const zh=settings.language.startsWith('zh');
+  if(micPaused){micPaused=false;try{await startMic();status(zh?'恢復監聽了':'Listening again');}catch(error){message(`麥克風無法啟動：${error.message}`,'error');}}
+  else{micPaused=true;stopMic();await window.bula.listenCancel().catch(()=>{});status(zh?'已停止監聽，按 🔇 恢復':'Stopped listening');}
+  showMicButton();};
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('mic-indicator').classList.contains('listening')&&!characterState?.speaking){event.preventDefault();$('mic-indicator').classList.remove('listening');window.bula.listenCancel().catch(()=>{});status(settings.language.startsWith('zh')?'好，不聽了':'Stopped listening');}});
 function showAsr(state){const zh=settings.language.startsWith('zh');$('asr-status').textContent=state.installed?(zh?'語音辨識模型：已安裝 ✓':'Speech model: installed ✓'):state.downloading?(zh?'正在下載語音辨識模型…':'Downloading…'):(zh?'語音辨識模型：尚未下載':'Speech model: not downloaded');$('asr-install').hidden=state.installed;$('asr-install').disabled=state.downloading;$('asr-progress').hidden=!state.downloading;}
 async function initWake(){
   const wake=await window.bula.wakeStatus();$('wake-enabled').checked=wake.enabled;$('wake-phrases').value=wake.custom;$('wake-sensitivity').value=wake.sensitivity||'high';$('barge-in').checked=wake.bargeIn!==false;$('conversation-mode').checked=wake.conversationMode!==false;$('dictation-engine').value=wake.engine;showTypeless(wake.typeless);$('wake-phrases').placeholder=wake.phrases.join(', ');showAsr(wake.asr);

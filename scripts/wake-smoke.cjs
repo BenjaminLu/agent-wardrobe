@@ -13,14 +13,17 @@ async function run({win}){
     win.show();await wait(()=>js('document.body.dataset.ready==="true"'));
     await js(`document.querySelector('#settings-toggle').click();document.querySelector('#wake-enabled').checked=true;document.querySelector('#wake-phrases').value='嘿安妮';saveWake().then(()=>true)`);
     await js(`window.bula.saveSettings({provider:'local',base:'http://127.0.0.1:${server.address().port}/v1',model:'fixture',voiceProvider:'off'}).then(s=>{settings=s;document.querySelector('#settings-toggle').click();return true;})`);
-    await wait(()=>js(`!document.querySelector('#mic-indicator').hidden`),10000);
+    await wait(()=>js(`!document.querySelector('#mic-toggle').hidden`),10000);
     await js(`document.querySelector('#panel').hidden=true;document.body.classList.add('quiet');true`);
     await wait(()=>js(`!document.querySelector('#panel').hidden`),20000);
     const heard=requests.length;await wait(()=>requests.length>heard||requests.length>0);
     const said=requests.at(-1).messages.at(-1).content;
     assert.match(said,/台北/,`dictation reached the chat (${said})`);if(require('electron').app.getPreferredSystemLanguages().some(l=>/Hant|-(TW|HK|MO)$/i.test(l)))assert.ok(!/天气|怎么/.test(said),'converted to Traditional Chinese');
     await wait(()=>js(`document.querySelector('#conversation').innerText.includes('台北今天多雲')`));
-    console.log('WAKE_SMOKE',JSON.stringify({wake:'嘿安妮',dictated:said,openedChat:true,sent:true}));
+    // the mic button pauses listening (the microphone is really released) and a second click resumes it
+    await js(`document.querySelector('#mic-toggle').click();true`);await wait(()=>js(`document.querySelector('#mic-toggle').classList.contains('paused')&&mic===null`),5000);
+    await js(`document.querySelector('#mic-toggle').click();true`);await wait(()=>js(`!document.querySelector('#mic-toggle').classList.contains('paused')&&mic!==null`),10000);
+    console.log('WAKE_SMOKE',JSON.stringify({wake:'嘿安妮',dictated:said,openedChat:true,sent:true,pauseButton:true}));
   }finally{server.closeAllConnections();server.close();await js(`window.bula.wakeSettings({wakeEnabled:false})`).catch(()=>{});}
 }
 module.exports={run};

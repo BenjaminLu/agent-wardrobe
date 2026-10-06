@@ -120,6 +120,9 @@ function createWake({ app, handle, ipcMain, systemPreferences, getWin, getRuntim
   }
   ipcMain.on('bula:mic',(event,samples)=>{if(event.sender===getWin()?.webContents)try{onMicAudio(samples);}catch(error){console.error(error);}});
   handle('bula:wake-status',()=>({enabled:getSettings().wakeEnabled,bargeIn:getSettings().bargeIn!==false,conversationMode:getSettings().conversationMode!==false,engine:getSettings().dictationEngine||'local',typeless:typelessStatus(),sensitivity:getSettings().wakeSensitivity,phrases:wakePhrases(),custom:getSettings().wakePhrases||'',error:wakeError,asr:{installed:voiceInput.asrInstalled(asrDir()),downloading:asrDownload!==null}}));
+  // the mic button / Esc: end whatever is being listened to now (dictation, a follow-up window, Typeless) and the conversation
+  handle('bula:listen-cancel',async()=>{clearInterval(listenTimer);resetBarge();voiceSession=false;wasSpeaking=false;
+    if(listenMode==='typeless'){listenMode='finishing';try{await tapFn();}catch{}setTimeout(()=>{listenMode='wake';},1500);}else listenMode='wake';return true;});
   handle('bula:wake-settings',async data=>{
     if(typeof data?.wakePhrases==='string'){const bad=splitPhrases(data.wakePhrases).find(badPhrase);if(bad)throw new Error(`「${bad.slice(0,20)}」不像喚醒詞：請用短短的稱呼，例如「嘿安妮」（中文 8 字內、不加標點）。`);getSettings().wakePhrases=data.wakePhrases.slice(0,200);}
     if(['normal','high'].includes(data?.wakeSensitivity))getSettings().wakeSensitivity=data.wakeSensitivity;

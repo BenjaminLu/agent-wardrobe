@@ -10,13 +10,13 @@ voiceInput.Dictation=FakeDictation;voiceInput.asrInstalled=()=>true;
 const {createWake}=require('../wake-service.cjs');
 
 function setup(settings={}){
-  const sent=[],userData=fs.mkdtempSync(path.join(os.tmpdir(),'barge-'));let micHandler,speaking=false,stops=0;
+  const sent=[],handlers={},userData=fs.mkdtempSync(path.join(os.tmpdir(),'barge-'));let micHandler,speaking=false,stops=0;
   const win={isVisible:()=>true,show(){},isDestroyed:()=>false,webContents:{send:(channel,value)=>sent.push([channel,value])}};
-  createWake({app:{getPath:()=>userData,getPreferredSystemLanguages:()=>['zh-TW'],focus(){}},handle(){},ipcMain:{on:(name,fn)=>{if(name==='bula:mic')micHandler=fn;}},systemPreferences:{getMediaAccessStatus:()=>'granted'},
+  createWake({app:{getPath:()=>userData,getPreferredSystemLanguages:()=>['zh-TW'],focus(){}},handle:(name,fn)=>{handlers[name]=fn;},ipcMain:{on:(name,fn)=>{if(name==='bula:mic')micHandler=fn;}},systemPreferences:{getMediaAccessStatus:()=>'granted'},
     getWin:()=>win,getRuntime:()=>({snapshot:()=>({mod:{id:'annie',name:'Annie'}})}),getSettings:()=>({wakeEnabled:true,dictationEngine:'local',...settings}),persist(){},
     speech:{isSpeaking:()=>speaking,stop:()=>{stops++;speaking=false;}}});
   const chunk=(loud,ms=100)=>{const a=new Float32Array(16*ms);if(loud)a.fill(.3);micHandler({sender:win.webContents},a);};
-  return {sent,chunk,speak:on=>{speaking=on;},stops:()=>stops,channels:()=>sent.map(([c])=>c),cleanup:()=>fs.rmSync(userData,{recursive:true,force:true})};
+  return {sent,handlers,chunk,speak:on=>{speaking=on;},stops:()=>stops,channels:()=>sent.map(([c])=>c),cleanup:()=>fs.rmSync(userData,{recursive:true,force:true})};
 }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -50,5 +50,14 @@ test('conversation mode can be turned off',async()=>{
   const t=setup({conversationMode:false});try{
     t.speak(true);for(let i=0;i<8;i++)t.chunk(true);transcripts.push('問題');for(let i=0;i<8;i++)t.chunk(false);
     t.speak(true);t.chunk(false);t.speak(false);t.chunk(false);assert.ok(!t.channels().includes('bula:follow'));
+  }finally{t.cleanup();}
+});
+test('stopping listening ends a follow-up window: what is said next is not sent',async()=>{
+  const t=setup();try{
+    t.speak(true);for(let i=0;i<8;i++)t.chunk(true);transcripts.push('問題');for(let i=0;i<8;i++)t.chunk(false);
+    t.speak(true);t.chunk(false);t.speak(false);t.chunk(false);assert.ok(t.channels().includes('bula:follow'));
+    await t.handlers['bula:listen-cancel']();const before=t.sent.filter(([c])=>c==='bula:dictation').length;
+    transcripts.push('不該送出');for(let i=0;i<3;i++)t.chunk(true);for(let i=0;i<8;i++)t.chunk(false);
+    assert.equal(t.sent.filter(([c])=>c==='bula:dictation').length,before);
   }finally{t.cleanup();}
 });
