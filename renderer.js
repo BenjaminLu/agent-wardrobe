@@ -367,12 +367,13 @@ function stopMic(){if(!mic)return;mic.stream.getTracks().forEach(track=>track.st
 // The mic button next to Skin: listening for the wake word (blue), hearing you (pulsing red), or paused (🔇). A click pauses
 // the microphone altogether, ending any dictation or follow-up listening; another click turns it back on. Esc also ends
 // an active listen.
-let micPaused=false;
+// remembered across restarts (this window's own storage)
+let micPaused=(()=>{try{return localStorage.getItem('mic-paused')==='1';}catch{return false;}})();
 function showMicButton(){const zh=settings?.language?.startsWith('zh')!==false,b=$('mic-toggle');b.hidden=!mic&&!micPaused;b.classList.toggle('paused',micPaused);
   const label=micPaused?(zh?'監聽已暫停，按一下恢復':'Listening paused; click to resume'):(zh?'停止監聽':'Stop listening');b.title=label;b.setAttribute('aria-label',label);}
 $('mic-toggle').onclick=async event=>{event.stopPropagation();const zh=settings.language.startsWith('zh');
-  if(micPaused){micPaused=false;try{await startMic();status(zh?'恢復監聽了':'Listening again');}catch(error){message(`麥克風無法啟動：${error.message}`,'error');}}
-  else{micPaused=true;stopMic();await window.bula.listenCancel().catch(()=>{});status(zh?'已停止監聽，按 🔇 恢復':'Stopped listening');}
+  if(micPaused){micPaused=false;try{localStorage.removeItem('mic-paused');}catch{}try{await startMic();status(zh?'恢復監聽了':'Listening again');}catch(error){message(`麥克風無法啟動：${error.message}`,'error');}}
+  else{micPaused=true;try{localStorage.setItem('mic-paused','1');}catch{}stopMic();await window.bula.listenCancel().catch(()=>{});status(zh?'已停止監聽，按 🔇 恢復':'Stopped listening');}
   showMicButton();};
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('mic-indicator').classList.contains('listening')&&!characterState?.speaking){event.preventDefault();$('mic-indicator').classList.remove('listening');window.bula.listenCancel().catch(()=>{});status(settings.language.startsWith('zh')?'好，不聽了':'Stopped listening');}});
 function showAsr(state){const zh=settings.language.startsWith('zh');$('asr-status').textContent=state.installed?(zh?'語音辨識模型：已安裝 ✓':'Speech model: installed ✓'):state.downloading?(zh?'正在下載語音辨識模型…':'Downloading…'):(zh?'語音辨識模型：尚未下載':'Speech model: not downloaded');$('asr-install').hidden=state.installed;$('asr-install').disabled=state.downloading;$('asr-progress').hidden=!state.downloading;}
