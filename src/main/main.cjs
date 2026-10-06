@@ -82,12 +82,12 @@ agentSession.on('event',data=>{
 async function openAgentConsole({automatic=false}={}){
   consoleAutomatic=automatic;
   if(agentWindow&&!agentWindow.isDestroyed()){agentWindow.show();agentWindow.focus();return;}
-  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:t('console.windowTitle'),backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(ROOT,'agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  agentWindow=new BrowserWindow({width:1000,height:700,minWidth:650,minHeight:450,title:t('console.windowTitle'),backgroundColor:'#10151f',show:false,webPreferences:{preload:path.join(ROOT,'src','preload','agent-console-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   agentWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   agentWindow.webContents.on('will-navigate',event=>event.preventDefault());
   agentWindow.once('ready-to-show',()=>{agentWindow.show();agentWindow.focus();});
   agentWindow.on('closed',()=>{taskEvent(taskFeedback.cancel());agentSession.stop();agentWindow=null;});
-  await agentWindow.loadFile(path.join(ROOT,'agent-console.html'));
+  await agentWindow.loadFile(path.join(ROOT,'src','renderer','agent-console','agent-console.html'));
 }
 ipcMain.handle('agent-console:ready',event=>{
   if(event.sender!==agentWindow?.webContents)throw new Error('Unknown console');
@@ -128,7 +128,7 @@ const modErrors = [];
 const catalog = mods.loadCatalog(undefined, { onError: (id, error) => { modErrors.push({ id, message: error.message }); console.error(`Mod ${id} skipped: ${error.message}`); } });
 let settings = { provider: 'codex', base: 'http://127.0.0.1:1234/v1', model: '', voice: 'Eddy (Chinese (Taiwan))', volume: true, voiceProvider: 'system', openaiVoice: 'marin', openaiModel: 'gpt-4o-mini-tts', openaiStyle: 'Speak in a warm, lively and friendly tone, like a cute desktop companion.', kokoroVoice: 'zf_xiaoxiao', kokoroSpeed: 1, edgeVoice: 'zh-TW-HsiaoChenNeural', edgeRate: 1, characterVoices: {}, scale: 1, wakeEnabled: false, wakePhrases: '', wakeSensitivity: 'high', dictationEngine: 'local', replyLanguage: 'auto', uiLanguage: 'auto', chatSize: 'large', gameEngine: 'laya', game: 'lane', localEngine: 'lmstudio', builtinModel: recommendedModel() };
 // Window size for the companion: the character area grows with the scale, the chat panel keeps its width.
-// Chat panel sizes (panel width, extra conversation height); keep in step with the CSS in styles.css.
+// Chat panel sizes (panel width, extra conversation height); keep in step with the CSS in src/renderer/companion/styles.css.
 const CHAT_SIZES = { normal: [350, 0], large: [460, 154], xl: [580, 314] };
 function companionSize(quiet, scale = settings.scale || 1) {
   const [panel, extra] = CHAT_SIZES[settings.chatSize] || CHAT_SIZES.large;
@@ -264,19 +264,19 @@ async function openWardrobe() {
   const wasStreaming=streaming;
   setStreaming(true);
   marketWindow=new BrowserWindow({width:1060,height:820,minWidth:700,minHeight:600,title:t('marketplace.windowTitle'),show:false,backgroundColor:'#f5f8fc',
-    webPreferences:{preload:path.join(ROOT,'marketplace-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+    webPreferences:{preload:path.join(ROOT,'src','preload','marketplace-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   const opened=marketWindow;
   opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   opened.webContents.on('will-navigate',event=>event.preventDefault());
   opened.once('ready-to-show',()=>{opened.show();opened.focus();});
   opened.on('closed',()=>{if(marketWindow===opened)marketWindow=null;if(!wasStreaming&&win&&!win.isDestroyed())restore();});
-  await opened.loadFile(path.join(ROOT,'marketplace.html'));
+  await opened.loadFile(path.join(ROOT,'src','renderer','marketplace','marketplace.html'));
 }
 
 async function openFiles(){
   if(filesWindow&&!filesWindow.isDestroyed()){if(filesWindow.isMinimized())filesWindow.restore();filesWindow.show();filesWindow.focus();filesWindow.webContents.send('files:refresh');return;}
-  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:t('files.windowTitle'),backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(ROOT,'files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
-  const opened=filesWindow;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());opened.once('ready-to-show',()=>opened.show());opened.on('closed',()=>{if(filesWindow===opened)filesWindow=null;});await opened.loadFile(path.join(ROOT,'files.html'));
+  filesWindow=new BrowserWindow({width:900,height:680,minWidth:620,minHeight:480,title:t('files.windowTitle'),backgroundColor:'#f4f9fd',show:false,webPreferences:{preload:path.join(ROOT,'src','preload','files-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  const opened=filesWindow;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());opened.once('ready-to-show',()=>opened.show());opened.on('closed',()=>{if(filesWindow===opened)filesWindow=null;});await opened.loadFile(path.join(ROOT,'src','renderer','files','files.html'));
 }
 
 app.whenReady().then(async () => {
@@ -333,7 +333,7 @@ app.whenReady().then(async () => {
     frame: false, transparent: transparentWindow, backgroundColor: transparentWindow ? '#00000000' : '#eef7fd', alwaysOnTop: true,
     resizable: false, hasShadow: false, show: false, title: 'Agent Wardrobe',
     // keeps listening for the wake word and running reminders while hidden in the background
-    webPreferences: { preload: path.join(ROOT, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
+    webPreferences: { preload: path.join(ROOT,'src','preload','preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
   });
   win.setAlwaysOnTop(true, 'floating');
   // Closing the companion sends it to the background; only Quit (menu bar / tray, ⌘Q) ends the app.
@@ -363,7 +363,7 @@ app.whenReady().then(async () => {
   if(!globalShortcut.register('CommandOrControl+Shift+X',emergencyStop))console.warn('Emergency shortcut unavailable; use the red emergency-stop buttons.');
   if (!globalShortcut.register('CommandOrControl+Shift+S', openWardrobe)) console.warn('Skin shortcut unavailable; use the application menu.');
   win.once('ready-to-show', () => win.show());
-  await win.loadFile(path.join(ROOT,'index.html'), transparentWindow ? {} : { query: { opaque: '1' } });
+  await win.loadFile(path.join(ROOT,'src','renderer','companion','index.html'), transparentWindow ? {} : { query: { opaque: '1' } });
   warmLocal();
   // learn this Mac's tailnet name first, or phones would be refused as an unknown host after a restart
   if (settings.remoteEnabled && !process.argv.includes('--smoke-test')) remoteStatus().then(startRemote).then(port => tailscale.serve(port)).catch(error => console.error(`Phone remote: ${error.message}`));
@@ -578,7 +578,7 @@ handle('bula:dev-dismiss',()=>devCompanion.dismissOffer());
 handle('bula:open-output',async id=>{const folder=outputs.folder(id);const error=await shell.openPath(folder);if(error)throw new Error(error);return true;});
 handle('bula:save-settings', data => saveSettings(data));
 handle('bula:ui-language', value => setUiLanguage(value));
-// Every page asks for its dictionary once, synchronously, before it renders (i18n.js); it is not secret.
+// Every page asks for its dictionary once, synchronously, before it renders (src/renderer/shared/i18n.js); it is not secret.
 ipcMain.on('i18n:get', event => { event.returnValue = L.bundle(); });
 // The interface language changed: every open window re-renders, the menus are rebuilt, phones following the computer switch too.
 L.onChange(() => {

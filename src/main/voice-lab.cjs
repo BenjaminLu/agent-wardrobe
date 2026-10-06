@@ -249,11 +249,11 @@ function createVoiceLab({BrowserWindow,session,ipcMain,dialog,systemPreferences,
     lab.setPermissionRequestHandler((contents,permission,callback,details)=>callback(allowed(contents,permission,details)));
     lab.setPermissionCheckHandler((contents,permission,_origin,details)=>allowed(contents,permission,details));
     win=new BrowserWindow({width:860,height:760,minWidth:640,minHeight:600,title:t('voiceLab.title'),backgroundColor:'#f6fafd',show:false,
-      webPreferences:{preload:path.join(root,'voice-lab-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,session:lab}});
+      webPreferences:{preload:path.join(root,'src','preload','voice-lab-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,session:lab}});
     const opened=win;opened.webContents.setWindowOpenHandler(()=>({action:'deny'}));opened.webContents.on('will-navigate',event=>event.preventDefault());
     opened.once('ready-to-show',()=>opened.show());
     opened.on('closed',()=>{if(win===opened){win=null;if(!trainingRunning()&&!(draft?.jobId&&draft.ready)){draft?.temp.remove();draft=null;}}});
-    await opened.loadFile(path.join(root,'voice-lab.html'));return opened;
+    await opened.loadFile(path.join(root,'src','renderer','voice-lab','voice-lab.html'));return opened;
   }
   L.onChange(()=>{if(win&&!win.isDestroyed())win.setTitle(t('voiceLab.title'));});
   // a training job outlives the window; its temp folder goes when it ends or the app quits

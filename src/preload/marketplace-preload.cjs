@@ -22,5 +22,5 @@ contextBridge.exposeInMainWorld('marketplace',{
   openPage:url=>ipcRenderer.invoke('marketplace:open-page',url),
   onRefresh:callback=>ipcRenderer.on('marketplace:refresh',()=>callback())
 });
-// the interface language for i18n.js: the dictionary once, synchronously, before the page renders; then every change
+// the interface language for src/renderer/shared/i18n.js: the dictionary once, synchronously, before the page renders; then every change
 contextBridge.exposeInMainWorld('i18nBridge',{get:()=>ipcRenderer.sendSync('i18n:get'),onChange:callback=>ipcRenderer.on('i18n:changed',(_event,value)=>callback(value))});

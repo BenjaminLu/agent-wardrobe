@@ -1,4 +1,4 @@
-// Interface translations, shared by every page (window.i18n) and by the main process (require('./i18n.js')).
+// Interface translations, shared by every page (window.i18n) and by the main process (src/main/locales.cjs requires it).
 // The dictionaries live in locales/<lang>.json as flat namespaced keys ("settings.voice.title"); zh-Hant is the source.
 // A value is a string with {name} placeholders, or a plural object {one, other, …} picked by the {count} variable.
 // Pages get the active language and dictionary from their preload (window.i18nBridge) or call i18n.set(); elements carry

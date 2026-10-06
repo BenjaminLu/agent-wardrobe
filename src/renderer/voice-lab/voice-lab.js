@@ -59,7 +59,7 @@ $('record').onclick=()=>rec?stopRecording():startRecording().catch(e=>{cleanupMi
 async function startRecording(){
   error('');if(!await window.voiceLab.micAccess())throw new Error(t('voiceLab.error.mic'));
   const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  const context=new AudioContext();await context.audioWorklet.addModule('mic-worklet.js');
+  const context=new AudioContext();await context.audioWorklet.addModule('src/renderer/companion/mic-worklet.js');
   const source=context.createMediaStreamSource(stream),node=new AudioWorkletNode(context,'mic-downsampler',{processorOptions:{rate:RATE}});
   rec={stream,context,chunks:[],started:performance.now(),text:$('prompt-text').textContent};
   node.port.onmessage=event=>{if(!rec)return;rec.chunks.push(event.data);let sum=0;for(const v of event.data)sum+=v*v;const db=20*Math.log10(Math.sqrt(sum/event.data.length)+1e-9);

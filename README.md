@@ -243,14 +243,15 @@ node scripts/check-mods.cjs [mods/<id> ...]   # validate Mods without starting t
 | File | Role |
 | --- | --- |
 | `src/main/main.cjs` | Windows, settings and IPC |
-| `src/main/platform.cjs`, `platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
-| `i18n.js`, `src/main/locales.cjs`, `locales/*.json` | Interface languages (zh-Hant source, zh-Hans, en, ja): `t()` in pages and the main process, `data-i18n*` attributes in HTML; `scripts/i18n-lint.cjs` keeps hard-coded text out |
-| `renderer.js` | Companion UI |
-| `avatars.js` | Character rendering: SVG / PNG / VRM / glTF / Live2D / MMD |
+| `src/preload/`, `src/renderer/<window>/` | Sandboxed preload bridges and window pages, scripts and styles |
+| `src/main/platform.cjs`, `src/renderer/shared/platform-text.js` | Platform differences: finding and starting tools, paths, the texts shown per OS |
+| `src/renderer/shared/i18n.js`, `src/main/locales.cjs`, `locales/*.json` | Interface languages (zh-Hant source, zh-Hans, en, ja): `t()` in pages and the main process, `data-i18n*` attributes in HTML; `scripts/i18n-lint.cjs` keeps hard-coded text out |
+| `src/renderer/companion/renderer.js` | Companion UI |
+| `src/renderer/shared/avatars.js` | Character rendering: SVG / PNG / VRM / glTF / Live2D / MMD |
 | `src/main/mods.cjs`, `src/main/mod-assets.cjs` | Mod validation |
 | `src/main/person-service.cjs`, `src/main/person-draw.cjs` | Drawing characters with Codex |
 | `src/main/asset-library.cjs`, `src/main/assisted.cjs`, `src/main/archive.cjs`, `src/main/model-formats.cjs` | Avatar store, assisted download, model import |
-| `src/main/voices.cjs`, `voice-engines/`, `src/main/voice-service.cjs`, `src/main/voice-lab.cjs`, `voice-lab.*` | Voices and voice cloning |
+| `src/main/voices.cjs`, `voice-engines/`, `src/main/voice-service.cjs`, `src/main/voice-lab.cjs`, `src/renderer/voice-lab/voice-lab.*` | Voices and voice cloning |
 | `src/main/speech.cjs`, `src/main/wake-service.cjs` | Voice output, wake word and dictation |
 | `src/main/local-llm.cjs`, `src/main/cli-setup.cjs` | Built-in model; Codex / Claude setup |
 | `src/main/remote-server.cjs`, `remote/` | Phone remote |

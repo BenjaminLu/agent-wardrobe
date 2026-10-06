@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes, timingSafeEqual } = require('node:crypto');
 const L = require('./locales.cjs');
-const FILES={ '/':'wardrobe.html','/wardrobe.js':'wardrobe.js','/wardrobe.css':'wardrobe.css','/interaction.css':'interaction.css','/avatars.js':'avatars.js','/avatar.css':'avatar.css','/i18n.js':'i18n.js','/platform-text.js':'platform-text.js','/vendor/vrm-kit.js':'vendor/vrm-kit.js' };
+const FILES={ '/':'src/renderer/wardrobe/wardrobe.html','/wardrobe.js':'src/renderer/wardrobe/wardrobe.js','/wardrobe.css':'src/renderer/wardrobe/wardrobe.css','/interaction.css':'src/renderer/shared/interaction.css','/avatars.js':'src/renderer/shared/avatars.js','/avatar.css':'src/renderer/shared/avatar.css','/i18n.js':'src/renderer/shared/i18n.js','/platform-text.js':'src/renderer/shared/platform-text.js','/vendor/vrm-kit.js':'vendor/vrm-kit.js' };
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp','.vrm':'model/gltf-binary'};
 async function startControl({runtime,catalog,modsRoot=path.join(ROOT,'mods'),language,onSelect,onProvider,onHook,onConnectClaude,onInspectDesktop,onControlConnect,identity={}}) {
   const token=identity.token||randomBytes(32).toString('hex'), clients=new Set(); let origin;
