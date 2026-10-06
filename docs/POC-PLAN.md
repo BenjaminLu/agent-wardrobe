@@ -8,7 +8,7 @@
 
 已實作 Electron 桌面角色＋本機網頁控制台、三種 SVG rig（Miso、Byte，另一個品牌示範角色已移除）、六套 Skin、三種個性、共享 Runtime 和宣告式 manifest 驗證。網頁換角色／Skin／個性同步桌面，換外觀保留進行中的活動；原生 smoke 操作已驗證。Codex 改用真正 App Server，已收到真實工作／完成事件並以 Miso 完成角色對話。本輪 App Server 為 chat-only，尚未交付示範專案編程或批准 UI。
 
-Claude 的聊天、觀察 hooks installer、bridge、專案連接入口已實作；單元測試通過，但真實 Claude 請求遭帳號週額度阻擋，正常對話完成 hooks 的 live 驗證尚未完成。LM Studio 本機 API 與配置保留，接口以 mock 測過；本機服務目前未連通，未驗證真實本機模型推理。詳見 [README.md](README.md)。此里程碑不是整個兩週 PoC 或付費市集已完成。
+Claude 的聊天、觀察 hooks installer、bridge、專案連接入口已實作；單元測試通過，但真實 Claude 請求遭帳號週額度阻擋，正常對話完成 hooks 的 live 驗證尚未完成。LM Studio 本機 API 與配置保留，接口以 mock 測過；本機服務目前未連通，未驗證真實本機模型推理。詳見 [README.md](../README.md)。此里程碑不是整個兩週 PoC 或付費市集已完成。
 
 ## 要回答的問題
 

@@ -229,7 +229,7 @@ Third-party code and the models downloaded at runtime (Live2D Cubism Core, Kokor
 
 ## Make a Mod
 
-[MODS.md](MODS.md) describes the format. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to submit one. Contributed Mods must be your own work, or openly licensed with the source stated.
+[MODS.md](docs/MODS.md) describes the format. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to submit one. Contributed Mods must be your own work, or openly licensed with the source stated.
 
 ## Development
 

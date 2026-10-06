@@ -126,7 +126,7 @@ npm start -- --smoke-test --mods-smoke     # renders one svg, png and vrm Mod in
 
 ## Licensing
 
-To submit a Mod, see [CONTRIBUTING.md](CONTRIBUTING.md).
+To submit a Mod, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 
 A Mod bundled in this repository must be original or openly licensed. `license` must name CC0, CC BY, CC BY-SA, MIT, Apache-2.0, or the VRM Public License with redistribution allowed. `author` (or `source`) must say who made it. `scripts/check-mods.cjs` refuses licence text that says "private", "prototype only", "fan", "non-commercial" or "not for public distribution".

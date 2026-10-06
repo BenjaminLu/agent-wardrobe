@@ -60,7 +60,7 @@ OpenAI: OpenAI offers 13 voices (marin and cedar recommended), three models and,
 
 ## Mod / Skin abstraction
 
-New Mods use `schemaVersion: 2` and ship their own artwork in one of three renderers: SVG parts, PNG layers or a VRM 3D model. See [MODS.md](../MODS.md) for the format, the face contract and validation rules; `mods/annie`, `mods/pixel-byte` and `mods/vrm-sample` are working examples. The notes below describe the original built-in rigs.
+New Mods use `schemaVersion: 2` and ship their own artwork in one of three renderers: SVG parts, PNG layers or a VRM 3D model. See [MODS.md](MODS.md) for the format, the face contract and validation rules; `mods/annie`, `mods/pixel-byte` and `mods/vrm-sample` are working examples. The notes below describe the original built-in rigs.
 
 Each `mods/<id>/mod.json` has a versioned identity, a registered model (`cat`, `robot`), a list of skins, personalities and default selection. A skin contains six validated color tokens, a known accessory and mappings for idle, working, waiting_for_approval, speaking, success and error. Personality contains static instructions for companion chat.
 
@@ -96,13 +96,13 @@ npm run package:mac
 
 Tests cover invalid skin data, atomic selection, personality prompts, activity preservation, endpoint authentication, origin restrictions, live event delivery, local-model API behavior, and hook install/uninstall/offline behavior. Native smoke test operates the browser page, switches all three rigs, changes skin/persona, verifies desktop sync and preserves working activity, then checks stream-mode restore. It writes screenshots under ignored `evidence/`.
 
-Live Avatar task verification now confirms official Claude Stop-hook results and real Codex browser tool execution. LM Studio's tool loop is verified against a local HTTP model fixture and a real Chromium test page, not a loaded production local model. Native computer tools are verified against TextEdit with real Accessibility and Screen Recording grants on the packaged app (`--computer-smoke`, see ../VERIFICATION.md); Claude official computer-use was verified end to end from the companion after enabling it in Official Claude setup (one Claude session may hold computer-use at a time). A read-only Claude in Chrome task was also verified from the companion. Codex / LM Studio models driving the native tools and Claude Chrome tasks that click or type have not been verified.
+Live Avatar task verification now confirms official Claude Stop-hook results and real Codex browser tool execution. LM Studio's tool loop is verified against a local HTTP model fixture and a real Chromium test page, not a loaded production local model. Native computer tools are verified against TextEdit with real Accessibility and Screen Recording grants on the packaged app (`--computer-smoke`, see VERIFICATION.md); Claude official computer-use was verified end to end from the companion after enabling it in Official Claude setup (one Claude session may hold computer-use at a time). A read-only Claude in Chrome task was also verified from the companion. Codex / LM Studio models driving the native tools and Claude Chrome tasks that click or type have not been verified.
 
 Packaging preserves relative framework symlinks and signs with a local self-signed certificate (create it once with `npm run sign:setup`) so macOS privacy grants survive rebuilds; without it, packaging falls back to ad-hoc and each rebuild needs new grants. It is suitable for local testing; it is not a notarized public release or an installer for other machines.
 
 Every bundled character is an original of this project: Annie, Miso, Byte and Pixel Byte under the repository licence, and Blocky under CC0. Third-party characters are never bundled. Users fetch them through the avatar store under their own licences. See [THIRD_PARTY.md](../THIRD_PARTY.md) for third-party code and runtime downloads.
 
-The full two-week direction and remaining scope are in [POC-PLAN.md](../POC-PLAN.md) and [INTEGRATION-NOTES.md](../INTEGRATION-NOTES.md).
+The full two-week direction and remaining scope are in [POC-PLAN.md](POC-PLAN.md) and [INTEGRATION-NOTES.md](INTEGRATION-NOTES.md).
 
 ### 從 Avatar 下達操作任務
 

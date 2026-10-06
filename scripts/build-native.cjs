@@ -5,5 +5,5 @@ if(process.platform==='win32'){require('../computer-input.cjs').buildWindows(roo
 if(process.platform==='linux'){console.log('Linux computer use runs xdotool at runtime; nothing to build.');process.exit(0);}
 if(process.platform!=='darwin')throw new Error('Native input requires macOS or Windows');
 fs.mkdirSync(path.join(root,'bin'),{recursive:true});
-execFileSync('/usr/bin/xcrun',['swiftc','-O',path.join(root,'native-input.swift'),'-o',path.join(root,'bin/native-input')],{stdio:'inherit'});
+execFileSync('/usr/bin/xcrun',['swiftc','-O',path.join(root,'native','native-input.swift'),'-o',path.join(root,'bin/native-input')],{stdio:'inherit'});
 execFileSync('/usr/bin/codesign',['--force','--sign','-',path.join(root,'bin/native-input')],{stdio:'inherit'});
